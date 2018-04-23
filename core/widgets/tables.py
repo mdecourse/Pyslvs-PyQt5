@@ -146,32 +146,22 @@ class PointTableWidget(BaseTableWidget):
         for j in range(row, self.rowCount()):
             self.setItem(j, 0, QTableWidgetItem(self.name+str(j)))
     
-    def currentPosition(self, row: int) -> Tuple[float, float]:
+    def currentPosition(self, row: int) -> List[Tuple[float, float]]:
         """Get the current coordinate from a point."""
         Type = self.item(row, 2).text().split(':')
-        coordinates = tuple(
-            tuple(float(p) for p in coordinate.split(", "))
-            for coordinate in (
-                self.item(row, 6).text()
-                .replace('(', '')
-                .replace(')', '')
-                .split("; ")
-            )
-        )
-        if Type[0]=='P' or Type[0]=='RP':
-            link_count = len(self.item(row, 1).text().split(','))
-            if len(coordinates)!=link_count:
-                coordinates = tuple(coordinates[0] for i in range(link_count))
-                self.item(row, 6).setText("; ".join("({}, {})".format(cx, cy) for cx, cy in coordinates))
-        return coordinates
+        coords = eval("[{}]".format(self.item(row, 6).text().replace(';', ',')))
+        if (len(coords) < 2) and ((Type[0] == 'P') or (Type[0] == 'RP')):
+            self.item(row, 6).setText("({0}, {1}); ({0}, {1})".format(*coords[0]))
+            coords.append(coords[0])
+        return coords
     
-    def updateCurrentPosition(self, coordinates: Tuple[Tuple[Tuple[float, float]]]):
+    def updateCurrentPosition(self, coords: Tuple[Tuple[Tuple[float, float]]]):
         """Update the current coordinate for a point."""
-        for i, coordinate in enumerate(coordinates):
-            if type(coordinate[0])==float:
-                text = "({}, {})".format(*coordinate)
+        for i, c in enumerate(coords):
+            if type(c[0]) == float:
+                text = "({}, {})".format(*c)
             else:
-                text = "; ".join("({}, {})".format(*c) for c in coordinate)
+                text = "; ".join("({}, {})".format(x, y) for x, y in c)
             item = QTableWidgetItem(text)
             item.setToolTip(text)
             self.setItem(i, 6, item)
@@ -305,17 +295,18 @@ class ExprTableWidget(BaseTableWidget):
     def __init__(self, parent=None):
         super(ExprTableWidget, self).__init__(
             0,
-            ('p0', 'p1', 'p2', 'p3'),
+            ('p0', 'p1', 'p2', 'p3', 'target'),
             parent
         )
-        for column in range(5):
+        for column in range(6):
             self.setColumnWidth(column, 60)
     
     def setExpr(self, exprs: List[Tuple[str]]):
         self.clear()
         self.setRowCount(len(exprs))
         for row, expr in enumerate(exprs):
-            for column, e in enumerate(expr):
+            self.setItem(row, 5, QTableWidgetItem(expr[-1]))
+            for column, e in enumerate(expr[:-1]):
                 self.setItem(row, column, QTableWidgetItem(e))
 
 class SelectionLabel(QLabel):

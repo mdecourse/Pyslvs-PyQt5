@@ -27,11 +27,7 @@ from core.QtModules import (
     QProgressDialog,
 )
 from core.info import PyslvsAbout, check_update
-from core.graphics import (
-    slvsProcess,
-    SlvsException,
-    edges_view,
-)
+from core.graphics import edges_view
 from core.io import (
     Script_Dialog,
     AddTable, DeleteTable, FixSequenceNumber,
@@ -44,16 +40,22 @@ from core.io import (
     XStream,
     PMKS_parser,
     PMKSArgsTransformer,
-    get_from_parenthesis,
+    from_parenthesis,
 )
 from core.widgets import initCustomWidgets
 from core.entities import EditPoint_show, EditLink_show
-from core.libs import vpoints_configure, VPoint
+from core.libs import (
+    slvsProcess,
+    SlvsException,
+    vpoints_configure,
+    VPoint,
+)
 from typing import (
     Tuple,
     List,
     Dict,
 )
+from argparse import Namespace
 from networkx import Graph
 from .Ui_main import Ui_MainWindow
 
@@ -65,7 +67,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     Exit with QApplication.
     """
     
-    def __init__(self, args, parent=None):
+    def __init__(self, args: Namespace, parent=None):
         super(MainWindow, self).__init__(parent)
         self.setupUi(self)
         self.args = args
@@ -162,25 +164,25 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         row = self.Entities_Point.currentRow()
         #If connecting with the ground.
         if selectionCount:
-            fixed = all(
+            self.action_point_context_lock.setChecked(all(
                 'ground' in self.Entities_Point.item(row, 1).text()
                 for row in self.Entities_Point.selectedRows()
-            )
-            self.action_point_context_lock.setChecked(fixed)
+            ))
         #If no any points selected.
         for action in (
             self.action_point_context_add,
             self.action_canvas_context_add,
-            self.action_canvas_context_fix_add
+            self.action_canvas_context_fix_add,
         ):
-            action.setVisible(selectionCount<=0)
-        self.action_point_context_lock.setVisible(row>-1)
-        self.action_point_context_delete.setVisible(row>-1)
+            action.setVisible(selectionCount <= 0)
+        self.action_point_context_lock.setVisible(row > -1)
+        self.action_point_context_delete.setVisible(row > -1)
         #If a point selected.
         for action in (
             self.action_point_context_edit,
             self.action_point_context_copyPoint,
-            self.action_point_context_copydata
+            self.action_point_context_copydata,
+            self.action_point_context_copyCoord,
         ):
             action.setVisible(row > -1)
             action.setEnabled(selectionCount == 1)
@@ -244,6 +246,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         text = table.currentItem().text()
         if text:
             QApplication.clipboard().setText(text)
+    
+    def copyCoord(self):
+        """Copy the current coordinate of the point."""
+        pos = self.Entities_Point.currentPosition(self.Entities_Point.currentRow())
+        text = str(pos[0] if (len(pos) == 1) else pos)
+        QApplication.clipboard().setText(text)
     
     def closeEvent(self, event):
         """Close event to avoid user close the window accidentally."""
@@ -327,17 +335,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             for p in vlink.points:
                 if p in used_point:
                     continue
-                match = [
-                    m for m, vlink_ in enumerate(link_data)
-                    if (i != m) and (p in vlink_.points)
-                ]
-                for m in match:
-                    if joint_data[p].type==2:
-                        G.add_edge(i, k)
-                        G.add_edge(k, m)
-                        k += 1
-                    else:
+                for m, vlink_ in enumerate(link_data):
+                    if not ((i != m) and (p in vlink_.points)):
+                        continue
+                    if joint_data[p].type != 2:
                         G.add_edge(i, m)
+                        continue
+                    G.add_edge(i, k)
+                    G.add_edge(k, m)
+                    k += 1
                 used_point.add(p)
         return [edge for n, edge in edges_view(G)]
     
@@ -410,12 +416,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     @pyqtSlot()
     def on_action_Get_Help_triggered(self):
-        """Open website: http://mde.tw"""
+        """Open website: mde.tw"""
         self.__openURL("http://mde.tw")
     
     @pyqtSlot()
     def on_action_Pyslvs_com_triggered(self):
-        """Open website: http://www.pyslvs.com/blog/index.html"""
+        """Open website: pyslvs.com"""
         self.__openURL("http://www.pyslvs.com/blog/index.html")
     
     @pyqtSlot()
@@ -555,7 +561,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 ))
                 self.CommandStack.endMacro()
     
-    def AddEmptyLinkGroup(self, linkcolor: Dict[str, str]):
+    def addEmptyLinkGroup(self, linkcolor: Dict[str, str]):
         """Use to add empty link when loading database."""
         for name, color in linkcolor.items():
             if name != 'ground':
@@ -656,7 +662,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def outputTo(self, formatName: str, formatChoose: List[str]):
         """Simple to support mutiple format."""
-        suffix0 = get_from_parenthesis(formatChoose[0], '(', ')').split('*')[-1]
+        suffix0 = from_parenthesis(formatChoose[0], '(', ')').split('*')[-1]
         fileName, suffix = QFileDialog.getSaveFileName(
             self,
             "Save to {}...".format(formatName),
@@ -664,7 +670,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             ';;'.join(formatChoose)
         )
         if fileName:
-            suffix = get_from_parenthesis(suffix, '(', ')').split('*')[-1]
+            suffix = from_parenthesis(suffix, '(', ')').split('*')[-1]
             print("Format: {}".format(suffix))
             if QFileInfo(fileName).suffix()!=suffix[1:]:
                 fileName += suffix
@@ -700,7 +706,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         else:
             fileName_s, suffix = QFileDialog.getOpenFileName(self, *args)
         if fileName_s:
-            suffix = get_from_parenthesis(suffix, '(', ')').split('*')[-1]
+            suffix = from_parenthesis(suffix, '(', ')').split('*')[-1]
             print("Format: {}".format(suffix))
             if type(fileName_s)==str:
                 self.__setLocate(QFileInfo(fileName_s).absolutePath())
@@ -818,7 +824,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.CommandStack.endMacro()
         return rowCount
     
-    def addPointsByGraph(self, G, pos, ground_link: [None, int]):
+    def addPointsByGraph(self,
+        G: Graph,
+        pos: Dict[int, Tuple[float, float]],
+        ground_link: int
+    ):
         """Add points by networkx graph and position dict."""
         base_count = self.Entities_Point.rowCount()
         self.CommandStack.beginMacro(
@@ -941,6 +951,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     
     def __toMultipleJoint(self, index: int, points: Tuple[int]):
         """Merge points into a multiple joint.
+        
         @index: The index of main joint in the sequence.
         """
         row = points[index]
@@ -950,26 +961,29 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 'Point{}'.format(row)
             )
         )
+        
         Links = lambda i: list(filter(
-            lambda a: a!='',
+            lambda a: a != '',
             self.Entities_Point.item(i, 1).text().split(',')
         ))
-        newLinks = Links(row)
+        
         for i, p in enumerate(points):
             if i == index:
                 continue
+            newLinks = Links(row)
             for l in Links(p):
+                #Add new links.
                 if l not in newLinks:
                     newLinks.append(l)
+            Args = list(self.Entities_Point.rowTexts(row, True))
+            Args[0] = ','.join(newLinks)
+            self.CommandStack.push(EditPointTable(
+                row,
+                self.Entities_Point,
+                self.Entities_Link,
+                Args
+            ))
             self.__deletePoint(p)
-        Args = list(self.Entities_Point.rowTexts(row, True))
-        Args[0] = ','.join(newLinks)
-        self.CommandStack.push(EditPointTable(
-            row,
-            self.Entities_Point,
-            self.Entities_Link,
-            Args
-        ))
         self.CommandStack.endMacro()
     
     def clonePoint(self):
@@ -1297,7 +1311,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         #exp_symbol = ['A', 'B', 'C', 'D', 'E']
         exp_symbol = []
         for exp in Result['Link_Expression'].split(';'):
-            for name in get_from_parenthesis(exp, '[', ']').split(','):
+            for name in from_parenthesis(exp, '[', ']').split(','):
                 if name not in exp_symbol:
                     exp_symbol.append(name)
         self.CommandStack.beginMacro(
@@ -1313,7 +1327,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         for i, exp in enumerate(Result['Link_Expression'].split(';')):
             self.__addNormalLink(
                 tmp_dict[name]
-                for name in get_from_parenthesis(exp, '[', ']').split(',')
+                for name in from_parenthesis(exp, '[', ']').split(',')
             )
             if i==0:
                 self.constrainLink(self.Entities_Link.rowCount()-1)

@@ -20,13 +20,15 @@ from cpython cimport bool
 cdef double nan = float('nan')
 
 cdef inline double distance(double x1, double y1, double x2, double y2):
+    """Distance of two cartesian coordinates."""
     return hypot(x2 - x1, y2 - y1)
 
 cdef class VPoint:
     
     """Symbol of joints."""
     
-    cdef readonly tuple links, c
+    cdef readonly tuple links
+    cdef readonly np.ndarray c
     cdef readonly int type
     cdef readonly object color
     cdef readonly str colorSTR, typeSTR
@@ -57,11 +59,17 @@ cdef class VPoint:
             self.color = color_func(color_str)
         self.x = x
         self.y = y
-        cdef int i
+        self.c = np.ndarray(2, dtype=np.object)
         if (self.type == 1) or (self.type == 2):
-            self.c = tuple((self.x, self.y) for i in range(len(self.links)))
+            """Slider current coordinates.
+            
+            + [0]: Current node on slot.
+            + [1]: Pin.
+            """
+            self.c[0] = (self.x, self.y)
+            self.c[1] = (self.x, self.y)
         else:
-            self.c = ((self.x, self.y),)
+            self.c[0] = (self.x, self.y)
     
     @property
     def cx(self):
@@ -73,9 +81,10 @@ cdef class VPoint:
         """Y value of frist current coordinate."""
         return self.c[0][1]
     
-    def move(self, *coordinates):
+    cpdef void move(self, tuple c1, tuple c2=None):
         """Change coordinates of this point."""
-        self.c = tuple(coordinates)
+        self.c[0] = c1
+        self.c[1] = c2
     
     cpdef double distance(self, VPoint p):
         """Distance."""
@@ -104,6 +113,9 @@ cdef class VPoint:
             y1 = p.c[num2][1]
             x1 = p.c[num2][0]
         return np.rad2deg(atan2(y1 - y2, x1 - x2))
+    
+    cpdef bool grounded(self):
+        return 'ground' in self.links
     
     @property
     def expr(self):
@@ -259,12 +271,10 @@ cpdef tuple PLPP(
     
     #Two intersection points.
     d = sqrt(L0*L0 - d*d) / line_mag
-    dx *= d 
-    dy *= d
     if inverse:
-        return (I.x - dx, I.y - dy)
+        return (I.x - dx*d, I.y - dy*d)
     else:
-        return (I.x + dx, I.y + dy)
+        return (I.x + dx*d, I.y + dy*d)
 
 cpdef inline bool legal_triangle(Coordinate A, Coordinate B, Coordinate C):
     #L0, L1, L2 is triangle
@@ -289,11 +299,11 @@ cpdef inline bool legal_crank(Coordinate A, Coordinate B, Coordinate C, Coordina
         (driver + ground <= connector + follower)
     )
 
-cdef inline str get_from_parenthesis(str s, str front, str back):
+cdef inline str from_parenthesis(str s, str front, str back):
     """Get the string that is inside of parenthesis."""
     return s[s.find(front)+1:s.find(back)]
 
-cdef inline str get_front_of_parenthesis(str s, str front):
+cdef inline str front_of_parenthesis(str s, str front):
     """Get the string that is front of parenthesis."""
     return s[:s.find(front)]
 
@@ -310,9 +320,9 @@ cpdef void expr_parser(str exprs, dict data_dict):
     cdef object p
     cdef list args
     for expr in exprs.split(';'):
-        f = get_front_of_parenthesis(expr, '[')
-        params = get_from_parenthesis(expr, '[', ']').split(',')
-        target = get_from_parenthesis(expr, '(', ')')
+        f = front_of_parenthesis(expr, '[')
+        params = from_parenthesis(expr, '[', ']').split(',')
+        target = from_parenthesis(expr, '(', ')')
         args = []
         for name in params:
             if name == 'T':

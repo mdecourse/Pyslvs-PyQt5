@@ -23,7 +23,7 @@ from core.graphics import (
     BaseCanvas,
     convex_hull,
     colorQt,
-    colorNum
+    colorNum,
 )
 from core.libs import (
     expr_path,
@@ -34,7 +34,7 @@ from math import (
     sin,
     cos,
     atan2,
-    sqrt
+    hypot,
 )
 from collections import deque
 from typing import (
@@ -73,9 +73,7 @@ class Selector:
     
     def distance(self, x: float, y: float):
         """Return the distance of selector."""
-        x = self.x - x
-        y = self.y - y
-        return round(sqrt(x*x + y*y), 2)
+        return hypot(x - self.x, y - self.y)
     
     def inRect(self, x: float, y: float) -> bool:
         """Return if input coordinate is in the rectangle."""
@@ -407,7 +405,7 @@ class DynamicCanvas(BaseCanvas):
         else:
             self._BaseCanvas__drawPoint(
                 i, vpoint.cx, vpoint.cy,
-                'ground' in vpoint.links,
+                vpoint.grounded(),
                 vpoint.color
             )
         #For selects function.
@@ -427,7 +425,9 @@ class DynamicCanvas(BaseCanvas):
         for i in vlink.points:
             vpoint = self.Points[i]
             if vpoint.type==1 or vpoint.type==2:
-                coordinate = vpoint.c[vpoint.links.index(vlink.name)]
+                coordinate = vpoint.c[
+                    0 if (vlink.name == vpoint.links[0]) else 1
+                ]
                 x = coordinate[0] * self.zoom
                 y = coordinate[1] * -self.zoom
             else:
@@ -670,7 +670,7 @@ class DynamicCanvas(BaseCanvas):
                         )
                         for row in self.pointsSelection:
                             vpoint = self.Points[row]
-                            r = sqrt(vpoint.x * vpoint.x + vpoint.y * vpoint.y)
+                            r = hypot(vpoint.x, vpoint.y)
                             beta = atan2(vpoint.y, vpoint.x)
                             vpoint.move((
                                 r*cos(alpha + beta),
@@ -685,9 +685,10 @@ class DynamicCanvas(BaseCanvas):
                             if vpoint.type == 0:
                                 vpoint.move((vpoint.x * fx, vpoint.y * fy))
                             else:
-                                vpoint.move(*[
+                                vpoint.move(
+                                    (vpoint.x * fx, vpoint.y * fy),
                                     (vpoint.x * fx, vpoint.y * fy)
-                                ]*len(vpoint.links))
+                                )
             else:
                 #Rectangular selection
                 self.Selector.RectangularSelection = True
@@ -719,7 +720,8 @@ class DynamicCanvas(BaseCanvas):
         y_top = -inf
         y_bottom = inf
         #Paths
-        if self.Path.path and (self.Path.show != -2):
+        has_path = bool(self.Path.path and (self.Path.show != -2))
+        if has_path:
             for i, path in enumerate(self.Path.path):
                 if self.Path.show != -1 and self.Path.show != i:
                     continue
@@ -732,17 +734,18 @@ class DynamicCanvas(BaseCanvas):
                         y_bottom = y
                     if y > y_top:
                         y_top = y
-        else:
-            #Points
-            for vpoint in self.Points:
-                if vpoint.cx < x_right:
-                    x_right = vpoint.cx
-                if vpoint.cx > x_left:
-                    x_left = vpoint.cx
-                if vpoint.cy < y_bottom:
-                    y_bottom = vpoint.cy
-                if vpoint.cy > y_top:
-                    y_top = vpoint.cy
+        #Points
+        for vpoint in self.Points:
+            if has_path and (not vpoint.grounded()):
+                continue
+            if vpoint.cx < x_right:
+                x_right = vpoint.cx
+            if vpoint.cx > x_left:
+                x_left = vpoint.cx
+            if vpoint.cy < y_bottom:
+                y_bottom = vpoint.cy
+            if vpoint.cy > y_top:
+                y_top = vpoint.cy
         #Solving paths
         if self.showTargetPath:
             for path in self.targetPath.values():

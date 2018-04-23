@@ -29,11 +29,11 @@ from peewee import (
     CharField,
     BlobField,
     ForeignKeyField,
-    DateTimeField
+    DateTimeField,
 )
 from .workbook_overview import WorkbookOverview
-from .Ui_peeweeIO import Ui_Form
 from .example import example_list
+from .Ui_peeweeIO import Ui_Form
 
 """Use to encode the Python script."""
 compress = lambda obj: zlib.compress(bytes(repr(obj), encoding="utf8"), 5)
@@ -171,7 +171,7 @@ class FileWidget(QWidget, Ui_Form):
         + Call after loaded paths.
         """
         self.isSavedFunc = parent.workbookSaved
-        self.linkGroupFunc = parent.AddEmptyLinkGroup
+        self.linkGroupFunc = parent.addEmptyLinkGroup
         self.parseFunc = parent.parseExpression
         self.clearFunc = parent.clear
         self.loadStorageFunc = parent.loadStorage
