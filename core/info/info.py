@@ -13,16 +13,18 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from core.QtModules import (
-    QProgressDialog,
-    qVersion,
-    PYQT_VERSION_STR
-)
 from sys import version_info
 import platform
 import argparse
 import requests
 from typing import Tuple
+from core.QtModules import (
+    QProgressDialog,
+    qVersion,
+    PYQT_VERSION_STR
+)
+
+
 Qt_Version = qVersion().strip()
 PyQt_Version = PYQT_VERSION_STR.strip()
 
@@ -113,10 +115,10 @@ def check_update(progdlg: QProgressDialog) -> Tuple[str, bool]:
         QCoreApplication.processEvents()
         if progdlg.wasCanceled():
             return
-        next = list(VERSION[:m])
-        next[i] += 1
+        next_ver = list(VERSION[:m])
+        next_ver[i] += 1
         url = ("https://github.com/KmolYuan/Pyslvs-PyQt5/releases/tag/" +
-            "v{}.{:02}.{}".format(*next))
+            "v{}.{:02}.{}".format(*next_ver))
         request = requests.get(url)
         progdlg.setValue(i + 1)
         if request.status_code == 200:

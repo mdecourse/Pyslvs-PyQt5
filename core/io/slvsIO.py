@@ -7,8 +7,9 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from core.libs import VPoint, VLink
 from typing import Tuple, Sequence, Callable
+from core.libs import VPoint
+
 
 script_group = ['''\
 ±²³SolveSpaceREVa
@@ -98,9 +99,8 @@ entity_normal_xyz = lambda n, p, reversed=False: '\n'.join([
 
 def slvs2D(
     VPoints: Sequence[VPoint],
-    VLinks: Sequence[VLink],
     v_to_slvs: Callable[[], Tuple[int, int]],
-    fileName: str
+    file_name: str
 ):
     edges = tuple(v_to_slvs())
     script_param = ['\n\n'.join([
@@ -183,7 +183,7 @@ def slvs2D(
         script_constraint.append(Constraint_comment(constraint_num, "Point{}".format(i), vpoint.cx, vpoint.cy))
         constraint_num += 1
     #Write file
-    with open(fileName, 'w', encoding="iso-8859-15") as f:
+    with open(file_name, 'w', encoding="iso-8859-15") as f:
         f.write('\n\n'.join('\n\n'.join(script) for script in [
             script_group,
             script_param,

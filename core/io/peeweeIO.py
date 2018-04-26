@@ -7,6 +7,17 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+import zlib
+import os
+import datetime
+from peewee import (
+    SqliteDatabase,
+    Model,
+    CharField,
+    BlobField,
+    ForeignKeyField,
+    DateTimeField,
+)
 from core.QtModules import (
     QPushButton,
     pyqtSignal,
@@ -20,20 +31,10 @@ from core.QtModules import (
     QMessageBox,
     QTableWidgetItem,
 )
-import zlib
-import os
-import datetime
-from peewee import (
-    SqliteDatabase,
-    Model,
-    CharField,
-    BlobField,
-    ForeignKeyField,
-    DateTimeField,
-)
 from .workbook_overview import WorkbookOverview
 from .example import example_list
 from .Ui_peeweeIO import Ui_Form
+
 
 """Use to encode the Python script."""
 compress = lambda obj: zlib.compress(bytes(repr(obj), encoding="utf8"), 5)
@@ -155,8 +156,8 @@ class FileWidget(QWidget, Ui_Form):
         + Get current point data.
         + Get current link data.
         """
-        self.pointDataFunc = parent.Entities_Point.data
-        self.linkDataFunc = parent.Entities_Link.data
+        self.pointDataFunc = parent.EntitiesPoint.data
+        self.linkDataFunc = parent.EntitiesLink.data
         self.storageDataFunc = lambda: tuple((
             parent.mechanism_storage.item(row).text(),
             parent.mechanism_storage.item(row).expr
@@ -201,7 +202,7 @@ class FileWidget(QWidget, Ui_Form):
         #peewee Quary(CommitModel) type
         self.history_commit = None
         self.Script = ""
-        self.fileName = QFileInfo("Untitled")
+        self.file_name = QFileInfo("Untitled")
         self.lastTime = datetime.datetime.now()
         self.changed = False
         self.Stack = 0
@@ -216,10 +217,10 @@ class FileWidget(QWidget, Ui_Form):
         self.commit_search_text.clear()
         self.commit_current_id.setValue(0)
     
-    def __connectDatabase(self, fileName: str):
+    def __connectDatabase(self, file_name: str):
         """Connect database."""
         self.closeDatabase()
-        db.init(fileName)
+        db.init(file_name)
         db.connect()
         db.create_tables([CommitModel, UserModel, BranchModel], safe=True)
     
@@ -228,7 +229,7 @@ class FileWidget(QWidget, Ui_Form):
         if not db.deferred:
             db.close()
     
-    def save(self, fileName: str, isBranch=False):
+    def save(self, file_name: str, isBranch=False):
         """Save database.
         
         + Append to new branch function.
@@ -263,12 +264,12 @@ class FileWidget(QWidget, Ui_Form):
             if not ok:
                 return
         if (
-            (fileName != self.fileName.absoluteFilePath()) and
-            os.path.isfile(fileName)
+            (file_name != self.file_name.absoluteFilePath()) and
+            os.path.isfile(file_name)
         ):
-            os.remove(fileName)
+            os.remove(file_name)
             print("The original file has been overwritten.")
-        self.__connectDatabase(fileName)
+        self.__connectDatabase(file_name)
         isError = False
         with db.atomic():
             if author_name in (user.name for user in UserModel.select()):
@@ -334,21 +335,21 @@ class FileWidget(QWidget, Ui_Form):
                     .order_by(CommitModel.id)
                 )
         if isError:
-            os.remove(fileName)
+            os.remove(file_name)
             print("The file was removed.")
             return
-        self.read(fileName)
-        print("Saving \"{}\" successful.".format(fileName))
-        size = QFileInfo(fileName).size()
+        self.read(file_name)
+        print("Saving \"{}\" successful.".format(file_name))
+        size = QFileInfo(file_name).size()
         print("Size: {}".format(
             "{} MB".format(round(size/1024/1024, 2))
             if size / 1024 // 1024
             else "{} KB".format(round(size/1024, 2))
         ))
     
-    def read(self, fileName: str):
+    def read(self, file_name: str):
         """Load database commit."""
-        self.__connectDatabase(fileName)
+        self.__connectDatabase(file_name)
         history_commit = CommitModel.select().order_by(CommitModel.id)
         commit_count = len(history_commit)
         if not commit_count:
@@ -364,16 +365,16 @@ class FileWidget(QWidget, Ui_Form):
             self.__addCommit(commit)
         print("{} commit(s) was find in database.".format(commit_count))
         self.__loadCommit(self.history_commit.order_by(-CommitModel.id).get())
-        self.fileName = QFileInfo(fileName)
+        self.file_name = QFileInfo(file_name)
         self.isSavedFunc()
     
-    def importMechanism(self, fileName: str):
+    def importMechanism(self, file_name: str):
         """Pick and import the latest mechanism from a branch."""
-        self.__connectDatabase(fileName)
+        self.__connectDatabase(file_name)
         commit_all = CommitModel.select().join(BranchModel)
         branch_all = BranchModel.select().order_by(BranchModel.name)
         if self.history_commit != None:
-            self.__connectDatabase(self.fileName.absoluteFilePath())
+            self.__connectDatabase(self.file_name.absoluteFilePath())
         else:
             self.closeDatabase()
         branch_name, ok = QInputDialog.getItem(self,
@@ -533,7 +534,7 @@ class FileWidget(QWidget, Ui_Form):
             self.reset()
             self.clearFunc()
         self.parseFunc(example_list[example_name])
-        self.fileName = QFileInfo(example_name)
+        self.file_name = QFileInfo(example_name)
         self.isSavedFunc()
         print("Example \"{}\" has been loaded.".format(example_name))
         return True
@@ -595,7 +596,7 @@ class FileWidget(QWidget, Ui_Form):
                 "Cannot delete current branch."
             )
             return
-        fileName = self.fileName.absoluteFilePath()
+        file_name = self.file_name.absoluteFilePath()
         #Connect on database to remove all the commit in this branch.
         with db.atomic():
             branch_quary = (
@@ -618,4 +619,4 @@ class FileWidget(QWidget, Ui_Form):
         db.close()
         print("Branch {} was deleted.".format(branch_name))
         #Reload database.
-        self.read(fileName)
+        self.read(file_name)

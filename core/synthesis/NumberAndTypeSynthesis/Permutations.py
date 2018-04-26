@@ -7,6 +7,8 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from networkx import Graph
+from typing import List
 from core.QtModules import (
     QWidget,
     QMenu,
@@ -29,7 +31,7 @@ from core.QtModules import (
     QInputDialog,
     QFileInfo,
 )
-from networkx import Graph
+
 from core.io import Qt_images
 from core.libs import NumberSynthesis, topo
 from core.graphics import (
@@ -37,8 +39,8 @@ from core.graphics import (
     EngineList,
     EngineError,
 )
-from typing import List
 from .Ui_Permutations import Ui_Form
+
 
 class NumberAndTypeSynthesis(QWidget, Ui_Form):
     
@@ -84,8 +86,8 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             self.copy_edges,
             self.copy_image
         ])
-        self.jointDataFunc = parent.Entities_Point.data
-        self.linkDataFunc = parent.Entities_Link.data
+        self.jointDataFunc = parent.EntitiesPoint.data
+        self.linkDataFunc = parent.EntitiesLink.data
         self.getGraph = parent.getGraph
         self.clear()
     
@@ -394,7 +396,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         We should turn transparent background to white first.
         Then using QImage class to merge into one image.
         """
-        fileName = ""
+        file_name = ""
         lateral = 0
         if self.save_edges_auto.isChecked():
             lateral, ok = QInputDialog.getInt(self,
@@ -404,8 +406,8 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             )
             if not ok:
                 return
-            fileName = self.outputTo("Atlas image", Qt_images)
-            if fileName:
+            file_name = self.outputTo("Atlas image", Qt_images)
+            if file_name:
                 reply = QMessageBox.question(self,
                     "Type synthesis",
                     "Do you want to Re-synthesis?",
@@ -427,9 +429,9 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             )
         if not ok:
             return
-        if not fileName:
-            fileName = self.outputTo("Atlas image", Qt_images)
-        if not fileName:
+        if not file_name:
+            file_name = self.outputTo("Atlas image", Qt_images)
+        if not file_name:
             return
         width = self.Topologic_result.iconSize().width()
         image_main = QImage(
@@ -450,19 +452,19 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         painter.end()
         pixmap = QPixmap()
         pixmap.convertFromImage(image_main)
-        pixmap.save(fileName, format=QFileInfo(fileName).suffix())
-        self.saveReplyBox("Atlas", fileName)
+        pixmap.save(file_name, format=QFileInfo(file_name).suffix())
+        self.saveReplyBox("Atlas", file_name)
     
     @pyqtSlot()
     def on_save_edges_clicked(self):
         """Saving all the atlas to text file."""
-        fileName = ""
+        file_name = ""
         if self.save_edges_auto.isChecked():
-            fileName = self.outputTo(
+            file_name = self.outputTo(
                 "Atlas edges expression",
                 ["Text file (*.txt)"]
             )
-            if not fileName:
+            if not file_name:
                 return
             reply = QMessageBox.question(self,
                 "Type synthesis",
@@ -477,16 +479,16 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         count = self.Topologic_result.count()
         if not count:
             return
-        if not fileName:
-            fileName = self.outputTo(
+        if not file_name:
+            file_name = self.outputTo(
                 "Atlas edges expression",
                 ["Text file (*.txt)"]
             )
-        if not fileName:
+        if not file_name:
             return
-        with open(fileName, 'w') as f:
+        with open(file_name, 'w') as f:
             f.write('\n'.join(str(G.edges) for G in self.answer))
-        self.saveReplyBox("edges expression", fileName)
+        self.saveReplyBox("edges expression", file_name)
     
     @pyqtSlot()
     def on_Edges_to_altas_clicked(self):
@@ -494,16 +496,16 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         
         This opreation will load all edges to list widget first.
         """
-        fileNames = self.inputFrom(
+        file_names = self.inputFrom(
             "Edges data",
             ["Text File (*.txt)"],
             multiple=True
         )
-        if not fileNames:
+        if not file_names:
             return
         read_data = []
-        for fileName in fileNames:
-            with open(fileName, 'r') as f:
+        for file_name in file_names:
+            with open(file_name, 'r') as f:
                 read_data += f.read().split('\n')
         answer = []
         for edges in read_data:

@@ -7,6 +7,18 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+import csv
+import openpyxl
+import pprint
+from math import radians
+from copy import deepcopy
+from re import split as charSplit
+from typing import (
+    List,
+    Dict,
+    Tuple,
+    Any,
+)
 from core.QtModules import (
     QWidget,
     pyqtSignal,
@@ -25,18 +37,6 @@ from core.graphics import PreviewCanvas, replace_by_dict
 from core.io import triangle_class
 from core.libs import expr_parser
 from core.synthesis import CollectionsDialog
-import csv
-import openpyxl
-import pprint
-from math import radians
-from copy import deepcopy
-from re import split as charSplit
-from typing import (
-    List,
-    Dict,
-    Tuple,
-    Any
-)
 from .DimensionalSynthesis_dialog import (
     GeneticPrams,
     FireflyPrams,
@@ -47,9 +47,11 @@ from .DimensionalSynthesis_dialog import (
     Path_adjust_show,
     Progress_show,
     PreviewDialog,
-    ChartDialog
+    ChartDialog,
 )
 from .Ui_Algorithm import Ui_Form
+
+
 nan = float('nan')
 
 class DimensionalSynthesis(QWidget, Ui_Form):
@@ -73,12 +75,14 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         self.unsaveFunc = parent.workbookNoSave
         self.Settings = deepcopy(defaultSettings)
         self.__setAlgorithmToDefault()
-        #Canvas
+        
         def get_solutions_func():
+            """For preview canvas."""
             try:
                 return replace_by_dict(self.mechanismParams)
             except KeyError:
                 return tuple()
+        
         self.PreviewCanvas = PreviewCanvas(get_solutions_func, self)
         self.preview_layout.addWidget(self.PreviewCanvas)
         self.show_solutions.clicked.connect(self.PreviewCanvas.setShowSolutions)
@@ -186,14 +190,14 @@ class DimensionalSynthesis(QWidget, Ui_Form):
     @pyqtSlot()
     def on_importCSV_clicked(self):
         """Paste path data from a text file."""
-        fileName = self.inputFrom(
+        file_name = self.inputFrom(
             "Path data",
             ["Text File (*.txt)", "CSV File (*.csv)"]
         )
-        if not fileName:
+        if not file_name:
             return
         data = []
-        with open(fileName, newline='') as stream:
+        with open(file_name, newline='') as stream:
             reader = csv.reader(stream, delimiter=' ', quotechar='|')
             for row in reader:
                 data += ' '.join(row).split(',')
@@ -218,13 +222,13 @@ class DimensionalSynthesis(QWidget, Ui_Form):
     @pyqtSlot()
     def on_importXLSX_clicked(self):
         """Paste path data from a Excel file."""
-        fileName = self.inputFrom(
+        file_name = self.inputFrom(
             "Excel file",
             ["Microsoft Office Excel (*.xlsx *.xlsm *.xltx *.xltm)"]
         )
-        if not fileName:
+        if not file_name:
             return
-        wb = openpyxl.load_workbook(fileName)
+        wb = openpyxl.load_workbook(file_name)
         ws = wb.get_sheet_by_name(wb.get_sheet_names()[0])
         data = []
         #Keep finding until there is no value.

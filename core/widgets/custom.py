@@ -37,13 +37,14 @@ from .tables import (
 )
 from .inputs import InputsWidget
 
+
 def initCustomWidgets(self):
     """Start up custom widgets."""
-    __undo_redo(self)
-    __appearance(self)
-    __context_menu(self)
+    _undo_redo(self)
+    _appearance(self)
+    _context_menu(self)
 
-def __undo_redo(self):
+def _undo_redo(self):
     """Undo list settings.
     
     + Undo stack.
@@ -67,64 +68,64 @@ def __undo_redo(self):
     self.menu_Edit.addAction(self.action_Undo)
     self.menu_Edit.addAction(self.action_Redo)
 
-def __appearance(self):
+def _appearance(self):
     """Start up and initialize custom widgets."""
     #Version label
     self.version_label.setText("v{}.{}.{} ({})".format(*VERSION))
     
     #Entities tables.
-    self.Entities_Point = PointTableWidget(self.Entities_Point_Widget)
-    self.Entities_Point.cellDoubleClicked.connect(
+    self.EntitiesPoint = PointTableWidget(self.Entities_Point_Widget)
+    self.EntitiesPoint.cellDoubleClicked.connect(
         self.on_action_Edit_Point_triggered
     )
-    self.Entities_Point.deleteRequest.connect(
+    self.EntitiesPoint.deleteRequest.connect(
         self.on_action_Delete_Point_triggered
     )
-    self.Entities_Point_Layout.addWidget(self.Entities_Point)
-    self.Entities_Link = LinkTableWidget(self.Entities_Link_Widget)
-    self.Entities_Link.cellDoubleClicked.connect(
+    self.Entities_Point_Layout.addWidget(self.EntitiesPoint)
+    self.EntitiesLink = LinkTableWidget(self.Entities_Link_Widget)
+    self.EntitiesLink.cellDoubleClicked.connect(
         self.on_action_Edit_Link_triggered
     )
-    self.Entities_Link.deleteRequest.connect(
+    self.EntitiesLink.deleteRequest.connect(
         self.on_action_Delete_Link_triggered
     )
-    self.Entities_Link_Layout.addWidget(self.Entities_Link)
+    self.Entities_Link_Layout.addWidget(self.EntitiesLink)
     self.Entities_Expr = ExprTableWidget(self.Expression_Widget)
     self.Expression_Layout.addWidget(self.Entities_Expr)
     
     #Selection label on status bar right side.
     selectionLabel = SelectionLabel(self)
-    self.Entities_Point.selectionLabelUpdate.connect(
+    self.EntitiesPoint.selectionLabelUpdate.connect(
         selectionLabel.updateSelectPoint
     )
     self.statusBar.addPermanentWidget(selectionLabel)
     
     #QPainter canvas window
-    self.DynamicCanvasView = DynamicCanvas(self)
-    self.DynamicCanvasView.mouse_getSelection.connect(
-        self.Entities_Point.setSelections
+    self.MainCanvas = DynamicCanvas(self)
+    self.MainCanvas.mouse_getSelection.connect(
+        self.EntitiesPoint.setSelections
     )
-    self.DynamicCanvasView.mouse_freemoveSelection.connect(
+    self.MainCanvas.mouse_freemoveSelection.connect(
         self.setFreemoved
     )
-    self.DynamicCanvasView.mouse_noSelection.connect(
-        self.Entities_Point.clearSelection
+    self.MainCanvas.mouse_noSelection.connect(
+        self.EntitiesPoint.clearSelection
     )
     CleanSelectionAction = QAction("Clean selection", self)
-    CleanSelectionAction.triggered.connect(self.Entities_Point.clearSelection)
+    CleanSelectionAction.triggered.connect(self.EntitiesPoint.clearSelection)
     CleanSelectionAction.setShortcut("Esc")
     CleanSelectionAction.setShortcutContext(Qt.WindowShortcut)
     self.addAction(CleanSelectionAction)
-    self.DynamicCanvasView.mouse_getAltAdd.connect(self.qAddNormalPoint)
-    self.DynamicCanvasView.mouse_getDoubleClickEdit.connect(
+    self.MainCanvas.mouse_getAltAdd.connect(self.qAddNormalPoint)
+    self.MainCanvas.mouse_getDoubleClickEdit.connect(
         self.on_action_Edit_Point_triggered
     )
-    self.DynamicCanvasView.zoom_change.connect(self.ZoomBar.setValue)
-    self.DynamicCanvasView.mouse_track.connect(self.setMousePos)
-    self.DynamicCanvasView.mouse_browse_track.connect(
+    self.MainCanvas.zoom_change.connect(self.ZoomBar.setValue)
+    self.MainCanvas.mouse_track.connect(self.setMousePos)
+    self.MainCanvas.mouse_browse_track.connect(
         selectionLabel.updateMousePosition
     )
-    self.canvasSplitter.insertWidget(0, self.DynamicCanvasView)
+    self.canvasSplitter.insertWidget(0, self.MainCanvas)
     self.canvasSplitter.setSizes([600, 10, 30])
     
     #Menu of free move mode.
@@ -133,7 +134,7 @@ def __appearance(self):
         @pyqtSlot()
         def func():
             self.FreeMoveMode.setIcon(qicon)
-            self.DynamicCanvasView.setFreeMove(j)
+            self.MainCanvas.setFreeMove(j)
             self.InputsWidget.variable_stop.click()
         return func
     for i, (text, icon) in enumerate([
@@ -166,10 +167,10 @@ def __appearance(self):
     self.InputsWidget = InputsWidget(self)
     self.inputs_tab_layout.addWidget(self.InputsWidget)
     self.FreeMoveMode.toggled.connect(self.InputsWidget.variableValueReset)
-    self.DynamicCanvasView.mouse_getSelection.connect(
+    self.MainCanvas.mouse_getSelection.connect(
         self.InputsWidget.setSelection
     )
-    self.DynamicCanvasView.mouse_noSelection.connect(
+    self.MainCanvas.mouse_noSelection.connect(
         self.InputsWidget.clearSelection
     )
     
@@ -220,10 +221,10 @@ def __appearance(self):
     #Dimensional synthesis
     self.DimensionalSynthesis = DimensionalSynthesis(self)
     self.DimensionalSynthesis.fixPointRange.connect(
-        self.DynamicCanvasView.updateRanges
+        self.MainCanvas.updateRanges
     )
     self.DimensionalSynthesis.pathChanged.connect(
-        self.DynamicCanvasView.setSolvingPath
+        self.MainCanvas.setSolvingPath
     )
     self.DimensionalSynthesis.mergeResult.connect(self.mergeResult)
     self.FileWidget.AlgorithmDataFunc = (
@@ -250,36 +251,36 @@ def __appearance(self):
     SelectAllButton.setIcon(QIcon(QPixmap(":/icons/select_all.png")))
     SelectAllButton.setToolTip("Select all")
     SelectAllButton.setStatusTip("Select all item of point table.")
-    SelectAllButton.clicked.connect(self.Entities_Point.selectAll)
+    SelectAllButton.clicked.connect(self.EntitiesPoint.selectAll)
     self.EntitiesTab.setCornerWidget(SelectAllButton)
     SelectAllAction = QAction("Select all point", self)
-    SelectAllAction.triggered.connect(self.Entities_Point.selectAll)
+    SelectAllAction.triggered.connect(self.EntitiesPoint.selectAll)
     SelectAllAction.setShortcut("Ctrl+A")
     SelectAllAction.setShortcutContext(Qt.WindowShortcut)
     self.addAction(SelectAllAction)
     
     #While value change, update the canvas widget.
-    self.Entities_Point.rowSelectionChanged.connect(
-        self.DynamicCanvasView.changePointsSelection
+    self.EntitiesPoint.rowSelectionChanged.connect(
+        self.MainCanvas.changePointsSelection
     )
-    self.ZoomBar.valueChanged.connect(self.DynamicCanvasView.setZoom)
-    self.LineWidth.valueChanged.connect(self.DynamicCanvasView.setLinkWidth)
-    self.PathWidth.valueChanged.connect(self.DynamicCanvasView.setPathWidth)
-    self.Font_size.valueChanged.connect(self.DynamicCanvasView.setFontSize)
+    self.ZoomBar.valueChanged.connect(self.MainCanvas.setZoom)
+    self.LineWidth.valueChanged.connect(self.MainCanvas.setLinkWidth)
+    self.PathWidth.valueChanged.connect(self.MainCanvas.setPathWidth)
+    self.Font_size.valueChanged.connect(self.MainCanvas.setFontSize)
     self.action_Display_Point_Mark.toggled.connect(
-        self.DynamicCanvasView.setPointMark
+        self.MainCanvas.setPointMark
     )
     self.action_Display_Dimensions.toggled.connect(
-        self.DynamicCanvasView.setShowDimension
+        self.MainCanvas.setShowDimension
     )
     self.SelectionRadius.valueChanged.connect(
-        self.DynamicCanvasView.setSelectionRadius
+        self.MainCanvas.setSelectionRadius
     )
     self.LinkageTransparency.valueChanged.connect(
-        self.DynamicCanvasView.setTransparency
+        self.MainCanvas.setTransparency
     )
     self.MarginFactor.valueChanged.connect(
-        self.DynamicCanvasView.setMarginFactor
+        self.MainCanvas.setMarginFactor
     )
     
     #Splitter stretch factor.
@@ -293,9 +294,9 @@ def __appearance(self):
     
     #'zoom to fit' function connections.
     self.action_Zoom_to_fit.triggered.connect(
-        self.DynamicCanvasView.zoomToFit
+        self.MainCanvas.zoomToFit
     )
-    self.ResetCanvas.clicked.connect(self.DynamicCanvasView.zoomToFit)
+    self.ResetCanvas.clicked.connect(self.MainCanvas.zoomToFit)
     
     #Zoom text button
     Zoom_menu = QMenu(self)
@@ -319,8 +320,8 @@ def __appearance(self):
     Zoom_menu.addAction(action)
     self.ZoomText.setMenu(Zoom_menu)
 
-def __context_menu(self):
-    '''Entities_Point context menu
+def _context_menu(self):
+    '''EntitiesPoint context menu
     
     + Add
     ///////
@@ -355,7 +356,7 @@ def __context_menu(self):
     self.popMenu_point.addAction(self.action_point_context_edit)
     self.action_point_context_lock = QAction("&Fixed", self)
     self.action_point_context_lock.setCheckable(True)
-    self.action_point_context_lock.triggered.connect(self.lockPoint)
+    self.action_point_context_lock.triggered.connect(self.lockPoints)
     self.popMenu_point.addAction(self.action_point_context_lock)
     self.popMenu_point_merge = QMenu(self)
     self.popMenu_point_merge.setTitle("Multiple joint")
@@ -375,7 +376,7 @@ def __context_menu(self):
         self.on_action_Delete_Point_triggered
     )
     self.popMenu_point.addAction(self.action_point_context_delete)
-    '''Entities_Link context menu
+    '''EntitiesLink context menu
     
     + Add
     + Edit
@@ -414,7 +415,7 @@ def __context_menu(self):
         self.on_action_Delete_Link_triggered
     )
     self.popMenu_link.addAction(self.action_link_context_delete)
-    '''DynamicCanvasView context menu
+    '''MainCanvas context menu
     
     + Add
     ///////
@@ -433,8 +434,8 @@ def __context_menu(self):
     -------
     + Delete
     '''
-    self.DynamicCanvasView.setContextMenuPolicy(Qt.CustomContextMenu)
-    self.DynamicCanvasView.customContextMenuRequested.connect(
+    self.MainCanvas.setContextMenuPolicy(Qt.CustomContextMenu)
+    self.MainCanvas.customContextMenuRequested.connect(
         self.on_canvas_context_menu
     )
     self.popMenu_canvas = QMenu(self)

@@ -7,6 +7,13 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from enum import Enum
+from typing import (
+    List,
+    Tuple,
+    Dict,
+    Any
+)
 from core.QtModules import (
     QDialog,
     Qt,
@@ -17,14 +24,8 @@ from core.QtModules import (
     QDialogButtonBox,
 )
 from core.info import html
-from enum import Enum
-from typing import (
-    List,
-    Tuple,
-    Dict,
-    Any
-)
 from .Ui_options import Ui_Dialog
+
 
 GeneticPrams = {
     'nPop': 500,
@@ -95,15 +96,15 @@ class Options_show(QDialog, Ui_Dialog):
         """Initialize the linkage table widgets."""
         
         def writeTable(
-            Length: List[Tuple[str, str, str]],
-            Degrees: List[Tuple[str, str, str]]
+            length: List[Tuple[str, str, str]] = [],
+            degrees: List[Tuple[str, str, str]] = []
         ):
             """Use to write table data."""
             i = 0
             for Types, maxV, minV in zip(
-                [Length, Degrees],
-                [1000., 360.],
-                [0.1, 0.]
+                (length, degrees),
+                (1000., 360.),
+                (0.1, 0)
             ):
                 for name, vname, tooltip in Types:
                     self.PLTable.insertRow(i)
@@ -122,7 +123,7 @@ class Options_show(QDialog, Ui_Dialog):
         data = lambda t, p, m: (title(t), p, html(des(m, t.lower())))
         
         writeTable(
-            Length=[
+            length=[
                 data("Input linkage", 'IMax', 'maximum'),
                 data("Input linkage", 'IMin', 'minimum'),
                 data("Connected linkage", 'LMax', 'maximum'),
@@ -130,7 +131,7 @@ class Options_show(QDialog, Ui_Dialog):
                 data("Follower linkage", 'FMax', 'maximum'),
                 data("Follower linkage", 'FMin', 'minimum')
             ],
-            Degrees=[
+            degrees=[
                 data("Input angle", 'AMax', 'maximum'),
                 data("Input angle", 'AMin', 'minimum')
             ])
@@ -141,15 +142,15 @@ class Options_show(QDialog, Ui_Dialog):
         """Initialize the algorithm table widgets."""
         
         def writeTable(
-            Integers: List[Tuple[str, str, str]],
-            Floats: List[Tuple[str, str, str]]
+            integers: List[Tuple[str, str, str]] = [],
+            floats: List[Tuple[str, str, str]] = []
         ):
             """Use to write table data."""
             i = 0
             for Types, box, maxV in zip(
-                [Integers, Floats],
-                [QSpinBox, QDoubleSpinBox],
-                [9, 10.]
+                (integers, floats),
+                (QSpinBox, QDoubleSpinBox),
+                (9, 10.)
             ):
                 for name, vname, tooltip in Types:
                     self.APTable.insertRow(i)
@@ -164,7 +165,7 @@ class Options_show(QDialog, Ui_Dialog):
         
         if self.algorithm == AlgorithmType.RGA:
             writeTable(
-                Floats=[
+                floats=[
                     ("Crossover Rate", 'pCross',
                         html("The chance of crossover.")),
                     ("Mutation Rate", 'pMute',
@@ -177,7 +178,7 @@ class Options_show(QDialog, Ui_Dialog):
             )
         elif self.algorithm == AlgorithmType.Firefly:
             writeTable(
-                Floats=[
+                floats=[
                     ("Alpha value", 'alpha',
                         html("Alpha value is the step size of the firefly.")),
                     ("Minimum Beta value", 'betaMin',
@@ -191,11 +192,11 @@ class Options_show(QDialog, Ui_Dialog):
             )
         elif self.algorithm == AlgorithmType.DE:
             writeTable(
-                Integers=[
+                integers=[
                     ("Evolutionary strategy (0-9)", 'strategy',
                         html("There are 10 way to evolution."))
                 ],
-                Floats=[
+                floats=[
                     ("Weight factor", 'F',
                         html("Weight factor is usually between 0.5 and 1" +
                             "(in rare cases > 1).")),
