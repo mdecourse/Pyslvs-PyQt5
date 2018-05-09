@@ -46,6 +46,7 @@ nan = float('nan')
 """Create a empty Sqlite database object."""
 db = SqliteDatabase(None)
 
+
 class UserModel(Model):
     
     """Show who commited the workbook."""
@@ -55,6 +56,7 @@ class UserModel(Model):
     class Meta:
         database = db
 
+
 class BranchModel(Model):
     
     """The branch in this workbook."""
@@ -63,6 +65,7 @@ class BranchModel(Model):
     
     class Meta:
         database = db
+
 
 class CommitModel(Model):
     
@@ -76,6 +79,7 @@ class CommitModel(Model):
     + Path data.
     + Collection data.
     + Triangle collection data.
+    + Input variables data.
     + Algorithm data.
     """
     
@@ -105,14 +109,19 @@ class CommitModel(Model):
     class Meta:
         database = db
 
+
 class LoadCommitButton(QPushButton):
     
     """The button of load commit."""
     
     loaded = pyqtSignal(int)
     
-    def __init__(self, id, parent=None):
-        super(LoadCommitButton, self).__init__(QIcon(QPixmap(":icons/dataupdate.png")), " #{}".format(id), parent)
+    def __init__(self, id, parent):
+        super(LoadCommitButton, self).__init__(
+            QIcon(QPixmap(":icons/dataupdate.png")),
+            " #{}".format(id),
+            parent
+        )
         self.setToolTip("Reset to commit #{}.".format(id))
         self.id = id
     
@@ -124,6 +133,7 @@ class LoadCommitButton(QPushButton):
     def isLoaded(self, id: int):
         """Set enable if this commit is been loaded."""
         self.setEnabled(id != self.id)
+
 
 class FileWidget(QWidget, Ui_Form):
     
@@ -516,7 +526,7 @@ class FileWidget(QWidget, Ui_Form):
         """Reload the least commit ID."""
         self.__loadCommitID(self.commit_current_id.value())
     
-    def loadExample(self, isImport=False) -> bool:
+    def loadExample(self, isImport: bool = False) -> bool:
         """Load example to new workbook."""
         if not self.__checkSaved():
             return False
@@ -533,7 +543,9 @@ class FileWidget(QWidget, Ui_Form):
         if not isImport:
             self.reset()
             self.clearFunc()
-        self.parseFunc(example_list[example_name])
+        expr, inputs = example_list[example_name]
+        self.parseFunc(expr)
+        self.loadInputsFunc(inputs)
         self.file_name = QFileInfo(example_name)
         self.isSavedFunc()
         print("Example \"{}\" has been loaded.".format(example_name))

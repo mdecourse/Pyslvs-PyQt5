@@ -1,4 +1,4 @@
-[![Version](https://img.shields.io/badge/version-18.4.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
+[![Version](https://img.shields.io/badge/version-18.5.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
 [![Build Status](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5.svg)](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5)
 [![PYTHON](https://img.shields.io/badge/python-3.5%20--%203.6-blue.svg)](https://www.python.org/)
 [![PYQT](https://img.shields.io/badge/pyqt-5.7%20--%205.10-orange.svg)](https://riverbankcomputing.com/software/pyqt/intro)
@@ -424,6 +424,7 @@ Including Python modules:
 * [Lark-parser] (MIT)
 * [NetworkX] (BSD 3-Clause)
 * [Pydot] (MIT)
+* [Pygments] (BSD)
 
 Pyslvs is under [GNU Affero General Public License v3](https://github.com/KmolYuan/Pyslvs-PyQt5/blob/master/LICENSE).
 
@@ -454,6 +455,7 @@ Here is the **origin kernel** repository:
 [Lark-parser]: https://github.com/erezsh/lark
 [NetworkX]: https://networkx.github.io/
 [Pydot]: https://github.com/erocarrera/pydot
+[Pygments]: http://pygments.org/
 
 [Python-solvespace]: https://github.com/KmolYuan/python-solvespace
 [Dimensional Synthesis of Planar Four-bar Linkages]: https://github.com/kmollee/algorithm

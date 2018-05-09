@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+#cython: language_level=3
 
 """Number synthesis."""
 
@@ -8,6 +9,7 @@
 # __email__ = "pyslvs@gmail.com"
 
 from itertools import product
+
 
 cdef inline int Max(int NL, int NJ):
     """
@@ -22,6 +24,7 @@ cdef inline int Max(int NL, int NJ):
     if (2*NL - 3) <= NJ and NJ <= (NL*(NL - 1)/2):
         return NL - 1
     return -1
+
 
 cpdef object NumberSynthesis(int NL, int NJ):
     cdef list result = []
@@ -38,6 +41,7 @@ cpdef object NumberSynthesis(int NL, int NJ):
         if sum_factors(answer) == 2*NJ:
             result.append(answer)
     return tuple(result)
+
 
 cdef inline int sum_factors(tuple factors):
     """

@@ -24,9 +24,11 @@ from typing import (
     List,
     Dict,
     Tuple,
-    TypeVar,
+    Iterator,
+    Union,
 )
 from core.QtModules import (
+    Qt,
     QUndoCommand,
     QTableWidget,
     QTableWidgetItem,
@@ -35,13 +37,15 @@ from core.QtModules import (
     QLineEdit,
     QIcon,
     QPixmap,
-    Qt
 )
 
 
-table_data = TypeVar("table_data", str, int, float)
+def noNoneString(str_list: Union[List[str], Iterator[str]]) -> Iterator[str]:
+    """Filter to exclude empty string."""
+    for s in str_list:
+        if s:
+            yield s
 
-noNoneString = lambda l: [e for e in l if e]
 
 class AddTable(QUndoCommand):
     
@@ -63,6 +67,7 @@ class AddTable(QUndoCommand):
     def undo(self):
         """Remove the last row directly."""
         self.table.removeRow(self.table.rowCount()-1)
+
 
 class DeleteTable(QUndoCommand):
     
@@ -95,6 +100,7 @@ class DeleteTable(QUndoCommand):
         for column in range(self.table.columnCount()):
             self.table.setItem(self.row, column, QTableWidgetItem(''))
 
+
 class FixSequenceNumber(QUndoCommand):
     
     """Fix sequence number when deleting a point."""
@@ -124,6 +130,7 @@ class FixSequenceNumber(QUndoCommand):
         points = ['Point{}'.format(p) for p in points]
         item.setText(','.join(points))
 
+
 class EditPointTable(QUndoCommand):
     
     """Edit Point table.
@@ -135,18 +142,12 @@ class EditPointTable(QUndoCommand):
         row: int,
         PointTable: QTableWidgetItem,
         LinkTable: QTableWidgetItem,
-        args: Sequence[table_data]
+        args: Sequence[Union[str, int, float]]
     ):
         QUndoCommand.__init__(self)
         self.PointTable = PointTable
         self.row = row
         self.LinkTable = LinkTable
-        '''
-        Links: str,
-        Type: int,
-        Color: str,
-        X, Y
-        '''
         self.args = tuple(args)
         self.OldArgs = self.PointTable.rowTexts(row)
         #Tuple[str] -> Set[str]
@@ -192,10 +193,11 @@ class EditPointTable(QUndoCommand):
             newPoints.remove(point_name)
             self.setCell(row, newPoints)
     
-    def setCell(self, row: int, points: List):
+    def setCell(self, row: int, points: List[str]):
         item = QTableWidgetItem(','.join(noNoneString(points)))
         item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
         self.LinkTable.setItem(row, 2, item)
+
 
 class EditLinkTable(QUndoCommand):
     
@@ -208,17 +210,12 @@ class EditLinkTable(QUndoCommand):
         row: int,
         LinkTable: QTableWidgetItem,
         PointTable: QTableWidgetItem,
-        args: Sequence[table_data]
+        args: Sequence[str]
     ):
         QUndoCommand.__init__(self)
         self.LinkTable = LinkTable
         self.row = row
         self.PointTable = PointTable
-        '''
-        name: str,
-        color: str,
-        points: str
-        '''
         self.args = tuple(args)
         self.OldArgs = self.LinkTable.rowTexts(row, hasName=True)
         #Points: Tuple[int]
@@ -256,10 +253,10 @@ class EditLinkTable(QUndoCommand):
         for index in noNoneString(Args2[2].split(',')):
             row = int(index.replace('Point', ''))
             newLinks = self.PointTable.item(row, 1).text().split(',')
-            item = QTableWidgetItem(','.join(noNoneString([
+            item = QTableWidgetItem(','.join(noNoneString(
                 w.replace(Args2[0], Args1[0])
                 for w in newLinks
-            ])))
+            )))
             item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
             self.PointTable.setItem(row, 1, item)
     
@@ -287,6 +284,7 @@ class EditLinkTable(QUndoCommand):
         item = QTableWidgetItem(','.join(noNoneString(links)))
         item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
         self.PointTable.setItem(row, 1, item)
+
 
 class AddPath(QUndoCommand):
     
@@ -317,6 +315,7 @@ class AddPath(QUndoCommand):
         self.widget.takeItem(self.widget.count()-1)
         del self.data[self.name]
 
+
 class DeletePath(QUndoCommand):
     
     """"Delete the specified row of path."""
@@ -344,6 +343,7 @@ class DeletePath(QUndoCommand):
         self.widget.addItem(self.oldItem)
         self.widget.setCurrentRow(self.widget.row(self.oldItem))
 
+
 class AddStorage(QUndoCommand):
     
     """Append a new storage."""
@@ -368,6 +368,7 @@ class AddStorage(QUndoCommand):
     def undo(self):
         """Remove the last item."""
         self.widget.takeItem(self.widget.count()-1)
+
 
 class DeleteStorage(QUndoCommand):
     
@@ -394,6 +395,7 @@ class DeleteStorage(QUndoCommand):
         item.setIcon(QIcon(QPixmap(":/icons/mechanism.png")))
         self.widget.insertItem(self.row, item)
 
+
 class AddStorageName(QUndoCommand):
     
     """Update name of storage name."""
@@ -414,6 +416,7 @@ class AddStorageName(QUndoCommand):
         """Clear the name text."""
         self.widget.clear()
 
+
 class ClearStorageName(QUndoCommand):
     
     """Clear the storage name"""
@@ -433,6 +436,7 @@ class ClearStorageName(QUndoCommand):
         """Set the name text."""
         self.widget.setText(self.name)
 
+
 class AddVariable(QUndoCommand):
     
     """Add a variable to list widget."""
@@ -450,6 +454,7 @@ class AddVariable(QUndoCommand):
     def undo(self):
         """Take out the item."""
         self.widget.takeItem(self.widget.row(self.item))
+
 
 class DeleteVariable(QUndoCommand):
     

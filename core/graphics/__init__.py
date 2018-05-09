@@ -9,8 +9,8 @@ __email__ = "pyslvs@gmail.com"
 
 from .color import (
     colorNum,
-    colorName,
-    colorIcons,
+    colorNames,
+    colorIcon,
     colorQt,
     colorPath
 )
@@ -20,7 +20,7 @@ from .canvas import (
     PreviewCanvas,
     convex_hull,
     edges_view,
-    replace_by_dict,
+    graph2vpoints,
 )
 from .nx_pydot import (
     graph,
@@ -31,8 +31,8 @@ from .nx_pydot import (
 
 __all__ = [
     'colorNum',
-    'colorName',
-    'colorIcons',
+    'colorNames',
+    'colorIcon',
     'colorQt',
     'colorPath',
     'DataChart',
@@ -40,7 +40,7 @@ __all__ = [
     'PreviewCanvas',
     'convex_hull',
     'edges_view',
-    'replace_by_dict',
+    'graph2vpoints',
     'graph',
     'engine_picker',
     'EngineList',

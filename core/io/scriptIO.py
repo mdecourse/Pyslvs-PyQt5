@@ -7,29 +7,25 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import List
+from typing import List, Iterator
+from pygments import highlight
+from pygments.lexer import RegexLexerMeta
+from pygments.formatters import HtmlFormatter
+from pygments.styles import (
+    get_style_by_name,
+    get_all_styles,
+)
 from core.QtModules import (
-    QSyntaxHighlighter,
-    QTextCharFormat,
-    QBrush,
     Qt,
-    QFont,
-    QColor,
-    QRegExp,
-    QTextOption,
-    QDialog,
-    QTextEdit,
     pyqtSlot,
     QApplication,
+    QDialog,
 )
-from core.info import VERSION
 from core.libs import VPoint, VLink
-from .Ui_script import Ui_Info_Dialog
+from .Ui_script import Ui_Dialog
 
 
-script_title = '''\
-#This script is generate by Pyslvs {}.
-
+_script_title = """
 from math import (
     radians,
     hypot,
@@ -262,145 +258,72 @@ def slvsProcess(Point, Link, constraints):
             error = "Too many unknowns."
         raise SlvsException(error)
 
-if __name__=="__main__":
-    Point = {}
-    Link = {}
-    """
-    constraints = (
-        (
-            "Point number": int,
-            "Base link name": str,
-            "Drive link name": str,
-            "Angle (degrees)": float
-        ),
-    )
-    """
+if __name__ == "__main__":
+    vpoints = {}
+    vlinks = {}
     constraints = ()
-    print("Coordinates: {{}}\\nDOF: {{}}".format(*slvsProcess(Point, Link, constraints)))
-'''
+    print("Coordinates: {{}}\\nDOF: {{}}".format(*slvsProcess(vpoints, vlinks, constraints)))
+"""
+
 
 def slvsProcessScript(
-    VPointList: List[VPoint],
-    VLinkList: List[VLink]
+    vpoints: Iterator[VPoint],
+    vlinks: Iterator[VLink]
 ):
-    return script_title.format(
-        "v{}.{}.{} ({})".format(*VERSION),
-        [vpoint for vpoint in VPointList],
-        [vlink for vlink in VLinkList]
+    return _script_title.format(
+        [vpoint for vpoint in vpoints],
+        [vlink for vlink in vlinks]
     )
 
-class HighlightRule:
-    
-    """Highlight rule of QTextEdit."""
-    
-    __slots__ = ('pattern', 'format')
-    
-    def __init__(self,
-        pattern: QRegExp,
-        format: QTextCharFormat
-    ):
-        self.pattern = pattern
-        self.format = format
 
-class KeywordSyntax(QSyntaxHighlighter):
-    
-    """Syntax highlighter."""
-    
-    def __init__(self, parent=None):
-        super(KeywordSyntax, self).__init__(parent)
-        keyword = QTextCharFormat()
-        keyword.setForeground(QBrush(Qt.darkBlue, Qt.SolidPattern))
-        keyword.setFontWeight(QFont.Bold)
-        number = QTextCharFormat()
-        number.setForeground(QBrush(QColor(0, 127, 127), Qt.SolidPattern))
-        annotation = QTextCharFormat()
-        annotation.setForeground(QBrush(QColor(61, 158, 77), Qt.SolidPattern))
-        decorator = QTextCharFormat()
-        decorator.setForeground(QBrush(QColor(158, 140, 61), Qt.SolidPattern))
-        function = QTextCharFormat()
-        function.setFontWeight(QFont.Bold)
-        function.setForeground(QBrush(QColor(10, 147, 111), Qt.SolidPattern))
-        string = QTextCharFormat()
-        string.setForeground(QBrush(QColor(127, 0, 127), Qt.SolidPattern))
-        boolean = QTextCharFormat()
-        boolean.setForeground(QBrush(QColor(64, 112, 144), Qt.SolidPattern))
-        self.highlightingRules = [
-            HighlightRule(QRegExp(r'\b[+-]?[0-9]+[lL]?\b'), number),
-            HighlightRule(QRegExp(r'\b[+-]?0[xX][0-9A-Fa-f]+[lL]?\b'), number),
-            HighlightRule(QRegExp(
-                r'\b[+-]?[0-9]+(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?\b'
-            ), number),
-            HighlightRule(QRegExp(r'\bdef\b\s*(\w+)'), function),
-            HighlightRule(QRegExp(r'\bclass\b\s*(\w+)'), function)
-        ]
-        self.highlightingRules += [
-            HighlightRule(QRegExp("\\b"+key+"\\b"), keyword) for key in [
-                'print', 'pass', 'def', 'class', 'from', 'is', 'as',
-                'import', 'for', 'in', 'if', 'else', 'elif', 'raise'
-            ]
-        ]
-        self.highlightingRules += [
-            HighlightRule(QRegExp("\\b"+key+"\\b"), boolean)
-            for key in ['self', 'True', 'False']
-        ]
-        self.highlightingRules += [
-            HighlightRule(QRegExp("'''"), string),
-            HighlightRule(QRegExp('"""'), string),
-            HighlightRule(QRegExp(r'"[^"\\]*(\\.[^"\\]*)*"'), string),
-            HighlightRule(QRegExp(r"'[^'\\]*(\\.[^'\\]*)*'"), string),
-            HighlightRule(QRegExp(r'@[^(\n|\()]*'), decorator),
-            HighlightRule(QRegExp(r'#[^\n]*'), annotation)
-        ]
-    
-    def highlightBlock(self, text: str):
-        """Input text to hightlight."""
-        for rule in self.highlightingRules:
-            expression = QRegExp(rule.pattern)
-            index = expression.indexIn(text)
-            while index >= 0:
-                length = expression.matchedLength()
-                self.setFormat(index, length, rule.format)
-                index = text.find(expression.pattern(), index + length)
-        self.setCurrentBlockState(0)
-
-class HighlightTextEdit(QTextEdit):
-    
-    """Script preview widget."""
-    
-    def __init__(self, parent=None):
-        super(HighlightTextEdit, self).__init__(parent)
-        self.setWordWrapMode(QTextOption.NoWrap)
-        self.setStyleSheet("font: 10pt \"Bitstream Vera Sans Mono\";")
-        KeywordSyntax(self)
-    
-class Script_Dialog(QDialog, Ui_Info_Dialog):
+class ScriptDialog(QDialog, Ui_Dialog):
     
     """Dialog of script preview."""
     
     def __init__(self,
-        VPoints: List[VPoint],
-        VLinks: List[VLink],
+        script: str,
+        lexer: RegexLexerMeta,
+        filename: str,
+        filefotmat: List[str],
         parent
     ):
-        super(Script_Dialog, self).__init__(parent)
+        super(ScriptDialog, self).__init__(parent)
         self.setupUi(self)
+        self.setWindowFlags(
+            self.windowFlags() &
+            ~Qt.WindowContextHelpButtonHint |
+            Qt.WindowMaximizeButtonHint
+        )
+        self.script_view.zoomIn(5)
+        self.code = highlight(script, lexer, HtmlFormatter())
+        self.filename = filename
+        self.filefotmat = filefotmat
         self.outputTo = parent.outputTo
         self.saveReplyBox = parent.saveReplyBox
-        self.script = HighlightTextEdit(self)
-        self.verticalLayout.insertWidget(1, self.script)
-        self.script.setPlainText(slvsProcessScript(VPoints, VLinks))
+        styles = sorted(get_all_styles())
+        styles.insert(0, styles.pop(styles.index('default')))
+        self.style_option.addItems(styles)
+        self.style_option.setCurrentIndex(0)
+    
+    @pyqtSlot(str)
+    def on_style_option_currentIndexChanged(self, style_name: str):
+        """Redefind the CSS script of the html."""
+        self.script_view.setHtml("<style>{}</style>".format(
+            HtmlFormatter(style = get_style_by_name(style_name))
+            .get_style_defs()
+        ) + self.code)
     
     @pyqtSlot()
     def on_copy_clicked(self):
         """Copy to clipboard."""
-        QApplication.clipboard().setText(self.script.toPlainText())
+        QApplication.clipboard().setText(self.script_view.toPlainText())
     
     @pyqtSlot()
     def on_save_clicked(self):
         """Save to .py file."""
-        file_name = self.outputTo("Python script", ["Python3 Script(*.py)"])
+        file_name = self.outputTo(self.filename, self.filefotmat)
         if not file_name:
             return
         with open(file_name, 'w', newline="") as f:
-            f.write(self.script.toPlainText())
-        self.saveReplyBox("Python script", file_name)
+            f.write(self.script_view.toPlainText())
+        self.saveReplyBox(self.filename, file_name)

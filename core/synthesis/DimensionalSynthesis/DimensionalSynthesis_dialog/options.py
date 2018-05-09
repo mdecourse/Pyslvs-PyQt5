@@ -12,7 +12,8 @@ from typing import (
     List,
     Tuple,
     Dict,
-    Any
+    Any,
+    Union,
 )
 from core.QtModules import (
     QDialog,
@@ -32,20 +33,20 @@ GeneticPrams = {
     'pCross': 0.95,
     'pMute': 0.05,
     'pWin': 0.95,
-    'bDelta': 5.
+    'bDelta': 5.,
 }
 FireflyPrams = {
     'n': 80,
     'alpha': 0.01,
     'betaMin': 0.2,
     'gamma': 1.,
-    'beta0': 1.
+    'beta0': 1.,
 }
 DifferentialPrams = {
     'strategy': 1,
     'NP': 400,
     'F': 0.6,
-    'CR': 0.9
+    'CR': 0.9,
 }
 defaultSettings = {
     'maxGen': 1000, 'report': 10,
@@ -53,8 +54,9 @@ defaultSettings = {
     'FMin': 5., 'AMin': 0.,
     'IMax': 100., 'LMax': 100.,
     'FMax': 100., 'AMax': 360.,
-    'algorithmPrams': DifferentialPrams
+    'algorithmPrams': DifferentialPrams,
 }
+
 
 class AlgorithmType(Enum):
     
@@ -67,6 +69,7 @@ class AlgorithmType(Enum):
     Firefly = "Firefly Algorithm"
     DE = "Differential Evolution"
 
+
 class Options_show(QDialog, Ui_Dialog):
     
     """Option dialog.
@@ -77,7 +80,7 @@ class Options_show(QDialog, Ui_Dialog):
     def __init__(self,
         algorithm: AlgorithmType,
         settings: Dict[str, Any],
-        parent=None
+        parent
     ):
         super(Options_show, self).__init__(parent)
         self.setupUi(self)
@@ -246,7 +249,7 @@ class Options_show(QDialog, Ui_Dialog):
     
     @pyqtSlot(int)
     @pyqtSlot(float)
-    def __isOk(self, r=None):
+    def __isOk(self, r: Union[int, float, None] = None):
         """Set buttons enable if values ok."""
         n = True
         pre = 0

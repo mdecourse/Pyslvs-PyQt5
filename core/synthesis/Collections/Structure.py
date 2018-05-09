@@ -7,11 +7,12 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from networkx import (
-    Graph,
-    is_isomorphic
+from networkx import Graph, is_isomorphic
+from typing import (
+    List,
+    Tuple,
+    Optional,
 )
-from typing import List, Tuple
 from core.QtModules import (
     QWidget,
     pyqtSignal,
@@ -31,7 +32,7 @@ from core.QtModules import (
     QFileInfo,
     QApplication,
 )
-from core.io import Qt_images
+from core.io import QTIMAGES
 from core.graphics import (
     graph,
     engine_picker,
@@ -44,13 +45,14 @@ from .Ui_Structure import Ui_Form
 class TestError(Exception):
     pass
 
+
 class CollectionsStructure(QWidget, Ui_Form):
     
     """Structure widget."""
     
     layout_sender = pyqtSignal(Graph, dict)
     
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         super(CollectionsStructure, self).__init__(parent)
         self.setupUi(self)
         self.outputTo = parent.outputTo
@@ -107,7 +109,7 @@ class CollectionsStructure(QWidget, Ui_Form):
     
     @pyqtSlot()
     @pyqtSlot(str)
-    def on_reload_atlas_clicked(self, p0=None):
+    def on_reload_atlas_clicked(self, p0: Optional[str] = None):
         """Reload atlas with the engine."""
         if not self.collections:
             return
@@ -245,7 +247,7 @@ class CollectionsStructure(QWidget, Ui_Form):
         )
         if not ok:
             return
-        file_name = self.outputTo("Atlas image", Qt_images)
+        file_name = self.outputTo("Atlas image", QTIMAGES)
         if not file_name:
             return
         icon_size = self.collection_list.iconSize()

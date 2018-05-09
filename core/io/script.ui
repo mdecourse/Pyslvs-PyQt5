@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
- <class>Info_Dialog</class>
- <widget class="QDialog" name="Info_Dialog">
+ <class>Dialog</class>
+ <widget class="QDialog" name="Dialog">
   <property name="enabled">
    <bool>true</bool>
   </property>
@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>479</width>
-    <height>503</height>
+    <width>520</width>
+    <height>564</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -29,27 +29,18 @@
   <property name="modal">
    <bool>true</bool>
   </property>
-  <layout class="QVBoxLayout" name="verticalLayout">
+  <layout class="QVBoxLayout" name="main_layout">
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
-      <widget class="QLabel" name="label">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="whatsThis">
-        <string>Pyslvs Icon!</string>
-       </property>
+      <widget class="QLabel" name="label_2">
        <property name="text">
-        <string/>
-       </property>
-       <property name="pixmap">
-        <pixmap resource="../../icons.qrc">:/icons/main.png</pixmap>
+        <string>Style:</string>
        </property>
       </widget>
+     </item>
+     <item>
+      <widget class="QComboBox" name="style_option"/>
      </item>
      <item>
       <spacer name="horizontalSpacer">
@@ -90,7 +81,17 @@
     </layout>
    </item>
    <item>
+    <widget class="QTextEdit" name="script_view"/>
+   </item>
+   <item>
     <layout class="QHBoxLayout" name="horizontalLayout">
+     <item>
+      <widget class="QLabel" name="label_3">
+       <property name="text">
+        <string>Syntax highlighting power by Pygments.</string>
+       </property>
+      </widget>
+     </item>
      <item>
       <spacer name="horizontalSpacer_2">
        <property name="orientation">
@@ -134,7 +135,7 @@
   <connection>
    <sender>buttonBox</sender>
    <signal>rejected()</signal>
-   <receiver>Info_Dialog</receiver>
+   <receiver>Dialog</receiver>
    <slot>reject()</slot>
    <hints>
     <hint type="sourcelabel">

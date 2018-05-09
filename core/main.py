@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
 
-"""This module contain all the functions we needed."""
+"""This module contains the declaration of main window.
+
++ class MainWindow:
+    
+    + Events and overrided method.
+    + Solver method.
+    + Actions method.
+    + IO method.
+    + Entities method.
+    + Storage method.
+"""
 
 __author__ = "Yuan Chang"
 __copyright__ = "Copyright (C) 2016-2018"
@@ -12,41 +22,37 @@ from typing import (
     Tuple,
     List,
     Dict,
+    Union,
+    Optional,
 )
 from argparse import Namespace
 from core.QtModules import (
+    Qt,
+    pyqtSlot,
     QMainWindow,
     QUndoStack,
     QFileInfo,
     QStandardPaths,
-    pyqtSlot,
     QPoint,
-    QAction,
-    QApplication,
-    Qt,
     QMessageBox,
     QInputDialog,
     QTextCursor,
     QListWidgetItem,
 )
-from core.graphics import edges_view
 from core.io import (
     XStream,
-    from_parenthesis,
+    strbetween,
 )
 #Method wrappers.
 from core.widgets import (
     initCustomWidgets,
+    _solver,
+    _actions,
     _io,
     _entities,
     _storage,
 )
-from core.libs import (
-    slvsProcess,
-    SlvsException,
-    vpoints_configure,
-    VPoint,
-)
+from core.libs import VPoint
 from .Ui_main import Ui_MainWindow
 
 
@@ -61,26 +67,25 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     into wrapper function as 'widgets.custom_xxx' module.
     """
     
-    def __init__(self, args: Namespace, parent=None):
-        super(MainWindow, self).__init__(parent)
+    def __init__(self, args: Namespace):
+        super(MainWindow, self).__init__()
         self.setupUi(self)
         self.args = args
         self.env = ""
-        #Console widget.
-        self.showConsoleError.setChecked(self.args.w)
-        if not self.args.debug_mode:
-            self.on_connectConsoleButton_clicked()
-        #Undo Stack
-        self.CommandStack = QUndoStack(self)
         self.setLocate(
             QFileInfo(self.args.i).canonicalFilePath() if self.args.i else
             QStandardPaths.writableLocation(QStandardPaths.DesktopLocation)
         )
+        #Console widget.
+        self.consoleerror_option.setChecked(self.args.w)
+        if not self.args.debug_mode:
+            self.on_connectConsoleButton_clicked()
+        #Undo Stack
+        self.CommandStack = QUndoStack(self)
         #Initialize custom UI.
         initCustomWidgets(self)
+        self.restoreSettings()
         self.resolve()
-        #Expression & DOF value.
-        self.DOF = 0
         #Load workbook from argument.
         if self.args.r:
             self.FileWidget.read(self.args.r)
@@ -92,7 +97,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         super(MainWindow, self).show()
         self.MainCanvas.zoomToFit()
-        self.DimensionalSynthesis.updateRange()
     
     def setLocate(self, locate: str):
         """Set environment variables."""
@@ -117,136 +121,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.FileWidget.read(file_name)
         event.acceptProposedAction()
     
-    @pyqtSlot(float, float)
-    def setMousePos(self, x, y):
-        """Mouse position on canvas."""
-        self.mouse_pos_x = x
-        self.mouse_pos_y = y
-    
-    @pyqtSlot(QPoint)
-    def on_point_context_menu(self, point):
-        """EntitiesPoint context menu."""
-        self.__enablePointContext()
-        self.popMenu_point.exec_(self.Entities_Point_Widget.mapToGlobal(point))
-        self.action_New_Link.setVisible(True)
-        self.popMenu_point_merge.clear()
-    
-    @pyqtSlot(QPoint)
-    def on_link_context_menu(self, point):
-        """EntitiesLink context menu."""
-        self.__enableLinkContext()
-        self.popMenu_link.exec_(self.Entities_Link_Widget.mapToGlobal(point))
-    
-    @pyqtSlot(QPoint)
-    def on_canvas_context_menu(self, point):
-        """MainCanvas context menu."""
-        self.__enablePointContext()
-        tabText = self.SynthesisTab.tabText(self.SynthesisTab.currentIndex())
-        self.action_canvas_context_path.setVisible(tabText == "Dimensional")
-        self.popMenu_canvas.exec_(self.MainCanvas.mapToGlobal(point))
-        self.action_New_Link.setVisible(True)
-        self.popMenu_point_merge.clear()
-    
-    def __enablePointContext(self):
-        """Adjust the status of QActions.
-        
-        What ever we have least one point or not,
-        need to enable / disable QAction.
-        """
-        selectedRows = self.EntitiesPoint.selectedRows()
-        selectionCount = len(selectedRows)
-        row = self.EntitiesPoint.currentRow()
-        #If connecting with the ground.
-        if selectionCount:
-            self.action_point_context_lock.setChecked(all(
-                'ground' in self.EntitiesPoint.item(row, 1).text()
-                for row in self.EntitiesPoint.selectedRows()
-            ))
-        #If no any points selected.
-        for action in (
-            self.action_point_context_add,
-            self.action_canvas_context_add,
-            self.action_canvas_context_fix_add,
-        ):
-            action.setVisible(selectionCount <= 0)
-        self.action_point_context_lock.setVisible(row > -1)
-        self.action_point_context_delete.setVisible(row > -1)
-        #If a point selected.
-        for action in (
-            self.action_point_context_edit,
-            self.action_point_context_copyPoint,
-            self.action_point_context_copydata,
-            self.action_point_context_copyCoord,
-        ):
-            action.setVisible(row > -1)
-            action.setEnabled(selectionCount == 1)
-        #If two or more points selected.
-        self.action_New_Link.setVisible(selectionCount > 1)
-        self.popMenu_point_merge.menuAction().setVisible(selectionCount > 1)
-        
-        def mjFunc(i):
-            """Generate a merge function."""
-            return lambda: _entities.toMultipleJoint(self, i, selectedRows)
-        
-        for i, p in enumerate(selectedRows):
-            action = QAction("Base on Point{}".format(p), self)
-            action.triggered.connect(mjFunc(i))
-            self.popMenu_point_merge.addAction(action)
-    
-    def __enableLinkContext(self):
-        """Enable / disable link's QAction, same as point table."""
-        selectionCount = len(self.EntitiesLink.selectedRows())
-        row = self.EntitiesLink.currentRow()
-        self.action_link_context_add.setVisible(selectionCount <= 0)
-        selected_one = selectionCount == 1
-        self.action_link_context_edit.setEnabled((row > -1) and selected_one)
-        self.action_link_context_delete.setEnabled((row > 0) and selected_one)
-        self.action_link_context_copydata.setEnabled((row > -1) and selected_one)
-        self.action_link_context_release.setVisible((row == 0) and selected_one)
-        self.action_link_context_constrain.setVisible((row > 0) and selected_one)
-    
-    @pyqtSlot()
-    def enableMechanismActions(self):
-        """Enable / disable 'mechanism' menu."""
-        pointSelection = self.EntitiesPoint.selectedRows()
-        linkSelection = self.EntitiesLink.selectedRows()
-        ONE_POINT = len(pointSelection) == 1
-        ONE_LINK = len(linkSelection) == 1
-        POINT_SELECTED = bool(pointSelection)
-        LINK_SELECTED = (
-            bool(linkSelection) and
-            (0 not in linkSelection) and
-            (not ONE_LINK)
-        )
-        #Edit
-        self.action_Edit_Point.setEnabled(ONE_POINT)
-        self.action_Edit_Link.setEnabled(ONE_LINK)
-        #Delete
-        self.action_Delete_Point.setEnabled(POINT_SELECTED)
-        self.action_Delete_Link.setEnabled(LINK_SELECTED)
-    
-    @pyqtSlot()
-    def copyPointsTable(self):
-        """Copy text from point table."""
-        self.__copyTableData(self.EntitiesPoint)
-    
-    @pyqtSlot()
-    def copyLinksTable(self):
-        """Copy text from link table."""
-        self.__copyTableData(self.EntitiesLink)
-    
-    def __copyTableData(self, table):
-        """Copy item text to clipboard."""
-        text = table.currentItem().text()
-        if text:
-            QApplication.clipboard().setText(text)
-    
-    def copyCoord(self):
-        """Copy the current coordinate of the point."""
-        pos = self.EntitiesPoint.currentPosition(self.EntitiesPoint.currentRow())
-        text = str(pos[0] if (len(pos) == 1) else pos)
-        QApplication.clipboard().setText(text)
-    
     def closeEvent(self, event):
         """Close event to avoid user close the window accidentally."""
         if self.checkFileChanged():
@@ -254,110 +128,61 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             return
         if self.InputsWidget.inputs_playShaft.isActive():
             self.InputsWidget.inputs_playShaft.stop()
+        self.saveSettings()
         XStream.back()
         self.setAttribute(Qt.WA_DeleteOnClose)
         print("Exit.")
         event.accept()
     
-    def checkFileChanged(self) -> bool:
-        return _io.checkFileChanged(self)
-    
     @pyqtSlot(int)
-    def commandReload(self, index):
+    def commandReload(self, index: int):
         """The time of withdrawal and redo action."""
         if index != self.FileWidget.Stack:
             self.workbookNoSave()
         else:
             self.workbookSaved()
+        self.EntitiesPoint.clearSelection()
         self.InputsWidget.variableReload()
         self.resolve()
     
+    @pyqtSlot()
     def resolve(self):
-        """Resolve: Use Solvespace lib."""
-        inputs = list(self.InputsWidget.getInputsVariables())
-        try:
-            result, DOF = slvsProcess(
-                self.EntitiesPoint.data(),
-                self.EntitiesLink.data(),
-                inputs if not self.FreeMoveMode.isChecked() else ()
-            )
-        except SlvsException as e:
-            if self.showConsoleError.isChecked():
-                print(e)
-            self.ConflictGuide.setToolTip(str(e))
-            self.ConflictGuide.setStatusTip("Error: {}".format(e))
-            self.ConflictGuide.setVisible(True)
-            self.DOFview.setVisible(False)
-        else:
-            self.EntitiesPoint.updateCurrentPosition(result)
-            self.DOF = DOF
-            self.DOFview.setText("{} ({})".format(self.DOF, len(inputs)))
-            self.ConflictGuide.setVisible(False)
-            self.DOFview.setVisible(True)
-        self.reloadCanvas()
+        _solver.resolve(self)
     
     def getGraph(self) -> List[Tuple[int, int]]:
-        """Return edges data for NetworkX graph class.
-        
-        + VLinks will become graph nodes.
-        """
-        joint_data = self.EntitiesPoint.data()
-        link_data = self.EntitiesLink.data()
-        G = Graph()
-        #links name for RP joint.
-        k = len(link_data)
-        used_point = set()
-        for i, vlink in enumerate(link_data):
-            for p in vlink.points:
-                if p in used_point:
-                    continue
-                for m, vlink_ in enumerate(link_data):
-                    if not ((i != m) and (p in vlink_.points)):
-                        continue
-                    if joint_data[p].type != 2:
-                        G.add_edge(i, m)
-                        continue
-                    G.add_edge(i, k)
-                    G.add_edge(k, m)
-                    k += 1
-                used_point.add(p)
-        return [edge for n, edge in edges_view(G)]
+        return _solver.getGraph(self)
     
-    def getTriangle(self, vpoints: Tuple[VPoint]) -> List[Tuple[str]]:
-        """Update triangle expression here.
-        
-        Special function for VPoints.
-        """
-        exprs = vpoints_configure(
-            vpoints,
-            tuple(self.InputsWidget.inputPair())
-        )
-        self.Entities_Expr.setExpr(exprs)
-        return exprs
+    def getCollection(self) -> Dict[str, Union[
+        Dict[str, None], #Driver
+        Dict[str, None], #Follower
+        Dict[str, List[Tuple[float, float]]], #Target
+        str, #Link_Expression
+        str, #Expression
+        Tuple[Tuple[int, int]], #Graph
+        Dict[int, Tuple[float, float]], #pos
+        Dict[str, int], #cus
+        Dict[int, int] #same
+    ]]:
+        return _solver.getCollection(self)
+    
+    def getTriangle(self,
+        vpoints: Optional[Tuple[VPoint]] = None
+    ) -> List[Tuple[str]]:
+        return _solver.getTriangle(self, vpoints)
     
     def rightInput(self) -> bool:
-        """Is input same as DOF?"""
-        inputs = (self.InputsWidget.inputCount() != 0) and (self.DOF == 0)
-        if not inputs:
-            self.Entities_Expr.clear()
-        return inputs
+        return _solver.rightInput(self)
     
     def pathInterval(self) -> float:
-        """Wrapper use to get path interval."""
-        return self.InputsWidget.record_interval.value()
+        return _solver.pathInterval(self)
     
     def reloadCanvas(self):
-        """Update main canvas data, without resolving."""
-        self.MainCanvas.updateFigure(
-            self.EntitiesPoint.data(),
-            self.EntitiesLink.data(),
-            self.InputsWidget.currentPath()
-        )
+        _solver.reloadCanvas(self)
     
     @pyqtSlot(int)
     def on_ZoomBar_valueChanged(self, value: int):
         """Reset the text when zoom bar changed."""
-        self.ZoomText.setText('{}%'.format(value))
+        self.zoom_button.setText('{}%'.format(value))
     
     @pyqtSlot()
     def customizeZoom(self):
@@ -374,13 +199,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.ZoomBar.setValue(value)
     
     @pyqtSlot(bool)
-    def on_action_Display_Dimensions_toggled(self, toggled):
+    def on_action_Display_Dimensions_toggled(self, toggled: bool):
         """If turn on dimension labels, turn on the point marks."""
         if toggled:
             self.action_Display_Point_Mark.setChecked(True)
     
     @pyqtSlot(bool)
-    def on_action_Display_Point_Mark_toggled(self, toggled):
+    def on_action_Display_Point_Mark_toggled(self, toggled: bool):
         """If no point marks, turn off the dimension labels."""
         if not toggled:
             self.action_Display_Dimensions.setChecked(False)
@@ -391,7 +216,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.MainCanvas.setCurveMode(self.action_Path_style.isChecked())
     
     @pyqtSlot(int)
-    def on_SynthesisTab_currentChanged(self, index):
+    def on_SynthesisTab_currentChanged(self, index: int):
         """Dimensional synthesis information will show on the canvas."""
         self.MainCanvas.setShowTargetPath(
             self.SynthesisTab.tabText(index)=="Dimensional"
@@ -402,13 +227,13 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.DimensionalSynthesis.addPoint(self.mouse_pos_x, self.mouse_pos_y)
     
     @pyqtSlot(int, tuple)
-    def mergeResult(self, row, path):
+    def mergeResult(self, row: int, path: Tuple[Tuple[float, float]]):
         """Merge result function of dimensional synthesis."""
         Result = self.DimensionalSynthesis.mechanism_data[row]
         #exp_symbol = ['A', 'B', 'C', 'D', 'E']
         exp_symbol = []
         for exp in Result['Link_Expression'].split(';'):
-            for name in from_parenthesis(exp, '[', ']').split(','):
+            for name in strbetween(exp, '[', ']').split(','):
                 if name not in exp_symbol:
                     exp_symbol.append(name)
         self.CommandStack.beginMacro(
@@ -424,16 +249,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         for i, exp in enumerate(Result['Link_Expression'].split(';')):
             self.addNormalLink(
                 tmp_dict[name]
-                for name in from_parenthesis(exp, '[', ']').split(',')
+                for name in strbetween(exp, '[', ']').split(',')
             )
             if i == 0:
                 self.constrainLink(self.EntitiesLink.rowCount()-1)
         self.CommandStack.endMacro()
         #Add the path.
         i = 0
-        while "Algorithm_path_{}".format(i) in self.InputsWidget.pathData:
+        while "Algorithm_{}".format(i) in self.InputsWidget.pathData:
             i += 1
-        self.InputsWidget.addPath("Algorithm_path_{}".format(i), path)
+        self.InputsWidget.addPath("Algorithm_{}".format(i), path)
         self.MainCanvas.zoomToFit()
     
     @pyqtSlot()
@@ -471,16 +296,59 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.showMaximized()
     
     @pyqtSlot(int)
-    def on_EntitiesTab_currentChanged(self, index):
+    def on_EntitiesTab_currentChanged(self, index: int):
         self.MainCanvas.setSolutionShow(
             self.EntitiesTab.tabText(index) == "Formulas"
         )
+    
+    @pyqtSlot(float, float)
+    def setMousePos(self, x: float, y: float):
+        _actions.setMousePos(self, x, y)
+    
+    @pyqtSlot(QPoint)
+    def on_point_context_menu(self, point: QPoint):
+        _actions.on_point_context_menu(self, point)
+    
+    @pyqtSlot(QPoint)
+    def on_link_context_menu(self, point: QPoint):
+        _actions.on_link_context_menu(self, point)
+    
+    @pyqtSlot(QPoint)
+    def on_canvas_context_menu(self, point: QPoint):
+        _actions.on_canvas_context_menu(self, point)
+    
+    @pyqtSlot()
+    def enableMechanismActions(self):
+        _actions.enableMechanismActions(self)
+    
+    @pyqtSlot()
+    def copyPointsTable(self):
+        _actions.copyPointsTable(self)
+    
+    @pyqtSlot()
+    def copyLinksTable(self):
+        _actions.copyLinksTable(self)
+    
+    def copyCoord(self):
+        _actions.copyCoord(self)
+    
+    def restoreSettings(self):
+        _io.restoreSettings(self)
+    
+    def saveSettings(self):
+        _io.saveSettings(self)
+    
+    def resetOptions(self):
+        _io.resetOptions(self)
     
     def workbookNoSave(self):
         _io.workbookNoSave(self)
     
     def workbookSaved(self):
         _io.workbookSaved(self)
+    
+    def checkFileChanged(self) -> bool:
+        return _io.checkFileChanged(self)
     
     @pyqtSlot()
     def on_windowTitle_fullpath_clicked(self):
@@ -590,8 +458,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         _io.on_action_Output_to_Picture_clipboard_triggered(self)
     
     @pyqtSlot()
-    def on_action_Output_to_Expression_triggered(self):
-        _io.on_action_Output_to_Expression_triggered(self)
+    def on_action_See_Expression_triggered(self):
+        _io.on_action_See_Expression_triggered(self)
     
     @pyqtSlot()
     def on_action_See_Python_Scripts_triggered(self):
@@ -644,15 +512,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def lockPoints(self):
         _entities.lockPoints(self)
     
-    def toMultipleJoint(self, index: int, points: Tuple[int]):
-        _entities.toMultipleJoint(self, index, points)
-    
     def clonePoint(self):
         _entities.clonePoint(self)
     
     @pyqtSlot(tuple)
-    def setFreemoved(self, coordinates: Tuple[Tuple[float, float]]):
+    def setFreemoved(self, coordinates: Tuple[Tuple[int, Tuple[float, float]]]):
         _entities.setFreemoved(self, coordinates)
+    
+    def setCoordsAsCurrent(self):
+        _entities.setCoordsAsCurrent(self)
     
     @pyqtSlot()
     def on_action_New_Link_triggered(self):

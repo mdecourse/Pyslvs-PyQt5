@@ -7,7 +7,15 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import Tuple
+from copy import deepcopy
+from typing import (
+    Tuple,
+    Dict,
+    Callable,
+    Any,
+    Union,
+    Optional,
+)
 from core.QtModules import (
     QDialog,
     Qt,
@@ -17,12 +25,11 @@ from core.QtModules import (
     QMessageBox,
     QListWidgetItem,
 )
-from core.graphics import PreviewCanvas, replace_by_dict
-from copy import deepcopy
+from core.graphics import PreviewCanvas
 from .Ui_collections import Ui_Dialog
 
 
-mechanismParams_4Bar = {
+mech_params_4Bar = {
     'Driver': {'P0': None},
     'Follower': {'P1': None},
     'Target': {'P4': None},
@@ -41,7 +48,7 @@ mechanismParams_4Bar = {
     'same': {},
 }
 
-mechanismParams_8Bar = {
+mech_params_8Bar = {
     'Driver': {'P0': None},
     'Follower': {'P1': None},
     'Target': {'P10': None},
@@ -80,7 +87,7 @@ mechanismParams_8Bar = {
     'same': {2: 1, 4: 3, 7: 6},
 }
 
-mechanismParams_BallLifter = {
+mech_params_BallLifter = {
     'Driver': {'P0': None},
     'Follower': {'P1': None, 'P2': None, 'P3': None, 'P4': None},
     'Target': {'P13': None, 'P14': None},
@@ -127,6 +134,7 @@ mechanismParams_BallLifter = {
     'same': {6: 5},
 }
 
+
 class CollectionsDialog(QDialog, Ui_Dialog):
     
     """Option dialog.
@@ -134,7 +142,7 @@ class CollectionsDialog(QDialog, Ui_Dialog):
     Load the settings after closed.
     """
     
-    def __init__(self, parent):
+    def __init__(self, getCollection: Callable[[], Dict[str, Any]], parent):
         super(CollectionsDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(
@@ -143,19 +151,20 @@ class CollectionsDialog(QDialog, Ui_Dialog):
             Qt.WindowMaximizeButtonHint
         )
         self.collections = parent.collections
-        self.name_loaded = ""
+        self.getCollection = getCollection
+        self.__name_loaded = ""
         
         def get_solutions_func() -> Tuple[str]:
             """Return solutions to preview canvas."""
             try:
-                return replace_by_dict(self.collections[self.name_loaded])
+                return self.collections[self.__name_loaded]['Expression']
             except KeyError:
-                if self.name_loaded == "Four bar linkage mechanism":
-                    return replace_by_dict(mechanismParams_4Bar)
-                elif self.name_loaded == "Eight bar linkage mechanism":
-                    return replace_by_dict(mechanismParams_8Bar)
-                elif self.name_loaded == "Ball lifter linkage mechanism":
-                    return replace_by_dict(mechanismParams_BallLifter)
+                if self.__name_loaded == "Four bar linkage mechanism":
+                    return mech_params_4Bar['Expression']
+                elif self.__name_loaded == "Eight bar linkage mechanism":
+                    return mech_params_8Bar['Expression']
+                elif self.__name_loaded == "Ball lifter linkage mechanism":
+                    return mech_params_BallLifter['Expression']
                 else:
                     return tuple()
         
@@ -166,6 +175,7 @@ class CollectionsDialog(QDialog, Ui_Dialog):
             self.collections_list.addItem(name)
         #Splitter
         self.main_splitter.setSizes([200, 200])
+        self.sub_splitter.setSizes([100, 200])
         #Signals
         self.common_list.currentTextChanged.connect(self.__chooseCommon)
         self.common_list.itemClicked.connect(self.__chooseCommon)
@@ -195,11 +205,17 @@ class CollectionsDialog(QDialog, Ui_Dialog):
         ]:
             button.setEnabled(hasCollection)
     
+    def name(self) -> str:
+        return self.__name_loaded
+    
+    def params(self) -> Dict[str, Any]:
+        return self.__mech_params
+    
     @pyqtSlot()
     def on_rename_button_clicked(self):
         """Show up a string input to change the data name."""
         row = self.collections_list.currentRow()
-        if not row>-1:
+        if not row > -1:
             return
         name, ok = QInputDialog.getText(self,
             "Profile name",
@@ -221,7 +237,7 @@ class CollectionsDialog(QDialog, Ui_Dialog):
     def on_copy_button_clicked(self):
         """Ask a name to copy a data."""
         row = self.collections_list.currentRow()
-        if not row>-1:
+        if not row > -1:
             return
         name, ok = QInputDialog.getText(self,
             "Profile name",
@@ -258,41 +274,56 @@ class CollectionsDialog(QDialog, Ui_Dialog):
     
     @pyqtSlot(str)
     @pyqtSlot(QListWidgetItem)
-    def __chooseCommon(self, p0=None):
+    def __chooseCommon(self, p0: Union[str, QListWidgetItem, None] = None):
         """Update preview canvas for common data."""
         text = self.common_list.currentItem().text()
         if not text:
             return
-        self.name_loaded = text
+        self.__name_loaded = text
         if text == "Four bar linkage mechanism":
-            self.mechanismParams = deepcopy(mechanismParams_4Bar)
+            self.__mech_params = deepcopy(mech_params_4Bar)
         elif text == "Eight bar linkage mechanism":
-            self.mechanismParams = deepcopy(mechanismParams_8Bar)
-        elif self.name_loaded == "Ball lifter linkage mechanism":
-            self.mechanismParams = deepcopy(mechanismParams_BallLifter)
-        self.PreviewCanvas.from_profile(self.mechanismParams)
+            self.__mech_params = deepcopy(mech_params_8Bar)
+        elif self.__name_loaded == "Ball lifter linkage mechanism":
+            self.__mech_params = deepcopy(mech_params_BallLifter)
+        self.PreviewCanvas.from_profile(self.__mech_params)
     
     @pyqtSlot(str)
     @pyqtSlot(QListWidgetItem)
-    def __chooseCollections(self, p0=None):
+    def __chooseCollections(self, p0: Union[str, QListWidgetItem, None] = None):
         """Update preview canvas for a workbook data."""
         text = self.collections_list.currentItem().text()
         if not text:
             return
-        self.name_loaded = text
-        self.mechanismParams = self.collections[self.name_loaded]
-        self.PreviewCanvas.from_profile(self.mechanismParams)
+        self.__name_loaded = text
+        self.__mech_params = self.collections[self.__name_loaded]
+        self.PreviewCanvas.from_profile(self.__mech_params)
+    
+    @pyqtSlot()
+    def on_workbook_button_clicked(self):
+        """Get a collection data from current mechanism."""
+        try:
+            collection = self.getCollection()
+        except ValueError as e:
+            QMessageBox.warning(self, "Mechanism not support.", str(e))
+        else:
+            num = 0
+            while "mechanism{}".format(num) in self.collections:
+                num += 1
+            name = "mechanism{}".format(num)
+            self.collections[name] = collection
+            self.collections_list.addItem(name)
     
     @pyqtSlot()
     @pyqtSlot(QListWidgetItem)
-    def __loadCommon(self, p0=None):
+    def __loadCommon(self, p0: Optional[QListWidgetItem] = None):
         """Load a common data and close."""
         self.__chooseCommon(self.common_list.currentItem().text())
         self.accept()
     
     @pyqtSlot()
     @pyqtSlot(QListWidgetItem)
-    def __loadCollections(self, p0=None):
+    def __loadCollections(self, p0: Optional[QListWidgetItem] = None):
         """Load a workbook data and close."""
         self.__chooseCollections(self.collections_list.currentItem().text())
         self.accept()

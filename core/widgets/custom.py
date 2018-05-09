@@ -12,13 +12,15 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from core.QtModules import (
-    QAction,
-    Qt,
-    QMenu,
     pyqtSlot,
+    Qt,
+    QAction,
+    QMenu,
     QIcon,
     QPixmap,
     QPushButton,
+    QKeySequence,
+    QSettings,
     QUndoView,
 )
 from core.info import VERSION
@@ -26,7 +28,7 @@ from core.io import FileWidget
 from core.synthesis import (
     NumberAndTypeSynthesis,
     Collections,
-    DimensionalSynthesis
+    DimensionalSynthesis,
 )
 from .main_canvas import DynamicCanvas
 from .tables import (
@@ -42,7 +44,11 @@ def initCustomWidgets(self):
     """Start up custom widgets."""
     _undo_redo(self)
     _appearance(self)
+    _freemove(self)
+    _options(self)
+    _zoom(self)
     _context_menu(self)
+
 
 def _undo_redo(self):
     """Undo list settings.
@@ -51,15 +57,18 @@ def _undo_redo(self):
     + Undo view widget.
     + Hot keys.
     """
-    self.CommandStack.setUndoLimit(self.UndoLimit.value())
-    self.UndoLimit.valueChanged.connect(self.CommandStack.setUndoLimit)
+    self.CommandStack.setUndoLimit(self.undolimit_option.value())
+    self.undolimit_option.valueChanged.connect(self.CommandStack.setUndoLimit)
     self.CommandStack.indexChanged.connect(self.commandReload)
     self.undoView = QUndoView(self.CommandStack)
     self.undoView.setEmptyLabel("~ Start Pyslvs")
     self.UndoRedoLayout.addWidget(self.undoView)
     self.action_Redo = self.CommandStack.createRedoAction(self, "Redo")
     self.action_Undo = self.CommandStack.createUndoAction(self, "Undo")
-    self.action_Redo.setShortcut("Ctrl+Shift+Z")
+    self.action_Redo.setShortcuts([
+        QKeySequence("Ctrl+Shift+Z"),
+        QKeySequence("Ctrl+Y"),
+    ])
     self.action_Redo.setStatusTip("Backtracking undo action.")
     self.action_Redo.setIcon(QIcon(QPixmap(":/icons/redo.png")))
     self.action_Undo.setShortcut("Ctrl+Z")
@@ -67,6 +76,7 @@ def _undo_redo(self):
     self.action_Undo.setIcon(QIcon(QPixmap(":/icons/undo.png")))
     self.menu_Edit.addAction(self.action_Undo)
     self.menu_Edit.addAction(self.action_Redo)
+
 
 def _appearance(self):
     """Start up and initialize custom widgets."""
@@ -102,13 +112,13 @@ def _appearance(self):
     
     #QPainter canvas window
     self.MainCanvas = DynamicCanvas(self)
-    self.MainCanvas.mouse_getSelection.connect(
+    self.MainCanvas.selected.connect(
         self.EntitiesPoint.setSelections
     )
-    self.MainCanvas.mouse_freemoveSelection.connect(
+    self.MainCanvas.freemoved.connect(
         self.setFreemoved
     )
-    self.MainCanvas.mouse_noSelection.connect(
+    self.MainCanvas.noselected.connect(
         self.EntitiesPoint.clearSelection
     )
     CleanSelectionAction = QAction("Clean selection", self)
@@ -116,43 +126,17 @@ def _appearance(self):
     CleanSelectionAction.setShortcut("Esc")
     CleanSelectionAction.setShortcutContext(Qt.WindowShortcut)
     self.addAction(CleanSelectionAction)
-    self.MainCanvas.mouse_getAltAdd.connect(self.qAddNormalPoint)
-    self.MainCanvas.mouse_getDoubleClickEdit.connect(
+    self.MainCanvas.alt_add.connect(self.qAddNormalPoint)
+    self.MainCanvas.doubleclick_edit.connect(
         self.on_action_Edit_Point_triggered
     )
-    self.MainCanvas.zoom_change.connect(self.ZoomBar.setValue)
-    self.MainCanvas.mouse_track.connect(self.setMousePos)
-    self.MainCanvas.mouse_browse_track.connect(
+    self.MainCanvas.zoom_changed.connect(self.ZoomBar.setValue)
+    self.MainCanvas.tracking.connect(self.setMousePos)
+    self.MainCanvas.browse_tracking.connect(
         selectionLabel.updateMousePosition
     )
     self.canvasSplitter.insertWidget(0, self.MainCanvas)
     self.canvasSplitter.setSizes([600, 10, 30])
-    
-    #Menu of free move mode.
-    FreeMoveMode_menu = QMenu(self)
-    def freeMoveMode_func(j, qicon):
-        @pyqtSlot()
-        def func():
-            self.FreeMoveMode.setIcon(qicon)
-            self.MainCanvas.setFreeMove(j)
-            self.InputsWidget.variable_stop.click()
-        return func
-    for i, (text, icon) in enumerate([
-        ("View mode", "freemove_off"),
-        ("Translate mode", "freemove_on"),
-        ("Rotate mode", "freemove_on"),
-        ("Reflect mode", "freemove_on"),
-    ]):
-        action = QAction(
-            QIcon(QPixmap(":/icons/{}.png".format(icon))),
-            text,
-            self
-        )
-        action.triggered.connect(freeMoveMode_func(i, action.icon()))
-        action.setShortcut("Ctrl+{}".format(i+1))
-        action.setShortcutContext(Qt.WindowShortcut)
-        FreeMoveMode_menu.addAction(action)
-    self.FreeMoveMode.setMenu(FreeMoveMode_menu)
     
     #File table settings.
     self.FileWidget = FileWidget(self)
@@ -166,11 +150,12 @@ def _appearance(self):
     #Inputs widget.
     self.InputsWidget = InputsWidget(self)
     self.inputs_tab_layout.addWidget(self.InputsWidget)
-    self.FreeMoveMode.toggled.connect(self.InputsWidget.variableValueReset)
-    self.MainCanvas.mouse_getSelection.connect(
+    self.freemode_button.toggled.connect(self.InputsWidget.variableValueReset)
+    self.InputsWidget.aboutToResolve.connect(self.resolve)
+    self.MainCanvas.selected.connect(
         self.InputsWidget.setSelection
     )
-    self.MainCanvas.mouse_noSelection.connect(
+    self.MainCanvas.noselected.connect(
         self.InputsWidget.clearSelection
     )
     
@@ -220,13 +205,6 @@ def _appearance(self):
     
     #Dimensional synthesis
     self.DimensionalSynthesis = DimensionalSynthesis(self)
-    self.DimensionalSynthesis.fixPointRange.connect(
-        self.MainCanvas.updateRanges
-    )
-    self.DimensionalSynthesis.pathChanged.connect(
-        self.MainCanvas.setSolvingPath
-    )
-    self.DimensionalSynthesis.mergeResult.connect(self.mergeResult)
     self.FileWidget.AlgorithmDataFunc = (
         lambda: self.DimensionalSynthesis.mechanism_data
     ) #Call to get algorithm data.
@@ -247,41 +225,17 @@ def _appearance(self):
     self.connectConsoleButton.setEnabled(self.args.debug_mode)
     
     #Select all button on the Point and Link tab as corner widget.
-    SelectAllButton = QPushButton()
-    SelectAllButton.setIcon(QIcon(QPixmap(":/icons/select_all.png")))
-    SelectAllButton.setToolTip("Select all")
-    SelectAllButton.setStatusTip("Select all item of point table.")
-    SelectAllButton.clicked.connect(self.EntitiesPoint.selectAll)
-    self.EntitiesTab.setCornerWidget(SelectAllButton)
-    SelectAllAction = QAction("Select all point", self)
-    SelectAllAction.triggered.connect(self.EntitiesPoint.selectAll)
-    SelectAllAction.setShortcut("Ctrl+A")
-    SelectAllAction.setShortcutContext(Qt.WindowShortcut)
-    self.addAction(SelectAllAction)
-    
-    #While value change, update the canvas widget.
-    self.EntitiesPoint.rowSelectionChanged.connect(
-        self.MainCanvas.changePointsSelection
-    )
-    self.ZoomBar.valueChanged.connect(self.MainCanvas.setZoom)
-    self.LineWidth.valueChanged.connect(self.MainCanvas.setLinkWidth)
-    self.PathWidth.valueChanged.connect(self.MainCanvas.setPathWidth)
-    self.Font_size.valueChanged.connect(self.MainCanvas.setFontSize)
-    self.action_Display_Point_Mark.toggled.connect(
-        self.MainCanvas.setPointMark
-    )
-    self.action_Display_Dimensions.toggled.connect(
-        self.MainCanvas.setShowDimension
-    )
-    self.SelectionRadius.valueChanged.connect(
-        self.MainCanvas.setSelectionRadius
-    )
-    self.LinkageTransparency.valueChanged.connect(
-        self.MainCanvas.setTransparency
-    )
-    self.MarginFactor.valueChanged.connect(
-        self.MainCanvas.setMarginFactor
-    )
+    select_all_button = QPushButton()
+    select_all_button.setIcon(QIcon(QPixmap(":/icons/select_all.png")))
+    select_all_button.setToolTip("Select all")
+    select_all_button.setStatusTip("Select all item of point table.")
+    select_all_button.clicked.connect(self.EntitiesPoint.selectAll)
+    self.EntitiesTab.setCornerWidget(select_all_button)
+    select_all_action = QAction("Select all point", self)
+    select_all_action.triggered.connect(self.EntitiesPoint.selectAll)
+    select_all_action.setShortcut("Ctrl+A")
+    select_all_action.setShortcutContext(Qt.WindowShortcut)
+    self.addAction(select_all_action)
     
     #Splitter stretch factor.
     self.MainSplitter.setStretchFactor(0, 4)
@@ -291,21 +245,95 @@ def _appearance(self):
     
     #Enable mechanism menu actions when shows.
     self.menu_Mechanism.aboutToShow.connect(self.enableMechanismActions)
+
+
+def _freemove(self):
+    """Menu of free move mode."""
+    free_move_mode_menu = QMenu(self)
     
-    #'zoom to fit' function connections.
+    def freeMoveMode_func(j: int, qicon: QIcon):
+        
+        @pyqtSlot()
+        def func():
+            self.freemode_button.setIcon(qicon)
+            self.MainCanvas.setFreeMove(j)
+            self.InputsWidget.variable_stop.click()
+        
+        return func
+    
+    for i, (text, icon) in enumerate((
+        ("View mode", "freemove_off"),
+        ("Translate mode", "freemove_on"),
+        ("Rotate mode", "freemove_on"),
+        ("Reflect mode", "freemove_on"),
+    )):
+        action = QAction(
+            QIcon(QPixmap(":/icons/{}.png".format(icon))),
+            text,
+            self
+        )
+        action.triggered.connect(freeMoveMode_func(i, action.icon()))
+        action.setShortcuts([
+            QKeySequence("Ctrl+{}".format(i+1)),
+            QKeySequence("Shift+{}".format(i+1)),
+        ])
+        action.setShortcutContext(Qt.WindowShortcut)
+        free_move_mode_menu.addAction(action)
+    self.freemode_button.setMenu(free_move_mode_menu)
+
+
+def _options(self):
+    """Signal connection for option widgets.
+    
+    + Spin boxes
+    + Combo boxes
+    + Check boxes
+    """
+    #While value change, update the canvas widget.
+    self.settings = QSettings('Kmol', 'Pyslvs')
+    self.EntitiesPoint.rowSelectionChanged.connect(
+        self.MainCanvas.changePointsSelection
+    )
+    self.ZoomBar.valueChanged.connect(self.MainCanvas.setZoom)
+    self.linewidth_option.valueChanged.connect(self.MainCanvas.setLinkWidth)
+    self.pathwidth_option.valueChanged.connect(self.MainCanvas.setPathWidth)
+    self.fontsize_option.valueChanged.connect(self.MainCanvas.setFontSize)
+    self.action_Display_Point_Mark.toggled.connect(
+        self.MainCanvas.setPointMark
+    )
+    self.action_Display_Dimensions.toggled.connect(
+        self.MainCanvas.setShowDimension
+    )
+    self.selectionradius_option.valueChanged.connect(
+        self.MainCanvas.setSelectionRadius
+    )
+    self.linktrans_option.valueChanged.connect(
+        self.MainCanvas.setTransparency
+    )
+    self.marginfactor_option.valueChanged.connect(
+        self.MainCanvas.setMarginFactor
+    )
+    self.jointsize_option.valueChanged.connect(self.MainCanvas.setJointSize)
+    self.zoomby_option.currentIndexChanged.connect(self.MainCanvas.setZoomBy)
+    self.snap_option.valueChanged.connect(self.MainCanvas.setSnap)
+    self.settings_reset.clicked.connect(self.resetOptions)
+
+
+def _zoom(self):
+    """Zoom functions.
+    
+    + 'zoom to fit' function connections.
+    + Zoom text buttons
+    """
     self.action_Zoom_to_fit.triggered.connect(
         self.MainCanvas.zoomToFit
     )
     self.ResetCanvas.clicked.connect(self.MainCanvas.zoomToFit)
     
-    #Zoom text button
-    Zoom_menu = QMenu(self)
+    zoom_menu = QMenu(self)
     
     def zoom_level(level):
-        @pyqtSlot()
-        def func():
-            self.ZoomBar.setValue(level)
-        return func
+        return pyqtSlot()(lambda: self.ZoomBar.setValue(level))
     
     for level in range(
         self.ZoomBar.minimum() - self.ZoomBar.minimum()%100 + 100,
@@ -314,14 +342,15 @@ def _appearance(self):
     ):
         action = QAction('{}%'.format(level), self)
         action.triggered.connect(zoom_level(level))
-        Zoom_menu.addAction(action)
+        zoom_menu.addAction(action)
     action = QAction("customize", self)
     action.triggered.connect(self.customizeZoom)
-    Zoom_menu.addAction(action)
-    self.ZoomText.setMenu(Zoom_menu)
+    zoom_menu.addAction(action)
+    self.zoom_button.setMenu(zoom_menu)
+
 
 def _context_menu(self):
-    '''EntitiesPoint context menu
+    """EntitiesPoint context menu
     
     + Add
     ///////
@@ -336,7 +365,7 @@ def _context_menu(self):
     + Clone
     -------
     + Delete
-    '''
+    """
     self.Entities_Point_Widget.customContextMenuRequested.connect(
         self.on_point_context_menu
     )
@@ -376,7 +405,7 @@ def _context_menu(self):
         self.on_action_Delete_Point_triggered
     )
     self.popMenu_point.addAction(self.action_point_context_delete)
-    '''EntitiesLink context menu
+    """EntitiesLink context menu
     
     + Add
     + Edit
@@ -384,7 +413,7 @@ def _context_menu(self):
     + Release / Constrain
     -------
     + Delete
-    '''
+    """
     self.Entities_Link_Widget.customContextMenuRequested.connect(
         self.on_link_context_menu
     )
@@ -415,7 +444,7 @@ def _context_menu(self):
         self.on_action_Delete_Link_triggered
     )
     self.popMenu_link.addAction(self.action_link_context_delete)
-    '''MainCanvas context menu
+    """MainCanvas context menu
     
     + Add
     ///////
@@ -433,7 +462,7 @@ def _context_menu(self):
     + Copy coordinate
     -------
     + Delete
-    '''
+    """
     self.MainCanvas.setContextMenuPolicy(Qt.CustomContextMenu)
     self.MainCanvas.customContextMenuRequested.connect(
         self.on_canvas_context_menu

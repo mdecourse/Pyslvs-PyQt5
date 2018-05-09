@@ -15,7 +15,9 @@ from typing import (
     List,
     Tuple,
     Set,
-    Any
+    Callable,
+    Any,
+    Optional,
 )
 from core.QtModules import (
     Qt,
@@ -28,9 +30,13 @@ from core.QtModules import (
     QLabel,
     QApplication,
 )
-from core.graphics import PreviewCanvas, edges_view
-from core.io import from_parenthesis, front_of_parenthesis
-from core.libs import vpoints_configure, VPoint
+from core.graphics import (
+    PreviewCanvas,
+    edges_view,
+    graph2vpoints,
+)
+from core.io import strbetween, strbefore
+from core.libs import vpoints_configure
 from .TriangularIteration_dialog import (
     CollectionsDialog,
     ConstraintsDialog,
@@ -49,8 +55,8 @@ class PreviewWindow(PreviewCanvas):
     
     set_joint_number = pyqtSignal(int)
     
-    def __init__(self, get_solutions_func, parent):
-        super(PreviewWindow, self).__init__(get_solutions_func, parent)
+    def __init__(self, get_solutions: Callable[[], Tuple[str]], parent):
+        super(PreviewWindow, self).__init__(get_solutions, parent)
         self.pressed = False
         self.get_joint_number = parent.joint_name.currentIndex
     
@@ -89,21 +95,23 @@ class PreviewWindow(PreviewCanvas):
             self.pos[row] = (self.pos[row][0], 120 if -120 <= my else -120)
         self.update()
 
+
 class CollectionsTriangularIteration(QWidget, Ui_Form):
     
     """Triangular iteration widget."""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         super(CollectionsTriangularIteration, self).__init__(parent)
         self.setupUi(self)
         self.unsaveFunc = parent.workbookNoSave
-        '''
+        self.getCollection = parent.getCollection
+        """
         self.addToCollection = CollectionsStructure.addCollection
-        '''
+        """
         self.collections = {}
         #Canvas
         self.PreviewWindow = PreviewWindow(
-            lambda: tuple(
+            lambda: ';'.join(
                 self.expression_list.item(row).text()
                 for row in range(self.expression_list.count())
             ),
@@ -288,7 +296,7 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
         self.follower_list.addItem(name)
     
     @pyqtSlot(int)
-    def __hasSolution(self, index=None):
+    def __hasSolution(self, index: Optional[int] = None):
         """Set buttons enable if there has solution."""
         if index is None:
             index = self.joint_name.currentIndex()
@@ -306,11 +314,11 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
             status_str = "Grounded."
             for expr in list_texts(self.expression_list):
                 if index == int(
-                    from_parenthesis(expr, '(', ')')
+                    strbetween(expr, '(', ')')
                     .replace('P', '')
                 ):
                     status_str = "From {}.".format(
-                        front_of_parenthesis(expr, '[')
+                        strbefore(expr, '[')
                     )
         self.status_show.setText(status_str)
         self.PLAP_solution.setEnabled(not status)
@@ -357,12 +365,12 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
     @pyqtSlot()
     def on_load_button_clicked(self):
         """Show up the dialog to load structure data."""
-        dlg = CollectionsDialog(self)
+        dlg = CollectionsDialog(self.getCollection, self)
         dlg.show()
         if not dlg.exec_():
             return
-        self.profile_name = dlg.name_loaded
-        params = dlg.mechanismParams
+        self.profile_name = dlg.name()
+        params = dlg.params()
         #Add customize joints.
         G = Graph(params['Graph'])
         self.setGraph(G, params['pos'])
@@ -381,11 +389,11 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
                 break
         #Driver, Follower, Target
         for expr in params['Expression'].split(';'):
-            if front_of_parenthesis(expr, '[') != 'PLAP':
+            if strbefore(expr, '[') != 'PLAP':
                 continue
-            base = from_parenthesis(expr, '[', ']').split(',')[0]
+            base = strbetween(expr, '[', ']').split(',')[0]
             self.__find_follower_to_remove(base)
-            rotator = from_parenthesis(expr, '(', ')')
+            rotator = strbetween(expr, '(', ')')
             self.driver_list.addItem("({}, {})".format(base, rotator))
         self.__setWarning(self.driver_label, not self.driver_list.count())
         self.target_list.addItems(list(params['Target']))
@@ -395,14 +403,15 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
             ", ".join(c) for c in params['constraint']
         ])
         #Expression
-        for expr in params['Expression'].split(';'):
-            func = front_of_parenthesis(expr, '[')
-            target = from_parenthesis(expr, '(', ')')
-            params = from_parenthesis(expr, '[', ']').split(',')
-            params.insert(0, func)
-            params.append(target)
-            self.__addSolution(*params)
-            self.PreviewWindow.setStatus(target, True)
+        if params['Expression']:
+            for expr in params['Expression'].split(';'):
+                func = strbefore(expr, '[')
+                target = strbetween(expr, '(', ')')
+                params = strbetween(expr, '[', ']').split(',')
+                params.insert(0, func)
+                params.append(target)
+                self.__addSolution(*params)
+                self.PreviewWindow.setStatus(target, True)
         self.__setWarning(
             self.expression_list_label,
             not self.PreviewWindow.isAllLock()
@@ -435,8 +444,8 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
         """Return all symbols."""
         expr_list = set([])
         for expr in self.expr_show.text().split(';'):
-            param_list = from_parenthesis(expr, '[', ']').split(',')
-            param_list.append(from_parenthesis(expr, '(', ')'))
+            param_list = strbetween(expr, '[', ']').split(',')
+            param_list.append(strbetween(expr, '(', ')'))
             expr_list.update(param_list)
         return expr_list
     
@@ -496,7 +505,7 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
         )
     
     @pyqtSlot(QListWidgetItem)
-    def __setParmBind(self, item=None):
+    def __setParmBind(self, item: Optional[QListWidgetItem] = None):
         """Set parameters binding."""
         self.expr_show.setText(';'.join(list_texts(self.expression_list)))
         link_expr_list = []
@@ -547,50 +556,6 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
             (not self.on_expression_clear_clicked())
         ):
             return
-        
-        def graph2vpoints(
-            G: Graph,
-            pos: Dict[int, Tuple[float, float]],
-            cus: Dict[str, int],
-            same: Dict[int, int]
-        ) -> Tuple[VPoint]:
-            """Change Networkx graph into VPoints."""
-            same_r = {}
-            for k, v in same.items():
-                if v in same_r:
-                    same_r[v].append(k)
-                else:
-                    same_r[v] = [k]
-            tmp_list = []
-            ev = dict(edges_view(G))
-            for i, e in ev.items():
-                if i in same:
-                    link = ''
-                else:
-                    e = set(e)
-                    if i in same_r:
-                        for j in same_r[i]:
-                            e.update(set(ev[j]))
-                    link = ", ".join(
-                        (str(l) if (l != 0) else 'ground') for l in e
-                    )
-                tmp_list.append(VPoint(
-                    link,
-                    0,
-                    0.,
-                    'Green',
-                    *pos[i]
-                ))
-            for name in sorted(cus):
-                tmp_list.append(VPoint(
-                    str(cus[name]) if (cus[name] != 0) else 'ground',
-                    0,
-                    0.,
-                    'Green',
-                    *pos[int(name.replace('P', ''))]
-                ))
-            return tmp_list
-        
         exprs = vpoints_configure(
             graph2vpoints(
                 self.PreviewWindow.G,
@@ -620,7 +585,7 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
         expr = self.expression_list.item(count-1).text()
         self.expression_list.takeItem(count-1)
         self.PreviewWindow.setStatus(
-            from_parenthesis(expr, '(', ')'),
+            strbetween(expr, '(', ')'),
             False
         )
         self.__setParmBind()

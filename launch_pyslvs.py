@@ -9,15 +9,15 @@ __email__ = "pyslvs@gmail.com"
 
 from sys import exit
 from core import (
+    QApplication,
     MainWindow,
     ARGUMENTS,
     INFO,
     PyslvsSplash,
 )
-from PyQt5.QtWidgets import QApplication
 
 
-if __name__=='__main__':
+if __name__ == '__main__':
     for info in INFO:
         print(info)
     print('-' * 7)

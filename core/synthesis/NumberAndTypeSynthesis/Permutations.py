@@ -8,7 +8,7 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from networkx import Graph
-from typing import List
+from typing import List, Optional
 from core.QtModules import (
     QWidget,
     QMenu,
@@ -32,7 +32,7 @@ from core.QtModules import (
     QFileInfo,
 )
 
-from core.io import Qt_images
+from core.io import QTIMAGES
 from core.libs import NumberSynthesis, topo
 from core.graphics import (
     graph,
@@ -290,7 +290,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
     
     @pyqtSlot()
     @pyqtSlot(str)
-    def on_reload_atlas_clicked(self, p0=None):
+    def on_reload_atlas_clicked(self, p0: Optional[str] = None):
         """Reload the atlas. Regardless there has any old data."""
         self.engine = self.graph_engine.currentText().split(" - ")[1]
         self.Topologic_result.clear()
@@ -406,7 +406,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             )
             if not ok:
                 return
-            file_name = self.outputTo("Atlas image", Qt_images)
+            file_name = self.outputTo("Atlas image", QTIMAGES)
             if file_name:
                 reply = QMessageBox.question(self,
                     "Type synthesis",
@@ -430,7 +430,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         if not ok:
             return
         if not file_name:
-            file_name = self.outputTo("Atlas image", Qt_images)
+            file_name = self.outputTo("Atlas image", QTIMAGES)
         if not file_name:
             return
         width = self.Topologic_result.iconSize().width()

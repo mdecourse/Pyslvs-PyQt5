@@ -11,7 +11,7 @@ from typing import Tuple, Sequence, Callable
 from core.libs import VPoint
 
 
-script_group = ['''\
+_script_group = ["""\
 ±²³SolveSpaceREVa
 
 
@@ -54,7 +54,8 @@ Group.allDimsReference=0
 Group.scale=1.00000000000000000000
 Group.remap={
 }
-AddGroup''']
+AddGroup"""]
+
 
 entity_plane = lambda n, p, v, : '\n'.join([
     "Entity.h.v={:08x}".format(n),
@@ -96,6 +97,7 @@ entity_normal_xyz = lambda n, p, reversed=False: '\n'.join([
     "Entity.actVisible=1",
     "AddEntity"
 ])
+
 
 def slvs2D(
     VPoints: Sequence[VPoint],
@@ -185,18 +187,20 @@ def slvs2D(
     #Write file
     with open(file_name, 'w', encoding="iso-8859-15") as f:
         f.write('\n\n'.join('\n\n'.join(script) for script in [
-            script_group,
+            _script_group,
             script_param,
             script_request,
             script_entity,
             script_constraint
         ]) + '\n\n')
 
+
 def up(num, digit):
     ten = 0x10**digit
     num += ten
     num -= num%ten
     return num
+
 
 Param = lambda num, val: '\n'.join([
     "Param.h.v.={:08x}".format(num),

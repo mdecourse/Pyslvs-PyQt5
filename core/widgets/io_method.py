@@ -7,15 +7,19 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from pygments.lexers import Python3Lexer
 from typing import (
     Tuple,
     List,
     Dict,
     Callable,
+    Iterator,
+    Union,
 )
 from core.QtModules import (
     Qt,
     QApplication,
+    QWidget,
     QMessageBox,
     QDesktopServices,
     QUrl,
@@ -23,18 +27,27 @@ from core.QtModules import (
     QFileInfo,
     QFileDialog,
     QProgressDialog,
+    QSpinBox,
+    QDoubleSpinBox,
+    QComboBox,
+    QCheckBox,
 )
-from core.info import PyslvsAbout, check_update
+from core.info import (
+    PyslvsAbout,
+    check_update,
+    VERSION,
+)
 from core.io import (
-    Script_Dialog,
-    PMKSArgsTransformer,
-    PMKS_parser,
+    ScriptDialog,
+    slvsProcessScript,
+    parse_params,
+    PMKSLexer,
     AddTable,
     EditPointTable,
     slvs2D,
     dxfSketch,
-    Qt_images,
-    from_parenthesis,
+    QTIMAGES,
+    strbetween,
 )
 
 
@@ -42,21 +55,45 @@ def _openURL(url: str):
     """Use to open link."""
     QDesktopServices.openUrl(QUrl(url))
 
+
 def _v_to_slvs(self) -> Callable[[], Tuple[Tuple[int, int]]]:
     """Solvespace edges."""
     
-    def v_to_slvs() -> Tuple[Tuple[int, int]]:
+    def v_to_slvs() -> Iterator[Tuple[int, int]]:
         for vlink in self.EntitiesLink.data():
-            if vlink.name=='ground':
+            if vlink.name == 'ground':
                 continue
             for i, p in enumerate(vlink.points):
-                if i==0:
+                if i == 0:
                     continue
                 yield (vlink.points[0], p)
-                if i>1:
+                if i > 1:
                     yield (vlink.points[i-1], p)
     
     return v_to_slvs
+
+
+def _settings(self) -> Tuple[Tuple[QWidget, Union[int, float, bool]]]:
+    """Give the settings of all option widgets."""
+    return (
+        (self.linewidth_option, 3),
+        (self.fontsize_option, 15),
+        (self.pathwidth_option, 3),
+        (self.scalefactor_option, 10),
+        (self.selectionradius_option, 10),
+        (self.linktrans_option, 0),
+        (self.marginfactor_option, 5),
+        (self.jointsize_option, 5),
+        (self.zoomby_option, 0),
+        (self.snap_option, 1.),
+        (self.undolimit_option, 32),
+        (self.planarsolver_option, 0),
+        (self.titlefullpath_option, False),
+        (self.consoleerror_option, False),
+        #Do not save settings.
+        (self.dontsave_option, True),
+    )
+
 
 def workbookNoSave(self):
     """Workbook not saved signal."""
@@ -67,41 +104,49 @@ def workbookNoSave(self):
         not_yet_saved
     )
 
+
 def workbookSaved(self):
     """Workbook saved signal."""
     self.FileWidget.changed = False
     self.on_windowTitle_fullpath_clicked()
+
 
 def on_windowTitle_fullpath_clicked(self):
     """Set the option 'window title will show the fullpath'."""
     file_name = self.FileWidget.file_name
     self.setWindowTitle("Pyslvs - {}".format(
         file_name.absoluteFilePath()
-        if self.windowTitle_fullpath.isChecked()
+        if self.titlefullpath_option.isChecked()
         else file_name.fileName()
     ) + (" (not yet saved)" if self.FileWidget.changed else ''))
+
 
 def on_action_Get_Help_triggered(self):
     """Open website: mde.tw"""
     _openURL("http://mde.tw")
 
+
 def on_action_Pyslvs_com_triggered(self):
     """Open website: pyslvs.com"""
     _openURL("http://www.pyslvs.com/blog/index.html")
 
+
 def on_action_github_repository_triggered(self):
     """Open website: Github repository."""
     _openURL("https://github.com/KmolYuan/Pyslvs-PyQt5")
+
 
 def on_action_About_Pyslvs_triggered(self):
     """Open Pyslvs about."""
     about = PyslvsAbout(self)
     about.show()
 
+
 def on_action_Console_triggered(self):
     """Open GUI console."""
     self.OptionTab.setCurrentIndex(2)
     self.History_tab.setCurrentIndex(1)
+
 
 def on_action_Example_triggered(self):
     """Load examples from 'FileWidget'.
@@ -110,9 +155,11 @@ def on_action_Example_triggered(self):
     if self.FileWidget.loadExample():
         self.MainCanvas.zoomToFit()
 
+
 def on_action_Import_Example_triggered(self):
     """Import a example and merge it to canvas."""
-    self.FileWidget.loadExample(isImport=True)
+    self.FileWidget.loadExample(isImport = True)
+
 
 def on_action_New_Workbook_triggered(self):
     """Create (Clean) a new workbook."""
@@ -122,6 +169,7 @@ def on_action_New_Workbook_triggered(self):
     self.FileWidget.reset()
     self.FileWidget.closeDatabase()
     print("Created a new workbook.")
+
 
 def clear(self):
     """Clear to create commit stage."""
@@ -135,6 +183,7 @@ def clear(self):
     self.EntitiesLink.clear()
     self.Entities_Expr.clear()
     self.resolve()
+
 
 def on_action_Import_PMKS_server_triggered(self):
     """Load PMKS URL and turn it to expression."""
@@ -179,15 +228,16 @@ def on_action_Import_PMKS_server_triggered(self):
     else:
         self.parseExpression(expression)
 
+
 def parseExpression(self, expr: str):
     """Parse expression."""
     try:
-        args_list = PMKSArgsTransformer().transform(PMKS_parser.parse(expr))
+        args_list = parse_params(expr)
     except Exception as e:
-        print(e)
         QMessageBox.warning(self,
             "Loading failed",
-            "Your expression is in an incorrect format."
+            "Your expression is in an incorrect format.\n" +
+            str(e)
         )
     else:
         for args in args_list:
@@ -210,11 +260,13 @@ def parseExpression(self, expr: str):
             ))
             self.CommandStack.endMacro()
 
+
 def addEmptyLinkGroup(self, linkcolor: Dict[str, str]):
     """Use to add empty link when loading database."""
     for name, color in linkcolor.items():
         if name != 'ground':
             self.addLink(name, color)
+
 
 def on_action_Load_Workbook_triggered(self):
     """Load workbook."""
@@ -229,6 +281,7 @@ def on_action_Load_Workbook_triggered(self):
     self.FileWidget.read(file_name)
     self.MainCanvas.zoomToFit()
 
+
 def on_action_Import_Workbook_triggered(self):
     """Import from workbook."""
     if self.checkFileChanged():
@@ -241,6 +294,7 @@ def on_action_Import_Workbook_triggered(self):
         return
     self.FileWidget.importMechanism(file_name)
 
+
 def on_action_Save_triggered(self, isBranch: bool):
     """Save action."""
     file_name = self.FileWidget.file_name.absoluteFilePath()
@@ -249,6 +303,7 @@ def on_action_Save_triggered(self, isBranch: bool):
     else:
         self.on_action_Save_as_triggered(isBranch)
 
+
 def on_action_Save_as_triggered(self, isBranch: bool):
     """Save as action."""
     file_name = self.outputTo("workbook", ["Pyslvs workbook (*.pyslvs)"])
@@ -256,9 +311,11 @@ def on_action_Save_as_triggered(self, isBranch: bool):
         self.FileWidget.save(file_name, isBranch)
         self.saveReplyBox("Workbook", file_name)
 
+
 def on_action_Save_branch_triggered(self):
     """Save as new branch action."""
     self.on_action_Save_triggered(True)
+
 
 def on_action_Output_to_Solvespace_triggered(self):
     """Solvespace 2d save function."""
@@ -269,11 +326,12 @@ def on_action_Output_to_Solvespace_triggered(self):
     if not file_name:
         return
     slvs2D(
-        self.EntitiesPoint.data(),
+        self.EntitiesPoint.dataTuple(),
         _v_to_slvs(self),
         file_name
     )
     self.saveReplyBox("Solvespace sketch", file_name)
+
 
 def on_action_Output_to_DXF_triggered(self):
     """DXF 2d save function."""
@@ -284,24 +342,26 @@ def on_action_Output_to_DXF_triggered(self):
     if not file_name:
         return
     dxfSketch(
-        self.EntitiesPoint.data(),
+        self.EntitiesPoint.dataTuple(),
         _v_to_slvs(self),
         file_name
     )
     self.saveReplyBox("Drawing Exchange Format", file_name)
 
+
 def on_action_Output_to_Picture_triggered(self):
     """Picture save function."""
-    file_name = self.outputTo("picture", Qt_images)
+    file_name = self.outputTo("picture", QTIMAGES)
     if not file_name:
         return
     pixmap = self.MainCanvas.grab()
     pixmap.save(file_name, format=QFileInfo(file_name).suffix())
     self.saveReplyBox("Picture", file_name)
 
+
 def outputTo(self, formatName: str, formatChoose: List[str]) -> str:
     """Simple to support mutiple format."""
-    suffix0 = from_parenthesis(formatChoose[0], '(', ')').split('*')[-1]
+    suffix0 = strbetween(formatChoose[0], '(', ')').split('*')[-1]
     file_name, suffix = QFileDialog.getSaveFileName(
         self,
         "Save to {}...".format(formatName),
@@ -309,12 +369,13 @@ def outputTo(self, formatName: str, formatChoose: List[str]) -> str:
         ';;'.join(formatChoose)
     )
     if file_name:
-        suffix = from_parenthesis(suffix, '(', ')').split('*')[-1]
+        suffix = strbetween(suffix, '(', ')').split('*')[-1]
         print("Format: {}".format(suffix))
         if QFileInfo(file_name).suffix()!=suffix[1:]:
             file_name += suffix
         self.setLocate(QFileInfo(file_name).absolutePath())
     return file_name
+
 
 def saveReplyBox(self, title: str, file_name: str):
     """Show message when successfully saved."""
@@ -328,6 +389,7 @@ def saveReplyBox(self, title: str, file_name: str):
         "Successfully converted:\n{}".format(file_name)
     )
     print("Successful saved: [\"{}\"]".format(file_name))
+
 
 def inputFrom(self,
     formatName: str,
@@ -345,13 +407,14 @@ def inputFrom(self,
     else:
         file_name_s, suffix = QFileDialog.getOpenFileName(self, *args)
     if file_name_s:
-        suffix = from_parenthesis(suffix, '(', ')').split('*')[-1]
+        suffix = strbetween(suffix, '(', ')').split('*')[-1]
         print("Format: {}".format(suffix))
         if type(file_name_s)==str:
             self.setLocate(QFileInfo(file_name_s).absolutePath())
         else:
             self.setLocate(QFileInfo(file_name_s[0]).absolutePath())
     return file_name_s
+
 
 def on_action_Output_to_PMKS_triggered(self):
     """Output to PMKS as URL."""
@@ -388,6 +451,7 @@ def on_action_Output_to_PMKS_triggered(self):
     elif reply == QMessageBox.Save:
         QApplication.clipboard().setText(url)
 
+
 def on_action_Output_to_Picture_clipboard_triggered(self):
     """Capture the canvas image to clipboard."""
     QApplication.clipboard().setPixmap(self.MainCanvas.grab())
@@ -396,31 +460,33 @@ def on_action_Output_to_Picture_clipboard_triggered(self):
         "Canvas widget picture is copy to clipboard."
     )
 
-def on_action_Output_to_Expression_triggered(self):
-    """Output as expression."""
-    data = self.EntitiesPoint.data()
-    expr = "M[{}]".format(", ".join(vpoint.expr for vpoint in data))
-    text = (
-        "You can copy the expression and import to another workbook:" +
-        "\n\n{}\n\nClick the save button to copy it.".format(expr)
-    )
-    reply = QMessageBox.question(self,
-        "Pyslvs Expression",
-        text,
-        (QMessageBox.Save | QMessageBox.Close),
-        QMessageBox.Save
-    )
-    if reply == QMessageBox.Save:
-        QApplication.clipboard().setText(expr)
 
-def on_action_See_Python_Scripts_triggered(self):
-    """Output to Python script for Jupyter notebook."""
-    dlg = Script_Dialog(
-        self.EntitiesPoint.data(),
-        self.EntitiesLink.data(),
+def on_action_See_Expression_triggered(self):
+    """Output as expression."""
+    context = ",\n".join(" " * 4 + vpoint.expr for vpoint in self.EntitiesPoint.data())
+    dlg = ScriptDialog(
+        "#Generate by Pyslvs v{}.{}.{} ({})\n".format(*VERSION) +
+        ("M[\n{}\n]".format(context) if context else "M[]"),
+        PMKSLexer(),
+        "Pyslvs expression",
+        ["Text file(*.txt)"],
         self
     )
     dlg.show()
+
+
+def on_action_See_Python_Scripts_triggered(self):
+    """Output to Python script for Jupyter notebook."""
+    dlg = ScriptDialog(
+        "#Generate by Pyslvs v{}.{}.{} ({})\n".format(*VERSION) +
+        slvsProcessScript(self.EntitiesPoint.data(), self.EntitiesLink.data()),
+        Python3Lexer(),
+        "Python script",
+        ["Python3 Script(*.py)"],
+        self
+    )
+    dlg.show()
+
 
 def on_action_Check_update_triggered(self):
     """Check for update."""
@@ -447,6 +513,7 @@ def on_action_Check_update_triggered(self):
     if reply == QMessageBox.Ok:
         _openURL(url)
 
+
 def checkFileChanged(self) -> bool:
     """If the user has not saved the change.
     
@@ -467,3 +534,50 @@ def checkFileChanged(self) -> bool:
     elif reply == QMessageBox.Discard:
         return False
     return True
+
+
+def restoreSettings(self):
+    """Restore Pyslvs settings."""
+    for option in _settings(self):
+        widget = option[0]
+        name = widget.objectName()
+        if type(widget) in (QSpinBox, QDoubleSpinBox):
+            widget.setValue(
+                self.settings.value(name, option[-1], type=type(option[-1]))
+            )
+        elif type(widget) == QComboBox:
+            widget.setCurrentIndex(
+                self.settings.value(name, option[-1], type=int)
+            )
+        elif type(widget) == QCheckBox:
+            widget.setChecked(
+                self.settings.value(name, option[-1], type=bool)
+            )
+
+
+def saveSettings(self):
+    """Save Pyslvs settings (auto save when close event)."""
+    if self.dontsave_option.isChecked():
+        self.settings.clear()
+        return
+    for option in _settings(self):
+        widget = option[0]
+        name = widget.objectName()
+        if type(widget) in (QSpinBox, QDoubleSpinBox):
+            self.settings.setValue(name, widget.value())
+        elif type(widget) == QComboBox:
+            self.settings.setValue(name, widget.currentIndex())
+        elif type(widget) == QCheckBox:
+            self.settings.setValue(name, widget.isChecked())
+
+
+def resetOptions(self):
+    """Reset options with default value."""
+    for option in _settings(self):
+        widget = option[0]
+        if type(widget) in (QSpinBox, QDoubleSpinBox):
+            widget.setValue(option[-1])
+        elif type(widget) == QComboBox:
+            widget.setCurrentIndex(option[-1])
+        elif type(widget) == QCheckBox:
+            widget.setChecked(option[-1])

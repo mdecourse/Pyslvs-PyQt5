@@ -7,15 +7,24 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import (
+    Tuple,
+    Iterator,
+    Optional,
+)
 from core.QtModules import (
-    QDialog,
     Qt,
     pyqtSlot,
+    QDialog,
+    QListWidget,
 )
 from .Ui_targets import Ui_Dialog
 
 
-def list_texts(widget, returnRow=False):
+def list_texts(
+    widget: QListWidget,
+    returnRow: bool = False
+) -> Iterator[Tuple[Optional[int], str]]:
     """Generator to get the text from list widget."""
     for row in range(widget.count()):
         if returnRow:
@@ -23,10 +32,12 @@ def list_texts(widget, returnRow=False):
         else:
             yield widget.item(row).text()
 
-def combo_texts(widget):
+
+def combo_texts(widget) -> Iterator[str]:
     """Generator to get the text from combobox widget."""
     for row in range(widget.count()):
         yield widget.itemText(row)
+
 
 class TargetsDialog(QDialog, Ui_Dialog):
     
@@ -35,7 +46,7 @@ class TargetsDialog(QDialog, Ui_Dialog):
     Only edit the settings after closed.
     """
     
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         super(TargetsDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
@@ -58,7 +69,7 @@ class TargetsDialog(QDialog, Ui_Dialog):
     def on_targets_add_clicked(self):
         """Add a new target joint."""
         row = self.other_list.currentRow()
-        if not row>-1:
+        if not row > -1:
             return
         self.targets_list.addItem(self.other_list.takeItem(row))
     

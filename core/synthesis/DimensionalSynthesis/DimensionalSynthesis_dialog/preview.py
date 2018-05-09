@@ -23,43 +23,48 @@ from core.graphics import (
     BaseCanvas,
     colorQt
 )
-from core.io import from_parenthesis, triangle_expr
+from core.io import strbetween
 from .Ui_preview import Ui_Dialog
 
-
-inf = float('inf')
 
 class DynamicCanvas(BaseCanvas):
     
     """Custom canvas for preview algorithm result."""
     
-    def __init__(self, mechanism, Path, parent=None):
+    def __init__(self, mechanism, Path, parent):
         super(DynamicCanvas, self).__init__(parent)
         self.mechanism = mechanism
         self.Path.path = Path
+        self.length = 0
+        for path in self.Path.path:
+            l = len(path)
+            if l > self.length:
+                self.length = l
         self.targetPath = self.mechanism['Target']
         self.index = 0
         #exp_symbol = ('A', 'B', 'C', 'D', 'E')
-        self.exp_symbol = []
+        self.exp_symbol = set()
         self.links = []
         for exp in self.mechanism['Link_Expression'].split(';'):
-            tags = from_parenthesis(exp, '[', ']').split(',')
-            self.links.append(tuple(tags))
-            for name in tags:
-                if name not in self.exp_symbol:
-                    self.exp_symbol.append(name)
-        self.exp_symbol = sorted(self.exp_symbol)
+            names = strbetween(exp, '[', ']').split(',')
+            self.links.append(tuple(names))
+            for name in names:
+                self.exp_symbol.add(name)
+        self.exp_symbol = sorted(
+            self.exp_symbol,
+            key = lambda e: int(e.replace('P', ''))
+        )
         #Error
         self.ERROR = False
         self.no_error = 0
         #Timer start.
         timer = QTimer(self)
-        timer.setInterval(10)
         timer.timeout.connect(self.change_index)
-        timer.start()
+        timer.start(17)
     
     def __zoomToFitLimit(self):
         """Limitations of four side."""
+        inf = float('inf')
         x_right = inf
         x_left = -inf
         y_top = -inf
@@ -226,8 +231,9 @@ class DynamicCanvas(BaseCanvas):
     def change_index(self):
         """A slot to change the path index."""
         self.index += 1
-        self.index %= 360
+        self.index %= self.length
         self.update()
+
 
 class PreviewDialog(QDialog, Ui_Dialog):
     
@@ -236,7 +242,7 @@ class PreviewDialog(QDialog, Ui_Dialog):
     We will not be able to change result settings here.
     """
     
-    def __init__(self, mechanism, Path, parent=None):
+    def __init__(self, mechanism, Path, parent):
         super(PreviewDialog, self).__init__(parent)
         self.setupUi(self)
         self.mechanism = mechanism
@@ -250,8 +256,8 @@ class PreviewDialog(QDialog, Ui_Dialog):
         self.left_layout.insertWidget(0, previewWidget)
         #Basic information
         link_tags = []
-        for func, args, target in triangle_expr(self.mechanism['Expression']):
-            for p in args:
+        for expr in self.mechanism['Expression'].split(';'):
+            for p in strbetween(expr, '[', ']').split(','):
                 if ('L' in p) and (p not in link_tags):
                     link_tags.append(p)
         self.basic_label.setText("\n".join(

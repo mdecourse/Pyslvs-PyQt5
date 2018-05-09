@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
+#cython: language_level=3
 
 # __author__ = "Yuan Chang"
 # __copyright__ = "Copyright (C) 2016-2018"
 # __license__ = "AGPL"
 # __email__ = "pyslvs@gmail.com"
 
+from cpython cimport bool
 from libc.math cimport (
     sqrt,
-    isnan,
     sin,
     cos,
     atan2,
@@ -15,33 +16,30 @@ from libc.math cimport (
 )
 import numpy as np
 cimport numpy as np
-from cpython cimport bool
+cimport cython
+
 
 cdef double nan = float('nan')
+
 
 cdef inline double distance(double x1, double y1, double x2, double y2):
     """Distance of two cartesian coordinates."""
     return hypot(x2 - x1, y2 - y1)
 
+
+@cython.freelist(100)
 cdef class VPoint:
     
     """Symbol of joints."""
     
-    cdef readonly tuple links
-    cdef readonly np.ndarray c
-    cdef readonly int type
-    cdef readonly object color
-    cdef readonly str colorSTR, typeSTR
-    cdef readonly double x, y, angle
-    
     def __cinit__(self,
-        str links,
-        int type_int,
-        double angle,
-        str color_str,
-        double x,
-        double y,
-        object color_func=None
+        links: str,
+        type_int: int,
+        angle: double,
+        color_str: str,
+        x: double,
+        y: double,
+        color_func: object = None
     ):
         cdef list tmp_list = []
         cdef str name
@@ -81,7 +79,7 @@ cdef class VPoint:
         """Y value of frist current coordinate."""
         return self.c[0][1]
     
-    cpdef void move(self, tuple c1, tuple c2=None):
+    cpdef void move(self, tuple c1, tuple c2 = None):
         """Change coordinates of this point."""
         self.c[0] = c1
         self.c[1] = c2
@@ -90,7 +88,7 @@ cdef class VPoint:
         """Distance."""
         return distance(self.x, self.y, p.x, p.y)
     
-    cpdef double slopeAngle(self, VPoint p, int num1=-1, int num2=-1):
+    cpdef double slopeAngle(self, VPoint p, int num1 = -1, int num2 = -1):
         """Angle between horizontal line and two point.
         
         num1: me.
@@ -128,7 +126,7 @@ cdef class VPoint:
             ", ".join(l for l in self.links)
         )
     
-    def __richcmp__(VPoint p1, VPoint p2, int op):
+    def __richcmp__(p1: VPoint, p2: VPoint, op: int):
         """Equal comparison.
         
         op == 2: __eq__
@@ -145,7 +143,7 @@ cdef class VPoint:
             (p1.angle == p2.angle)
         )
     
-    def __getitem__(self, int i):
+    def __getitem__(self, i: int):
         """Get coordinate like this:
         
         x, y = VPoint(10, 20)
@@ -159,6 +157,7 @@ cdef class VPoint:
         """Use to generate script."""
         return "VPoint({p.links}, {p.type}, {p.angle}, {p.c})".format(p=self)
 
+
 cdef class VLink:
     
     """Symbol of linkages."""
@@ -171,7 +170,7 @@ cdef class VLink:
         str name,
         str color_str,
         tuple points,
-        object color_func=None
+        object color_func = None
     ):
         self.name = name
         self.colorSTR = color_str
@@ -179,7 +178,7 @@ cdef class VLink:
             self.color = color_func(color_str)
         self.points = points
     
-    def __contains__(self, int point):
+    def __contains__(self, point: int):
         """Check if point number is in the link."""
         return point in self.points
     
@@ -187,11 +186,11 @@ cdef class VLink:
         """Use to generate script."""
         return "VLink('{l.name}', {l.points}, colorQt)".format(l=self)
 
+
+@cython.freelist(100)
 cdef class Coordinate:
     
     """A class to store the coordinate."""
-    
-    cdef readonly double x, y
     
     def __cinit__(self, double x, double y):
         self.x = x
@@ -201,20 +200,21 @@ cdef class Coordinate:
         """Distance."""
         return distance(self.x, self.y, p.x, p.y)
     
-    cpdef bool isnan(self):
+    def isnan(self):
         """Test this coordinate is a error-occured answer."""
-        return isnan(self.x)
+        return np.isnan(self.x)
     
     def __repr__(self):
         """Debug printing."""
         return "Coordinate({p.x}, {p.y})".format(p=self)
 
+
 cpdef tuple PLAP(
     Coordinate A,
     double L0,
     double a0,
-    Coordinate B=None,
-    bool inverse=False
+    Coordinate B = None,
+    bool inverse = False
 ):
     """Point on circle by angle."""
     cdef double a1 = atan2(B.y - A.y, B.x - A.x) if B else 0
@@ -223,12 +223,13 @@ cpdef tuple PLAP(
     else:
         return (A.x + L0*cos(a1 + a0), A.y + L0*sin(a1 + a0))
 
+
 cpdef tuple PLLP(
     Coordinate A,
     double L0,
     double L1,
     Coordinate B,
-    bool inverse=False
+    bool inverse = False
 ):
     """Two intersection points of two circles."""
     cdef double dx = B.x - A.x
@@ -256,12 +257,13 @@ cpdef tuple PLLP(
     else:
         return (xm - h*dy/d, ym + h*dx/d)
 
+
 cpdef tuple PLPP(
     Coordinate A,
     double L0,
     Coordinate B,
     Coordinate C,
-    bool inverse=False
+    bool inverse = False
 ):
     """Two intersection points of a line and a circle."""
     cdef double line_mag = B.distance(C)
@@ -286,20 +288,14 @@ cpdef tuple PLPP(
     else:
         return (I.x + dx*d, I.y + dy*d)
 
-cpdef inline bool legal_triangle(Coordinate A, Coordinate B, Coordinate C):
-    #L0, L1, L2 is triangle
-    cdef double L0 = A.distance(B)
-    cdef double L1 = B.distance(C)
-    cdef double L2 = A.distance(C)
-    return (L1+L2 > L0) and (L0+L2 > L1) and (L0+L1 > L2)
 
-cpdef inline bool legal_crank(Coordinate A, Coordinate B, Coordinate C, Coordinate D):
-    '''
+cdef inline bool legal_crank(Coordinate A, Coordinate B, Coordinate C, Coordinate D):
+    """
     verify the fourbar is satisfied the Gruebler's Equation, s + g <= p + q
         C - D
         |   |
         A   B
-    '''
+    """
     cdef double driver = A.distance(C)
     cdef double follower = B.distance(D)
     cdef double ground = A.distance(B)
@@ -309,20 +305,22 @@ cpdef inline bool legal_crank(Coordinate A, Coordinate B, Coordinate C, Coordina
         (driver + ground <= connector + follower)
     )
 
-cdef inline str from_parenthesis(str s, str front, str back):
+
+cdef inline str strbetween(str s, str front, str back):
     """Get the string that is inside of parenthesis."""
     return s[s.find(front)+1:s.find(back)]
 
-cdef inline str front_of_parenthesis(str s, str front):
+cdef inline str strbefore(str s, str front):
     """Get the string that is front of parenthesis."""
     return s[:s.find(front)]
 
+
 cpdef void expr_parser(str exprs, dict data_dict):
-    '''Use to generate path data.
+    """Use to generate path data.
     
     exprs: "PLAP[P0,L0,a0,P1](P2);PLLP[P2,L1,L2,P1](P3);..."
     data_dict: {'a0':0., 'L1':10., 'A':(30., 40.), ...}
-    '''
+    """
     #Remove all the spaces in the expression.
     exprs = exprs.replace(" ", '')
     cdef str expr, f, name
@@ -330,9 +328,9 @@ cpdef void expr_parser(str exprs, dict data_dict):
     cdef object p
     cdef list args
     for expr in exprs.split(';'):
-        f = front_of_parenthesis(expr, '[')
-        params = from_parenthesis(expr, '[', ']').split(',')
-        target = from_parenthesis(expr, '(', ')')
+        f = strbefore(expr, '[')
+        params = strbetween(expr, '[', ']').split(',')
+        target = strbetween(expr, '(', ')')
         args = []
         for name in params:
             if name == 'T':
@@ -353,9 +351,11 @@ cpdef void expr_parser(str exprs, dict data_dict):
             data_dict[target] = PLPP(*args)
     """'data_dict' has been updated."""
 
+
 cdef inline double tuple_distance(tuple c1, tuple c2):
     """Calculate the distance between two tuple coordinates."""
     return distance(c1[0], c1[1], c2[0], c2[1])
+
 
 cdef inline void rotate_collect(dict data_dict, dict mapping, list path):
     """Collecting."""
@@ -363,6 +363,7 @@ cdef inline void rotate_collect(dict data_dict, dict mapping, list path):
     cdef str m
     for n, m in mapping.items():
         path[n].append(data_dict[m])
+
 
 cdef inline void rotate(
     int input_angle,
@@ -391,6 +392,7 @@ cdef inline void rotate(
         rotate_collect(copy_dict, mapping, path)
         a += interval
 
+
 cdef inline list return_path(
     str expr_str,
     dict data_dict,
@@ -418,6 +420,7 @@ cdef inline list return_path(
             path[i] = tuple(path[i])
     return path
 
+
 cdef inline str expr_join(object exprs):
     """Use to append a list of symbols into a string."""
     return ';'.join([
@@ -425,12 +428,14 @@ cdef inline str expr_join(object exprs):
         for expr in exprs
     ])
 
+
 cdef inline int base_friend(int node, object vpoints):
     cdef int i
     cdef VPoint vpoint
     for i, vpoint in enumerate(vpoints):
         if vpoints[node].links[0] in vpoint.links:
             return i
+
 
 cdef tuple data_collecting(object exprs, dict mapping, object vpoints):
     """Input data:
@@ -504,6 +509,7 @@ cdef tuple data_collecting(object exprs, dict mapping, object vpoints):
             data_dict[mapping[i]] = pos[i]
     return data_dict, dof
 
+
 cpdef list expr_path(object exprs, dict mapping, object vpoints, double interval):
     """Auto preview function."""
     cdef dict data_dict
@@ -517,6 +523,7 @@ cpdef list expr_path(object exprs, dict mapping, object vpoints, double interval
         data_dict['a{}'.format(i)] = a
     
     return return_path(expr_join(exprs), data_dict, mapping, dof, interval)
+
 
 cpdef list expr_solving(object exprs, dict mapping, object vpoints, object angles):
     """Solving function."""

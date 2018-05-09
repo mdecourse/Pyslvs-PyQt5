@@ -9,7 +9,12 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import Tuple, List
+from typing import (
+    Tuple,
+    List,
+    Iterator,
+    Union,
+)
 from core.QtModules import (
     QTableWidget,
     pyqtSignal,
@@ -22,7 +27,7 @@ from core.QtModules import (
     QTableWidgetSelectionRange,
     QLabel,
 )
-from core.graphics import colorIcons, colorQt
+from core.graphics import colorIcon, colorQt
 from core.libs import VPoint, VLink
 
 
@@ -35,7 +40,7 @@ class BaseTableWidget(QTableWidget):
     def __init__(self,
         RowCount: int,
         HorizontalHeaderItems: Tuple[str],
-        parent=None
+        parent
     ):
         super(BaseTableWidget, self).__init__(parent)
         self.setSizePolicy(QSizePolicy(
@@ -66,6 +71,10 @@ class BaseTableWidget(QTableWidget):
                 texts.append(item.text())
         return texts
     
+    def dataTuple(self) -> Tuple[Union[VPoint, VLink]]:
+        """Return data set as a container."""
+        return tuple(self.data())
+    
     def selectedRows(self) -> List[int]:
         """Get what row is been selected."""
         tmp_set = set([])
@@ -85,15 +94,15 @@ class BaseTableWidget(QTableWidget):
         for row in range(self.rowCount()):
             self.removeRow(0)
 
+
 class PointTableWidget(BaseTableWidget):
     
     """Custom table widget for points."""
     
-    name = 'Point'
     rowSelectionChanged = pyqtSignal(list)
     selectionLabelUpdate = pyqtSignal(list, list)
     
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         super(PointTableWidget, self).__init__(0, (
             'Links',
             'Type',
@@ -111,33 +120,26 @@ class PointTableWidget(BaseTableWidget):
         self.setColumnWidth(6, 130)
         self.itemSelectionChanged.connect(self.__emitSelectionChanged)
     
-    def data(self, index=-1) -> Tuple[VPoint]:
-        """Get the digitization of all table data."""
-        def get(row):
+    def data(self) -> Iterator[VPoint]:
+        """Yield the digitization of all table data."""
+        for row in range(self.rowCount()):
             Links = self.item(row, 1).text()
             color = self.item(row, 3).text()
             x = float(self.item(row, 4).text())
             y = float(self.item(row, 5).text())
-            '''
+            """
             Type = (type:str, angle:float)
-            '''
+            """
             Type = self.item(row, 2).text().split(':')
-            if Type[0]=='R':
+            if Type[0] == 'R':
                 Type = 0
                 angle = 0.
-            elif Type[0]=='P' or Type[0]=='RP':
+            elif (Type[0] == 'P') or (Type[0] == 'RP'):
                 angle = float(Type[1])
                 Type = {'P':1, 'RP':2}[Type[0]]
             vpoint = VPoint(Links, Type, angle, color, x, y, colorQt)
             vpoint.move(*self.currentPosition(row))
-            return vpoint
-        if index==-1:
-            data = []
-            for row in range(self.rowCount()):
-                data.append(get(row))
-            return tuple(data)
-        else:
-            return get(index)
+            yield vpoint
     
     def editArgs(self,
         row: int,
@@ -160,19 +162,19 @@ class PointTableWidget(BaseTableWidget):
             item = QTableWidgetItem(str(e))
             item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
             if i == 3:
-                item.setIcon(colorIcons(e))
+                item.setIcon(colorIcon(e))
             self.setItem(row, i, item)
     
     def rename(self, row: int):
         """When index changed, the points need to rename."""
         for j in range(row, self.rowCount()):
-            self.setItem(j, 0, QTableWidgetItem(self.name+str(j)))
+            self.setItem(j, 0, QTableWidgetItem('Point{}'.format(j)))
     
     def currentPosition(self, row: int) -> List[Tuple[float, float]]:
         """Get the current coordinate from a point."""
-        Type = self.item(row, 2).text().split(':')
+        type_str = self.item(row, 2).text().split(':')
         coords = eval("[{}]".format(self.item(row, 6).text().replace(';', ',')))
-        if (len(coords) < 2) and ((Type[0] == 'P') or (Type[0] == 'RP')):
+        if (len(coords) < 2) and ((type_str[0] == 'P') or (type_str[0] == 'RP')):
             self.item(row, 6).setText("({0}, {1}); ({0}, {1})".format(*coords[0]))
             coords.append(coords[0])
         return coords
@@ -202,28 +204,29 @@ class PointTableWidget(BaseTableWidget):
         keyboardModifiers = QApplication.keyboardModifiers()
         if keyDetect:
             if keyboardModifiers == Qt.ShiftModifier:
-                self.__setSelectedRanges(selections, continueSelect=True, UnSelect=False)
+                self.__setSelectedRanges(selections, continueSelect=True, unSelect=False)
             elif keyboardModifiers == Qt.ControlModifier:
-                self.__setSelectedRanges(selections, continueSelect=True, UnSelect=True)
+                self.__setSelectedRanges(selections, continueSelect=True, unSelect=True)
             else:
-                self.__setSelectedRanges(selections, continueSelect=False, UnSelect=False)
+                self.__setSelectedRanges(selections, continueSelect=False, unSelect=False)
         else:
             continueSelect = (keyboardModifiers == Qt.ShiftModifier)
-            self.__setSelectedRanges(selections, continueSelect=continueSelect, UnSelect=False)
+            self.__setSelectedRanges(selections, continueSelect=continueSelect, unSelect=False)
         distance = []
         selectedRows = self.selectedRows()
         if len(selectedRows) > 1:
-            data = self.data()
+            data = self.dataTuple()
             for i, row in enumerate(selectedRows):
-                if i==len(selectedRows)-1:
+                if i == len(selectedRows)-1:
                     break
                 distance.append(round(data[row].distance(data[selectedRows[i+1]]), 4))
         self.selectionLabelUpdate.emit(selectedRows, distance)
     
     def __setSelectedRanges(self,
         selections: Tuple[int],
+        *,
         continueSelect: bool,
-        UnSelect: bool
+        unSelect: bool
     ):
         """Different mode of select function."""
         selectedRows = self.selectedRows()
@@ -234,7 +237,7 @@ class PointTableWidget(BaseTableWidget):
             isSelected = not row in selectedRows
             self.setRangeSelected(
                 QTableWidgetSelectionRange(row, 0, row, self.columnCount()-1),
-                isSelected if UnSelect else True)
+                isSelected if unSelect else True)
             self.scrollToItem(self.item(row, 0))
     
     def getLinks(self, row: int) -> List[str]:
@@ -264,13 +267,12 @@ class PointTableWidget(BaseTableWidget):
         super(PointTableWidget, self).clearSelection()
         self.selectionLabelUpdate.emit([], [])
 
+
 class LinkTableWidget(BaseTableWidget):
     
     """Custom table widget for link."""
     
-    name = 'Line'
-    
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         super(LinkTableWidget, self).__init__(1, ('Color', 'Points'), parent)
         self.setDragDropMode(QAbstractItemView.DropOnly)
         self.setAcceptDrops(True)
@@ -279,18 +281,17 @@ class LinkTableWidget(BaseTableWidget):
         self.setColumnWidth(1, 90)
         self.setColumnWidth(2, 130)
     
-    def data(self) -> Tuple[VLink]:
-        """Get the digitization of all table data."""
-        data = []
+    def data(self) -> Iterator[VLink]:
+        """Yield the digitization of all table data."""
         for row in range(self.rowCount()):
             name = self.item(row, 0).text()
             color = self.item(row, 1).text()
-            try:
-                points = tuple(int(p.replace('Point', '')) for p in self.item(row, 2).text().split(','))
-            except:
-                points = ()
-            data.append(VLink(name, color, points, colorQt))
-        return tuple(data)
+            points = []
+            for p in self.item(row, 2).text().split(','):
+                if not p:
+                    continue
+                points.append(int(p.replace('Point', '')))
+            yield VLink(name, color, tuple(points), colorQt)
     
     def editArgs(self,
         row: int,
@@ -303,7 +304,7 @@ class LinkTableWidget(BaseTableWidget):
             item = QTableWidgetItem(e)
             item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
             if i==1:
-                item.setIcon(colorIcons(e))
+                item.setIcon(colorIcon(e))
             self.setItem(row, i, item)
     
     def findName(self, name: str) -> int:
@@ -332,11 +333,12 @@ class LinkTableWidget(BaseTableWidget):
         self.setRowCount(1)
         self.editArgs(0, 'ground', 'White', '')
 
+
 class ExprTableWidget(BaseTableWidget):
     
     """Expression table."""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent):
         super(ExprTableWidget, self).__init__(
             0,
             ('p0', 'p1', 'p2', 'p3', 'target'),
@@ -357,6 +359,7 @@ class ExprTableWidget(BaseTableWidget):
                 self.setItem(row, column, QTableWidgetItem(e))
         self.exprs = exprs
 
+
 class SelectionLabel(QLabel):
     
     """This QLabel can show distance in status bar."""
@@ -368,8 +371,8 @@ class SelectionLabel(QLabel):
     @pyqtSlot()
     @pyqtSlot(list, list)
     def updateSelectPoint(self,
-        points: List[int] =[],
-        distance: List[float] =[]
+        points: List[int] = [],
+        distance: List[float] = []
     ):
         """Get points and distance from Point table widget."""
         text = ""
