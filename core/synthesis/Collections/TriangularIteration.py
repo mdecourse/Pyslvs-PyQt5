@@ -49,14 +49,14 @@ from .TriangularIteration_dialog import (
 from .Ui_TriangularIteration import Ui_Form
 
 
-class PreviewWindow(PreviewCanvas):
+class _PreviewWindow(PreviewCanvas):
     
     """Preview window has some functions of mouse interaction."""
     
     set_joint_number = pyqtSignal(int)
     
     def __init__(self, get_solutions: Callable[[], Tuple[str]], parent):
-        super(PreviewWindow, self).__init__(get_solutions, parent)
+        super(_PreviewWindow, self).__init__(get_solutions, parent)
         self.pressed = False
         self.get_joint_number = parent.joint_name.currentIndex
     
@@ -96,21 +96,22 @@ class PreviewWindow(PreviewCanvas):
         self.update()
 
 
-class CollectionsTriangularIteration(QWidget, Ui_Form):
+class TriangularIterationWidget(QWidget, Ui_Form):
     
     """Triangular iteration widget."""
     
-    def __init__(self, parent):
-        super(CollectionsTriangularIteration, self).__init__(parent)
+    def __init__(self,
+        addToCollection: Callable[[Tuple[Tuple[int, int]]], None],
+        parent
+    ):
+        super(TriangularIterationWidget, self).__init__(parent)
         self.setupUi(self)
         self.unsaveFunc = parent.workbookNoSave
         self.getCollection = parent.getCollection
-        """
-        self.addToCollection = CollectionsStructure.addCollection
-        """
+        self.addToCollection = addToCollection
         self.collections = {}
         #Canvas
-        self.PreviewWindow = PreviewWindow(
+        self.PreviewWindow = _PreviewWindow(
             lambda: ';'.join(
                 self.expression_list.item(row).text()
                 for row in range(self.expression_list.count())
@@ -187,7 +188,7 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
         pos: Dict[int, Tuple[float, float]]
     ):
         """Set the graph to preview canvas."""
-        self.clear()
+        self.__clearPanel()
         self.PreviewWindow.setGraph(G, pos)
         ev = dict(edges_view(G))
         joints_count = set()
@@ -220,7 +221,7 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
         self.driver_rotator.clear()
         if has_choose:
             items = (
-                self.grounded_list.currentItem().text()
+                self.grounded_list.item(row).text()
                 .replace('(', '')
                 .replace(')', '')
                 .split(", ")
@@ -230,6 +231,10 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
         self.__setWarning(self.follower_label, not has_choose)
         self.__setWarning(self.driver_label, True)
         self.__setWarning(self.expression_list_label, True)
+        if row != self.grounded_list.currentRow():
+            self.grounded_list.blockSignals(True)
+            self.grounded_list.setCurrentRow(row)
+            self.grounded_list.blockSignals(False)
     
     @pyqtSlot(str)
     def on_driver_base_currentIndexChanged(self, name):
@@ -365,7 +370,11 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
     @pyqtSlot()
     def on_load_button_clicked(self):
         """Show up the dialog to load structure data."""
-        dlg = CollectionsDialog(self.getCollection, self)
+        dlg = CollectionsDialog(
+            self.collections,
+            self.getCollection,
+            self
+        )
         dlg.show()
         if not dlg.exec_():
             return
@@ -380,12 +389,12 @@ class CollectionsTriangularIteration(QWidget, Ui_Form):
         drivers = set(params['Driver'])
         followers = set(params['Follower'])
         for row, link in enumerate(G.nodes):
-            points = set(
+            points = {
                 'P{}'.format(n)
-                for n, edge in edges_view(G) if link in edge
-            )
+                for n, edge in edges_view(G) if (link in edge)
+            }
             if (drivers | followers) <= points:
-                self.grounded_list.setCurrentRow(row)
+                self.on_grounded_list_currentRowChanged(row)
                 break
         #Driver, Follower, Target
         for expr in params['Expression'].split(';'):

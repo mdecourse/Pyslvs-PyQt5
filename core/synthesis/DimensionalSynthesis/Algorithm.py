@@ -50,8 +50,8 @@ from .DimensionalSynthesis_dialog import (
     DifferentialPrams,
     AlgorithmType,
     Options_show,
-    Path_adjust_show,
-    Progress_show,
+    PathAdjustDialog,
+    ProgressDialog,
     PreviewDialog,
     ChartDialog,
 )
@@ -68,7 +68,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         self.mech_params = {}
         self.path = {}
         #A pointer reference of 'collections'.
-        self.collections = parent.CollectionTabPage.CollectionsTriangularIteration.collections
+        self.collections = parent.CollectionTabPage.TriangularIterationWidget.collections
         self.getCollection = parent.getCollection
         #Data and functions.
         self.mechanism_data = []
@@ -268,7 +268,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         """Show up path adjust dialog and
         get back the changes of current target path.
         """
-        dlg = Path_adjust_show(self)
+        dlg = PathAdjustDialog(self)
         dlg.show()
         if not dlg.exec_():
             return
@@ -400,7 +400,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             setting['maxTime'] = self.Settings['maxTime']
         setting.update(self.Settings['algorithmPrams'])
         #Start progress dialog.
-        dlg = Progress_show(
+        dlg = ProgressDialog(
             type_num,
             mech_params,
             setting,
@@ -576,7 +576,11 @@ class DimensionalSynthesis(QWidget, Ui_Form):
     @pyqtSlot()
     def on_load_profile_clicked(self):
         """Load profile from collections dialog."""
-        dlg = CollectionsDialog(self.getCollection, self)
+        dlg = CollectionsDialog(
+            self.collections,
+            self.getCollection,
+            self
+        )
         dlg.show()
         if dlg.exec_():
             self.__setProfile(dlg.name(), dlg.params())

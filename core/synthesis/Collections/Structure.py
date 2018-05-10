@@ -42,18 +42,18 @@ from core.graphics import (
 from .Ui_Structure import Ui_Form
 
 
-class TestError(Exception):
+class _TestError(Exception):
     pass
 
 
-class CollectionsStructure(QWidget, Ui_Form):
+class StructureWidget(QWidget, Ui_Form):
     
     """Structure widget."""
     
     layout_sender = pyqtSignal(Graph, dict)
     
     def __init__(self, parent):
-        super(CollectionsStructure, self).__init__(parent)
+        super(StructureWidget, self).__init__(parent)
         self.setupUi(self)
         self.outputTo = parent.outputTo
         self.saveReplyBox = parent.saveReplyBox
@@ -163,14 +163,14 @@ class CollectionsStructure(QWidget, Ui_Form):
         G = Graph(edges)
         try:
             if not edges:
-                raise TestError("is empty graph.")
+                raise _TestError("is empty graph.")
             for n in G.nodes:
                 if len(list(G.neighbors(n)))<2:
-                    raise TestError("is not close chain")
+                    raise _TestError("is not close chain")
             for H in self.collections:
                 if is_isomorphic(G, H):
-                    raise TestError("is isomorphic")
-        except TestError as e:
+                    raise _TestError("is isomorphic")
+        except _TestError as e:
             QMessageBox.warning(self, "Add Collection Error", "Error: {}".format(e))
             return
         self.collections.append(G)

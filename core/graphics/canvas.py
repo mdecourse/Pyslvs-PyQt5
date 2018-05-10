@@ -15,8 +15,9 @@ from math import (
     isnan,
 )
 from typing import (
-    Dict,
     Tuple,
+    List,
+    Dict,
     Sequence,
     Iterator,
     Callable,
@@ -43,7 +44,7 @@ from core.libs import VPoint
 from . import colorQt, colorPath
 
 
-def convex_hull(points: Sequence[Tuple[float, float]]):
+def convex_hull(points: List[Tuple[float, float]]):
     """Returns points on convex hull in CCW order
     according to Graham's scan algorithm.
     """
@@ -72,7 +73,7 @@ def convex_hull(points: Sequence[Tuple[float, float]]):
             hull.append(r)
         return hull
     
-    points = sorted(points)
+    points.sort()
     l = reduce(keep_left, points, [])
     u = reduce(keep_left, reversed(points), [])
     return [
@@ -132,7 +133,7 @@ def graph2vpoints(
 #Radius of canvas dot.
 RADIUS = 3
 
-class Path:
+class _Path:
     
     """Path option class."""
     
@@ -172,7 +173,7 @@ class BaseCanvas(QWidget):
         self.showPointMark = True
         self.showDimension = True
         #Path track.
-        self.Path = Path()
+        self.Path = _Path()
         #Path solving.
         self.targetPath = {}
         self.showTargetPath = False
@@ -207,10 +208,8 @@ class BaseCanvas(QWidget):
                 QPointF(0, y*self.zoom),
                 QPointF(10 if (y%10 == 0) else 5, y*self.zoom)
             )
-        """Please to call the "end" method when ending paint event.
-        
-        self.painter.end()
-        """
+        #Please to call the "end" method when ending paint event.
+        #self.painter.end()
     
     def __drawPoint(self,
         i: int,
@@ -427,15 +426,25 @@ class PreviewCanvas(BaseCanvas):
         """Draw the structure."""
         width = self.width()
         height = self.height()
-        self.ox = width / 2
-        self.oy = height / 2
-        sq_w = 240
-        if width <= height:
-            self.zoom = width / sq_w
+        if self.pos:
+            x_right, x_left, y_top, y_bottom = self.__zoomToFitLimit()
+            x_diff = x_left - x_right
+            y_diff = y_top - y_bottom
+            x_diff = x_diff if (x_diff != 0) else 1
+            y_diff = y_diff if (y_diff != 0) else 1
+            if width / x_diff < height / y_diff:
+                factor = width / x_diff
+            else:
+                factor = height / y_diff
+            self.zoom = factor * 0.95
+            self.ox = width / 2 - (x_left + x_right) / 2 * self.zoom
+            self.oy = height / 2 + (y_top + y_bottom) / 2 * self.zoom
         else:
-            self.zoom = height / sq_w
+            sq_w = 240
+            self.zoom = (width / sq_w) if (width <= height) else (height / sq_w)
+            self.ox = width / 2
+            self.oy = height / 2
         super(PreviewCanvas, self).paintEvent(event)
-        #self.__drawLimit(sq_w)
         pen = QPen()
         pen.setWidth(RADIUS)
         self.painter.setPen(pen)
@@ -451,12 +460,12 @@ class PreviewCanvas(BaseCanvas):
                     if num in self.same:
                         num = self.same[num]
                     x, y = self.pos[num]
-                    points.append((x*self.zoom, y*-self.zoom))
+                    points.append((x * self.zoom, y * -self.zoom))
             #Customize points.
             for name, link_ in self.cus.items():
-                if link==link_:
+                if link == link_:
                     x, y = self.pos[int(name.replace('P', ''))]
-                    points.append((x*self.zoom, y*-self.zoom))
+                    points.append((x * self.zoom, y * -self.zoom))
             self.painter.drawPolygon(*convex_hull(points))
         self.painter.setFont(QFont("Arial", self.fontSize))
         #Nodes
@@ -505,13 +514,23 @@ class PreviewCanvas(BaseCanvas):
             ), 'P{}'.format(node))
         self.painter.end()
     
-    def __drawLimit(self, sq_w: int):
-        """Center square."""
-        limit = sq_w / 2 * self.zoom
-        self.painter.drawLine(QPointF(-limit, limit), QPointF(limit, limit))
-        self.painter.drawLine(QPointF(-limit, limit), QPointF(-limit, -limit))
-        self.painter.drawLine(QPointF(-limit, -limit), QPointF(limit, -limit))
-        self.painter.drawLine(QPointF(limit, -limit), QPointF(limit, limit))
+    def __zoomToFitLimit(self) -> Tuple[float, float, float, float]:
+        """Limitations of four side."""
+        inf = float('inf')
+        x_right = inf
+        x_left = -inf
+        y_top = -inf
+        y_bottom = inf
+        for x, y in self.pos.values():
+            if x < x_right:
+                x_right = x
+            if x > x_left:
+                x_left = x
+            if y < y_bottom:
+                y_bottom = y
+            if y > y_top:
+                y_top = y
+        return x_right, x_left, y_top, y_bottom
     
     def setGraph(self, G: Graph, pos: Dict[int, Tuple[float, float]]):
         """Set the graph from NetworkX graph type."""
