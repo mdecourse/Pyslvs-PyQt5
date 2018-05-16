@@ -16,7 +16,6 @@ from libc.math cimport (
 )
 import numpy as np
 cimport numpy as np
-cimport cython
 
 
 cdef double nan = float('nan')
@@ -27,7 +26,6 @@ cdef inline double distance(double x1, double y1, double x2, double y2):
     return hypot(x2 - x1, y2 - y1)
 
 
-@cython.freelist(100)
 cdef class VPoint:
     
     """Symbol of joints."""
@@ -82,10 +80,15 @@ cdef class VPoint:
     cpdef void move(self, tuple c1, tuple c2 = None):
         """Change coordinates of this point."""
         self.c[0] = c1
-        self.c[1] = c2
+        if self.type != 0:
+            self.c[1] = c2 if c2 else c1
+    
+    cpdef void rotate(self, double angle):
+        """Change the angle of slider slot."""
+        self.angle = angle
     
     cpdef double distance(self, VPoint p):
-        """Distance."""
+        """Distance between two VPoint."""
         return distance(self.x, self.y, p.x, p.y)
     
     cpdef double slopeAngle(self, VPoint p, int num1 = -1, int num2 = -1):
@@ -113,6 +116,7 @@ cdef class VPoint:
         return np.rad2deg(atan2(y1 - y2, x1 - x2))
     
     cpdef bool grounded(self):
+        """Return True if the joint is connect with the ground."""
         return 'ground' in self.links
     
     @property
@@ -124,23 +128,6 @@ cdef class VPoint:
             self.colorSTR,
             "{}, {}".format(self.x, self.y),
             ", ".join(l for l in self.links)
-        )
-    
-    def __richcmp__(p1: VPoint, p2: VPoint, op: int):
-        """Equal comparison.
-        
-        op == 2: __eq__
-        op == 3: __ne__
-        """
-        if (op != 2) and (op != 3):
-            raise TypeError("Only allow to compare two VPoints.")
-        return (
-            (op == 2) and
-            (p1.x == p2.x) and
-            (p1.y == p2.y) and
-            (p1.cx == p2.cx) and
-            (p1.cy == p2.cy) and
-            (p1.angle == p2.angle)
         )
     
     def __getitem__(self, i: int):
@@ -187,7 +174,6 @@ cdef class VLink:
         return "VLink('{l.name}', {l.points}, colorQt)".format(l=self)
 
 
-@cython.freelist(100)
 cdef class Coordinate:
     
     """A class to store the coordinate."""
@@ -289,6 +275,11 @@ cpdef tuple PLPP(
         return (I.x + dx*d, I.y + dy*d)
 
 
+cpdef tuple PXY(Coordinate A, double x, double y):
+    """Using relative cartesian coordinate to get solution."""
+    return (A.x + x, A.y + y)
+
+
 cdef inline bool legal_crank(Coordinate A, Coordinate B, Coordinate C, Coordinate D):
     """
     verify the fourbar is satisfied the Gruebler's Equation, s + g <= p + q
@@ -349,6 +340,8 @@ cpdef void expr_parser(str exprs, dict data_dict):
             data_dict[target] = PLLP(*args)
         elif f == 'PLPP':
             data_dict[target] = PLPP(*args)
+        elif f == 'PXY':
+            data_dict[target] = PXY(*args)
     """'data_dict' has been updated."""
 
 
@@ -437,19 +430,68 @@ cdef inline int base_friend(int node, object vpoints):
             return i
 
 
-cdef tuple data_collecting(object exprs, dict mapping, object vpoints):
+cdef inline tuple data_collecting(object exprs, dict mapping, object vpoints_):
     """Input data:
     
     exprs: [('PLAP', 'P0', 'L0', 'a0', 'P1', 'P2'), ...]
     mapping: {0: 'P0', 1: 'P2', 2: 'P3', 3: 'P4', ...}
-    vpoints: [VPoint0, VPoint1, VPoint2, ...]
+    vpoints_: [VPoint0, VPoint1, VPoint2, ...]
     pos: [(x0, y0), (x1, y1), (x2, y2), ...]
+    
+    vpoints will make a copy that we don't want to modified itself.
     """
+    cdef list vpoints = list(vpoints_)
+    
+    """First, we create a "VLinks" that can help us to
+    find a releationship just like adjacency matrix.
+    """
+    cdef int node
+    cdef str link
+    cdef VPoint vpoint
+    cdef dict vlinks = {}
+    for node, vpoint in enumerate(vpoints):
+        for link in vpoint.links:
+            #Add as vlink.
+            if link not in vlinks:
+                vlinks[link] = {node}
+            else:
+                vlinks[link].add(node)
+    
+    """Replace the P joints and their friends with RP joint.
+    
+    DOF must be same after properties changed.
+    """
+    cdef int base
+    cdef str link_
+    cdef VPoint vpoint_
+    cdef set links
+    for base in range(len(vpoints)):
+        vpoint = vpoints[base]
+        if vpoint.type != 1:
+            continue
+        for link in vpoint.links[1:]:
+            links = set()
+            for node in vlinks[link]:
+                vpoint_ = vpoints[node]
+                if (node == base) or (vpoint_.type != 0):
+                    continue
+                links.update(vpoint_.links)
+                vpoints[node] = VPoint(
+                    ",".join([vpoint.links[0]] + [
+                        link_ for link_ in vpoint_.links
+                        if (link_ not in vpoint.links)
+                    ]),
+                    2,
+                    vpoint.angle,
+                    vpoint_.colorSTR,
+                    vpoint_.cx,
+                    vpoint_.cy
+                )
+    
     cdef int i
     cdef str m
     cdef dict mapping_r = {m: i for i, m in mapping.items()}
     
-    cdef VPoint vpoint
     cdef list pos = []
     for vpoint in vpoints:
         if vpoint.type == 0:
@@ -483,30 +525,50 @@ cdef tuple data_collecting(object exprs, dict mapping, object vpoints):
     + Counting DOF and targets.
     """
     for expr in exprs:
-        #Link 1: expr[2]
-        data_dict[expr[2]] = tuple_distance(
-            pos[mapping_r[expr[1]]],
-            pos[mapping_r[expr[-1]]]
-        )
         if expr[0] == 'PLAP':
+            #Link 1: expr[2]
+            data_dict[expr[2]] = tuple_distance(
+                pos[mapping_r[expr[1]]],
+                pos[mapping_r[expr[-1]]]
+            )
             #Inputs
             dof += 1
         elif expr[0] == 'PLLP':
+            #Link 1: expr[2]
+            data_dict[expr[2]] = tuple_distance(
+                pos[mapping_r[expr[1]]],
+                pos[mapping_r[expr[-1]]]
+            )
             #Link 2: expr[3]
             data_dict[expr[3]] = tuple_distance(
                 pos[mapping_r[expr[4]]],
                 pos[mapping_r[expr[-1]]]
             )
         elif expr[0] == 'PLPP':
+            #Link 1: expr[2]
+            data_dict[expr[2]] = tuple_distance(
+                pos[mapping_r[expr[1]]],
+                pos[mapping_r[expr[-1]]]
+            )
             #PLPP[P1, L0, P2, S2](P2)
             #So we should get P2 first.
             data_dict[expr[3]] = pos[mapping_r[expr[3]]]
+        elif expr[0] == 'PXY':
+            #X: expr[2]
+            data_dict[expr[2]] = (
+                pos[mapping_r[expr[-1]]][0] - pos[mapping_r[expr[1]]][0]
+            )
+            #Y: expr[3]
+            data_dict[expr[3]] = (
+                pos[mapping_r[expr[-1]]][1] - pos[mapping_r[expr[1]]][1]
+            )
         #Targets
         targets.add(expr[-1])
     
     for i in range(len(vpoints)):
         if mapping[i] not in targets:
             data_dict[mapping[i]] = pos[i]
+    
     return data_dict, dof
 
 

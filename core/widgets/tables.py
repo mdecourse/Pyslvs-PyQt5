@@ -77,7 +77,7 @@ class _BaseTableWidget(QTableWidget):
     
     def selectedRows(self) -> List[int]:
         """Get what row is been selected."""
-        tmp_set = set([])
+        tmp_set = set()
         for r in self.selectedRanges():
             tmp_set.update([i for i in range(r.topRow(), r.bottomRow() + 1)])
         return sorted(tmp_set)
@@ -90,7 +90,7 @@ class _BaseTableWidget(QTableWidget):
             self.deleteRequest.emit()
     
     def clear(self):
-        """Overrided the clear function, just removed all items."""
+        """Overridden the clear function, just removed all items."""
         for row in range(self.rowCount()):
             self.removeRow(0)
 
@@ -260,7 +260,7 @@ class PointTableWidget(_BaseTableWidget):
     
     @pyqtSlot()
     def clearSelection(self):
-        """Overrided the 'clearSelection' slot,
+        """Overridden the 'clearSelection' slot,
         so it will emit "selectionLabelUpdate"
         signal to clean the selection.
         """
@@ -339,12 +339,9 @@ class ExprTableWidget(_BaseTableWidget):
     """Expression table."""
     
     def __init__(self, parent):
-        super(ExprTableWidget, self).__init__(
-            0,
-            ('p0', 'p1', 'p2', 'p3', 'target'),
-            parent
-        )
-        for column in range(6):
+        column_count = ('p0', 'p1', 'p2', 'p3', 'p4', 'target')
+        super(ExprTableWidget, self).__init__(0, column_count, parent)
+        for column in range(self.columnCount()):
             self.setColumnWidth(column, 60)
         self.exprs = []
     
@@ -354,7 +351,7 @@ class ExprTableWidget(_BaseTableWidget):
         self.clear()
         self.setRowCount(len(exprs))
         for row, expr in enumerate(exprs):
-            self.setItem(row, 5, QTableWidgetItem(expr[-1]))
+            self.setItem(row, self.columnCount() - 1, QTableWidgetItem(expr[-1]))
             for column, e in enumerate(expr[:-1]):
                 self.setItem(row, column, QTableWidgetItem(e))
         self.exprs = exprs

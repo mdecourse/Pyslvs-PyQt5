@@ -16,6 +16,7 @@ from .tinycadlib import (
     PLAP,
     PLLP,
     PLPP,
+    PXY,
     expr_parser,
     expr_solving,
     expr_path,
@@ -28,7 +29,7 @@ from .firefly import Firefly
 from .de import DiffertialEvolution
 from .number import NumberSynthesis
 from .topologic import topo, Graph
-from .triangulation import vpoints_configure
+from .triangulation import vpoints_configure, dof
 
 __all__ = [
     'Genetic',
@@ -38,6 +39,7 @@ __all__ = [
     'PLAP',
     'PLLP',
     'PLPP',
+    'PXY',
     'expr_parser',
     'expr_solving',
     'expr_path',
@@ -48,4 +50,5 @@ __all__ = [
     'topo',
     'Graph',
     'vpoints_configure',
+    'dof',
 ]

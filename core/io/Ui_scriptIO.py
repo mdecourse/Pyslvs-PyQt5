@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'C:\Users\ahshoe\Desktop\Pyslvs-PyQt5\core\io\script.ui'
+# Form implementation generated from reading ui file '/home/ahshoe/桌面/Pyslvs-PyQt5/core/io/scriptIO.ui'
 #
-# Created by: PyQt5 UI code generator 5.9.2
+# Created by: PyQt5 UI code generator 5.10
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -41,9 +41,6 @@ class Ui_Dialog(object):
         self.save.setObjectName("save")
         self.horizontalLayout_2.addWidget(self.save)
         self.main_layout.addLayout(self.horizontalLayout_2)
-        self.script_view = QtWidgets.QTextEdit(Dialog)
-        self.script_view.setObjectName("script_view")
-        self.main_layout.addWidget(self.script_view)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
         self.label_3 = QtWidgets.QLabel(Dialog)
@@ -69,7 +66,6 @@ class Ui_Dialog(object):
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
-        Dialog.setWindowTitle(_translate("Dialog", "Python Script"))
         self.label_2.setText(_translate("Dialog", "Style:"))
         self.copy.setText(_translate("Dialog", "Copy"))
         self.save.setText(_translate("Dialog", "Save as..."))

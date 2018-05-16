@@ -22,6 +22,7 @@ cdef class VPoint:
     cdef readonly double x, y, angle
     
     cpdef void move(self, tuple, tuple c2 = *)
+    cpdef void rotate(self, double)
     cpdef double distance(self, VPoint)
     cpdef double slopeAngle(self, VPoint, int num1 = *, int num2 = *)
     cpdef bool grounded(self)
@@ -32,11 +33,6 @@ cdef class Coordinate:
     
     cpdef double distance(self, Coordinate)
     #cpdef bool isnan(self) # cause error??
-
-
-cpdef tuple PLAP(Coordinate, double, double, Coordinate B = *, bool inverse = *)
-cpdef tuple PLLP(Coordinate, double, double, Coordinate, bool inverse = *)
-cpdef tuple PLPP(Coordinate, double, Coordinate, Coordinate, bool inverse = *)
 
 cdef bool legal_crank(Coordinate, Coordinate, Coordinate, Coordinate)
 cdef str strbetween(str, str, str)

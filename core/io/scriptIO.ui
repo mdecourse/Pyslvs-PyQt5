@@ -13,9 +13,6 @@
     <height>564</height>
    </rect>
   </property>
-  <property name="windowTitle">
-   <string>Python Script</string>
-  </property>
   <property name="windowIcon">
    <iconset resource="../../icons.qrc">
     <normaloff>:/icons/script.png</normaloff>:/icons/script.png</iconset>
@@ -79,9 +76,6 @@
       </widget>
      </item>
     </layout>
-   </item>
-   <item>
-    <widget class="QTextEdit" name="script_view"/>
    </item>
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout">

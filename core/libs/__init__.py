@@ -15,6 +15,7 @@ from .pyslvs import (
     PLAP,
     PLLP,
     PLPP,
+    PXY,
     expr_parser,
     expr_solving,
     expr_path,
@@ -25,11 +26,9 @@ from .pyslvs import (
     topo,
     Graph,
     vpoints_configure,
+    dof,
 )
-from .python_solvespace import (
-    slvsProcess,
-    SlvsException
-)
+from .python_solvespace import slvsProcess, SlvsException
 
 __all__ = [
     'Genetic',
@@ -39,6 +38,7 @@ __all__ = [
     'PLAP',
     'PLLP',
     'PLPP',
+    'PXY',
     'expr_parser',
     'expr_solving',
     'expr_path',
@@ -49,6 +49,7 @@ __all__ = [
     'topo',
     'Graph',
     'vpoints_configure',
+    'dof',
     'slvsProcess',
     'SlvsException',
 ]

@@ -20,9 +20,10 @@ from core.QtModules import (
     pyqtSlot,
     QApplication,
     QDialog,
+    QTextEdit,
 )
 from core.libs import VPoint, VLink
-from .Ui_script import Ui_Dialog
+from .Ui_scriptIO import Ui_Dialog
 
 
 _script_title = """
@@ -275,6 +276,23 @@ def slvsProcessScript(
         [vlink for vlink in vlinks]
     )
 
+class _ScriptBrowser(QTextEdit):
+    
+    """Custom text browser to implement text zooming."""
+    
+    def __init__(self, parent):
+        super(_ScriptBrowser, self).__init__(parent)
+        self.setReadOnly(True)
+        self.zoomIn(3)
+    
+    def wheelEvent(self, event):
+        super(_ScriptBrowser, self).wheelEvent(event)
+        if QApplication.keyboardModifiers() == Qt.ControlModifier:
+            if event.angleDelta().y() > 0:
+                self.zoomIn(1)
+            else:
+                self.zoomOut(1)
+
 
 class ScriptDialog(QDialog, Ui_Dialog):
     
@@ -284,9 +302,16 @@ class ScriptDialog(QDialog, Ui_Dialog):
         script: str,
         lexer: RegexLexerMeta,
         filename: str,
-        filefotmat: List[str],
+        fileformat: List[str],
         parent
     ):
+        """Input parameters:
+        
+        + Script
+        + Lexer
+        + File name
+        + File suffix
+        """
         super(ScriptDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(
@@ -294,12 +319,14 @@ class ScriptDialog(QDialog, Ui_Dialog):
             ~Qt.WindowContextHelpButtonHint |
             Qt.WindowMaximizeButtonHint
         )
-        self.script_view.zoomIn(5)
+        self.script_view = _ScriptBrowser(self)
+        self.main_layout.insertWidget(1, self.script_view)
         self.code = highlight(script, lexer, HtmlFormatter())
         self.filename = filename
-        self.filefotmat = filefotmat
+        self.fileformat = fileformat
         self.outputTo = parent.outputTo
         self.saveReplyBox = parent.saveReplyBox
+        self.setWindowTitle(self.filename)
         styles = sorted(get_all_styles())
         styles.insert(0, styles.pop(styles.index('default')))
         self.style_option.addItems(styles)
@@ -321,7 +348,7 @@ class ScriptDialog(QDialog, Ui_Dialog):
     @pyqtSlot()
     def on_save_clicked(self):
         """Save to .py file."""
-        file_name = self.outputTo(self.filename, self.filefotmat)
+        file_name = self.outputTo(self.filename, self.fileformat)
         if not file_name:
             return
         with open(file_name, 'w', newline="") as f:

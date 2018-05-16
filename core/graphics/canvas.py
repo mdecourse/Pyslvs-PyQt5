@@ -140,10 +140,16 @@ class _Path:
     __slots__ = ('path', 'show', 'curve')
     
     def __init__(self):
+        """Attributes
+        
+        + Path data.
+        
+        Display mode:
+        + Show mode parameter.
+        + The path will be the curve, otherwise the points.
+        """
         self.path = ()
-        #Show mode parameter.
         self.show = -1
-        #Display mode: The path will be the curve, otherwise the points.
         self.curve = True
 
 class BaseCanvas(QWidget):
@@ -151,6 +157,7 @@ class BaseCanvas(QWidget):
     """The subclass can draw a blank canvas more easier."""
     
     def __init__(self, parent):
+        """Set the parameters for drawing."""
         super(BaseCanvas, self).__init__(parent)
         self.setSizePolicy(QSizePolicy(
             QSizePolicy.Expanding,
@@ -343,8 +350,11 @@ class BaseCanvas(QWidget):
         elif func == 'PLAP':
             color = QColor(249, 84, 216)
             params = [args[0]]
-        elif func == 'PLPP':
-            color = QColor(94, 255, 185)
+        elif func in ('PLPP', 'PXY'):
+            if func == 'PLPP':
+                color = QColor(94, 255, 185)
+            else:
+                color = QColor(249, 175, 27)
             params = [args[0]]
         params.append(target)
         
@@ -386,13 +396,10 @@ class PreviewCanvas(BaseCanvas):
     """A preview canvas use to show structure diagram."""
     
     def __init__(self, get_solutions: Callable[[], Tuple[str]], parent):
-        super(PreviewCanvas, self).__init__(parent)
-        self.showSolutions = True
-        #A function should return a tuple of function expression.
-        #Like: ("PLAP[P1,a0,L0,P2](P3)", "PLLP[P1,a0,L0,P2](P3)", ...)
-        self.get_solutions = get_solutions
-        """Attributes.
+        """Input parameters and attributes.
         
+        + A function should return a tuple of function expression.
+            Like: ("PLAP[P1,a0,L0,P2](P3)", "PLLP[P1,a0,L0,P2](P3)", ...)
         + Origin graph
         + Customize points: Dict[str, int]
         + Multiple joints: Dict[int, int]
@@ -400,6 +407,9 @@ class PreviewCanvas(BaseCanvas):
         + Joint status: Dict[int, bool]
         + Name dict: Dict['P0', 'A']
         """
+        super(PreviewCanvas, self).__init__(parent)
+        self.showSolutions = True
+        self.get_solutions = get_solutions
         self.G = Graph()
         self.cus = {}
         self.same = {}
