@@ -20,8 +20,8 @@ from networkx import Graph
 from core.graphics import edges_view
 from core.libs import (
     slvsProcess,
-    SlvsException,
     vpoints_configure,
+    expr_solving,
     VPoint,
     dof,
 )
@@ -32,12 +32,21 @@ def resolve(self):
     inputs = list(self.InputsWidget.getInputsVariables())
     vpoints = self.EntitiesPoint.dataTuple()
     try:
-        result, _ = slvsProcess(
-            vpoints,
-            self.EntitiesLink.dataTuple(),
-            inputs if not self.freemode_button.isChecked() else ()
-        )
-    except SlvsException as e:
+        solve_kernel = self.planarsolver_option.currentIndex()
+        if solve_kernel == 0:
+            result = expr_solving(
+                self.getTriangle(),
+                {n: 'P{}'.format(n) for n in range(len(vpoints))},
+                vpoints,
+                [v[-1] for v in inputs]
+            )
+        elif solve_kernel == 1:
+            result, _ = slvsProcess(
+                vpoints,
+                self.EntitiesLink.dataTuple(),
+                inputs if not self.freemode_button.isChecked() else ()
+            )
+    except Exception as e:
         if self.consoleerror_option.isChecked():
             print(e)
         self.ConflictGuide.setToolTip(str(e))
@@ -206,7 +215,7 @@ def getTriangle(self,
         vpoints,
         tuple(self.InputsWidget.inputPair())
     )
-    self.Entities_Expr.setExpr(exprs)
+    self.EntitiesExpr.setExpr(exprs)
     return exprs
 
 
@@ -214,7 +223,7 @@ def rightInput(self) -> bool:
     """Is input same as DOF?"""
     inputs = self.InputsWidget.inputCount() == self.DOF
     if not inputs:
-        self.Entities_Expr.clear()
+        self.EntitiesExpr.clear()
     return inputs
 
 

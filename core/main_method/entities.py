@@ -173,8 +173,7 @@ def _deletePoint(self, row: int):
 
 def qAddNormalPoint(self):
     """Add point group using alt key."""
-    tabText = self.SynthesisTab.tabText(self.SynthesisTab.currentIndex())
-    if tabText == "Dimensional":
+    if self.SynthesisTab.currentIndex() == 2:
         self.addTargetPoint()
     else:
         self.addPoint(self.mouse_pos_x, self.mouse_pos_y, False)
@@ -323,7 +322,7 @@ def setFreemoved(self,
     self.CommandStack.beginMacro("Moved {{{}}}".format(", ".join(
         "Point{}".format(c[0]) for c in coords
     )))
-    for row, (x, y, angle) in coords:
+    for row, (x, y) in coords:
         args = self.EntitiesPoint.rowTexts(row)
         args[3] = x
         args[4] = y

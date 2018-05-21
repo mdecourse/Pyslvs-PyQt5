@@ -16,10 +16,13 @@ from typing import (
 from core.QtModules import (
     pyqtSignal,
     pyqtSlot,
+    Qt,
+    QApplication,
     QRectF,
     QPointF,
     QSizeF,
     QCursor,
+    QToolTip,
 )
 from core.graphics import BaseCanvas
 from core.libs import VPoint, VLink
@@ -60,9 +63,10 @@ class DynamicCanvas(BaseCanvas):
         #Entities.
         self.Points = tuple()
         self.Links = tuple()
-        #Point selection.
-        self.selectionRadius = 10
-        self.selections = tuple()
+        #Select function.
+        self.selectionMode = 0
+        self.sr = 10
+        self.selections = []
         #Linkage transparency.
         self.transparency = 1.
         #Path solving range.
@@ -73,8 +77,6 @@ class DynamicCanvas(BaseCanvas):
         self.freemove = FreeMode.NoFreeMove
         #Auto preview function.
         self.autoPathShow = True
-        #Show solution.
-        self.solutionShow = False
         #Zooming center.
         """
         0: By cursor.
@@ -87,6 +89,10 @@ class DynamicCanvas(BaseCanvas):
         self.__setZoom = parent.ZoomBar.setValue
         self.__zoom = parent.ZoomBar.value
         self.__zoom_factor = parent.scalefactor_option.value
+        #Dependent functions to set snap option.
+        self.__setSnap = parent.snap_option.setValue
+        self.__snap = parent.snap_option.value
+        self.__snap_factor = parent.snap_option.singleStep
         #Default margin factor.
         self.marginFactor = 0.95
         #Widget size.
@@ -165,9 +171,9 @@ class DynamicCanvas(BaseCanvas):
         self.update()
     
     @pyqtSlot(int)
-    def setSelectionRadius(self, selectionRadius: int):
+    def setSelectionRadius(self, sr: int):
         """Update radius of point selector."""
-        self.selectionRadius = selectionRadius
+        self.sr = sr
     
     @pyqtSlot(int)
     def setTransparency(self, transparency: int):
@@ -200,9 +206,15 @@ class DynamicCanvas(BaseCanvas):
         """Update mouse capture value."""
         self.snap = snap
     
+    @pyqtSlot(int)
+    def setSelectionMode(self, selectionMode: int):
+        """Update the selection."""
+        self.selectionMode = selectionMode
+        self.update()
+    
     @pyqtSlot(list)
-    def changePointsSelection(self, selections: List[int]):
-        """Update the selected points."""
+    def setSelection(self, selections: List[int]):
+        """Update the selection."""
         self.selections = selections
         self.update()
     
@@ -228,11 +240,6 @@ class DynamicCanvas(BaseCanvas):
         self.autoPathShow = autoPathShow
         self.update()
     
-    def setSolutionShow(self, solutionShow: bool):
-        """Update solution preview mode."""
-        self.solutionShow = solutionShow
-        self.update()
-    
     def updateRanges(self, ranges: Dict[str, Tuple[float, float, float]]):
         """Update the ranges of dimensional synthesis."""
         self.ranges.clear()
@@ -251,18 +258,21 @@ class DynamicCanvas(BaseCanvas):
         for i, vpoint in enumerate(self.Points):
             self.path_record[i].append((vpoint.cx, vpoint.cy))
     
-    def wheelEvent(self, event):
-        """Set zoom bar value by mouse wheel."""
-        value = event.angleDelta().y()
-        self.__setZoom(
-            self.__zoom() + (self.__zoom_factor() * value) / abs(value)
-        )
-    
     def getRecordPath(self) -> Tuple[Tuple[Tuple[float, float]]]:
         return _method.getRecordPath(self)
     
     def paintEvent(self, event):
         _method.paintEvent(self, event)
+    
+    def wheelEvent(self, event):
+        """Set zoom bar value by mouse wheel."""
+        value = event.angleDelta().y()
+        if QApplication.keyboardModifiers() == Qt.ControlModifier:
+            self.__setSnap(self.__snap() + self.__snap_factor() * (1 if (value > 0) else -1))
+            QToolTip.showText(event.globalPos(), "Accuracy: {:.02f}".format(self.__snap()), self)
+        else:
+            self.__setZoom(self.__zoom() + self.__zoom_factor() * (1 if (value > 0) else -1))
+        event.accept()
     
     def mousePressEvent(self, event):
         _method.mousePressEvent(self, event)

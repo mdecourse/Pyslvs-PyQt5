@@ -212,9 +212,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     @pyqtSlot(int)
     def on_SynthesisTab_currentChanged(self, index: int):
         """Dimensional synthesis information will show on the canvas."""
-        self.MainCanvas.setShowTargetPath(
-            self.SynthesisTab.tabText(index)=="Dimensional"
-        )
+        self.MainCanvas.setShowTargetPath(index == 2)
     
     def addTargetPoint(self):
         """Use context menu to add a target path coordinate."""
@@ -255,6 +253,26 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.InputsWidget.addPath("Algorithm_{}".format(i), path)
         self.MainCanvas.zoomToFit()
     
+    @pyqtSlot(int)
+    def on_EntitiesTab_currentChanged(self, index):
+        """Connect selection signal for main canvas."""
+        if index == 0:
+            try:
+                self.EntitiesLink.rowSelectionChanged.disconnect()
+            except TypeError:
+                pass
+            self.EntitiesPoint.rowSelectionChanged.connect(self.MainCanvas.setSelection)
+        elif index == 1:
+            try:
+                self.EntitiesPoint.rowSelectionChanged.disconnect()
+            except TypeError:
+                pass
+            self.EntitiesLink.rowSelectionChanged.connect(self.MainCanvas.setSelection)
+        self.EntitiesPoint.clearSelection()
+        self.EntitiesLink.clearSelection()
+        self.EntitiesExpr.clearSelection()
+        self.InputsWidget.clearSelection()
+    
     @pyqtSlot()
     def on_connectConsoleButton_clicked(self):
         """Turn the OS command line (stdout) log to console."""
@@ -288,12 +306,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.showFullScreen()
         else:
             self.showMaximized()
-    
-    @pyqtSlot(int)
-    def on_EntitiesTab_currentChanged(self, index: int):
-        self.MainCanvas.setSolutionShow(
-            self.EntitiesTab.tabText(index) == "Formulas"
-        )
     
     @pyqtSlot(float, float)
     def setMousePos(self, x: float, y: float):

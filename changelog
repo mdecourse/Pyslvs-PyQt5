@@ -3,7 +3,9 @@ Change Log
 
 Version 18.05:
 - Features
-    -- Mouse snapping option (default 1 unit).
+    -- New solving kernel option "Pyslvs" as default.
+    -- New linkage selection function for both of table widget and main canvas.
+    -- Add mouse snapping option (default 1 unit). Using ctrl + mouse wheel can adjust the value.
     -- Triple ball lifter example.
     -- Shortcut keys adjustment.
     -- Main canvas:
@@ -34,6 +36,7 @@ Version 18.05:
     -- Compile process improvement.
     -- Reduce size while packing AppImage file.
     -- Modules and objects naming adjustment.
+    -- PyQt version should upgrade to 5.10 or above to support Qt graph methods.
 
 Version 18.04:
 - Features

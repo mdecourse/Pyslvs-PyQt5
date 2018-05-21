@@ -15,14 +15,11 @@ from math import (
     atan2,
     hypot,
 )
-from typing import (
-    Tuple,
-    List,
-    Callable,
-)
+from typing import Tuple, List
 from core.QtModules import (
     Qt,
     QApplication,
+    QPolygonF,
     QRectF,
     QPointF,
     QFont,
@@ -32,6 +29,7 @@ from core.QtModules import (
 )
 from core.graphics import (
     convex_hull,
+    BaseCanvas,
     colorQt,
     colorNum,
 )
@@ -51,33 +49,62 @@ class Selector:
         'selection',
         'selection_rect',
         'selection_old',
-        'middleDragged',
-        'leftDragged',
-        'hasSelection',
+        'middle_dragged',
+        'left_dragged',
+        'picking',
     )
     
     def __init__(self):
+        """Attributes:
+        
+        + x, y, sx, sy: Four coordinates of selection rectangle.
+        + selection_rect: The selection of mouse dragging.
+        + selection_old: The selection before mouse dragging.
+        + middle_dragged: Is dragged by middle button.
+        + left_dragged: Is dragged by left button.
+        + picking: Is selecting (for drawing function).
+        """
         self.x = 0.
         self.y = 0.
-        self.selection = []
-        self.selection_rect = []
-        self.selection_old = []
-        self.middleDragged = False
-        self.leftDragged = False
-        self.hasSelection = False
         self.sx = 0.
         self.sy = 0.
+        self.selection_rect = []
+        self.selection_old = []
+        self.middle_dragged = False
+        self.left_dragged = False
+        self.picking = False
     
-    def distanceLimit(self, x: float, y: float, limit: float) -> bool:
+    def km(self) -> int:
+        """Qt keyboard modifiers."""
+        return QApplication.keyboardModifiers()
+    
+    def release(self):
+        """Release the dragging status."""
+        self.selection_rect.clear()
+        self.middle_dragged = False
+        self.left_dragged = False
+        self.picking = False
+    
+    def isClose(self, x: float, y: float, limit: float) -> bool:
         """Return the distance of selector."""
         return hypot(x - self.x, y - self.y) <= limit
     
     def inRect(self, x: float, y: float) -> bool:
-        """Return if input coordinate is in the rectangle."""
+        """Return True if input coordinate is in the rectangle."""
         return (
             min(self.x, self.sx) <= x <= max(self.x, self.sx) and
             min(self.y, self.sy) <= y <= max(self.y, self.sy)
         )
+    
+    def toQRect(self) -> QRectF:
+        """Return limit as QRectF type."""
+        return QRectF(QPointF(self.x, self.y), QPointF(self.sx, self.sy))
+    
+    def currentSelection(self) -> Tuple[int]:
+        if self.km() in (Qt.ControlModifier, Qt.ShiftModifier):
+            return tuple(set(self.selection_old + self.selection_rect))
+        else:
+            return tuple(self.selection_rect)
 
 
 class FreeMode(Enum):
@@ -116,11 +143,15 @@ def _drawPoint(self, i: int, vpoint: VPoint):
         #Draw slider
         silder_points = vpoint.c
         for j, (cx, cy) in enumerate(silder_points):
+            if not vpoint.links:
+                grounded = False
+            else:
+                grounded = vpoint.links[j] == 'ground'
             if vpoint.type == 1:
                 if j == 0:
                     self._BaseCanvas__drawPoint(
                         i, cx, cy,
-                        vpoint.links[j] == 'ground',
+                        grounded,
                         vpoint.color
                     )
                 else:
@@ -136,7 +167,7 @@ def _drawPoint(self, i: int, vpoint: VPoint):
                 if j == 0:
                     self._BaseCanvas__drawPoint(
                         i, cx, cy,
-                        vpoint.links[j] == 'ground',
+                        grounded,
                         vpoint.color
                     )
                 else:
@@ -145,7 +176,7 @@ def _drawPoint(self, i: int, vpoint: VPoint):
                     self.showPointMark = False
                     self._BaseCanvas__drawPoint(
                         i, cx, cy,
-                        vpoint.links[j] == 'ground',
+                        grounded,
                         vpoint.color
                     )
                     self.showPointMark = showPointMark
@@ -171,7 +202,7 @@ def _drawPoint(self, i: int, vpoint: VPoint):
             vpoint.color
         )
     #For selects function.
-    if i in self.selections:
+    if (self.selectionMode == 0) and (i in self.selections):
         pen = QPen(QColor(161, 16, 239))
         pen.setWidth(3)
         self.painter.setPen(pen)
@@ -182,8 +213,8 @@ def _drawPoint(self, i: int, vpoint: VPoint):
         )
 
 
-def _drawLink(self, vlink: VLink):
-    """Draw a link."""
+def _pointsPos(self, vlink: VLink) -> List[Tuple[float, float]]:
+    """Get geometry of the vlink."""
     points = []
     for i in vlink.points:
         vpoint = self.Points[i]
@@ -197,28 +228,45 @@ def _drawLink(self, vlink: VLink):
             x = coordinate[0] * self.zoom
             y = coordinate[1] * -self.zoom
         points.append((x, y))
-    pen = QPen(vlink.color)
+    return points
+
+
+def _drawLink(self, vlink: VLink):
+    """Draw a link."""
+    if (vlink.name == 'ground') or (not vlink.points):
+        return
+    points = _pointsPos(self, vlink)
+    pen = QPen()
+    #Rearrange: Put the nearest point to the next position.
+    qpoints = convex_hull(points)
+    if (
+        (self.selectionMode == 1) and
+        (self.Links.index(vlink) in self.selections)
+    ):
+        pen.setWidth(self.linkWidth + 6)
+        pen.setColor(QColor(161, 16, 239))
+        self.painter.setPen(pen)
+        self.painter.drawPolygon(*qpoints)
     pen.setWidth(self.linkWidth)
+    pen.setColor(vlink.color)
     self.painter.setPen(pen)
     brush = QColor(226, 219, 190)
     brush.setAlphaF(self.transparency)
     self.painter.setBrush(brush)
-    #Rearrange: Put the nearest point to the next position.
-    qpoints = convex_hull(points)
-    if qpoints:
-        self.painter.drawPolygon(*qpoints)
+    self.painter.drawPolygon(*qpoints)
     self.painter.setBrush(Qt.NoBrush)
-    if (
-        (not self.showPointMark) or
-        (vlink.name == 'ground') or
-        (not qpoints)
-    ):
+    if not self.showPointMark:
         return
     pen.setColor(Qt.darkGray)
     self.painter.setPen(pen)
-    cenX = sum(p[0] for p in points) / len(points)
-    cenY = sum(p[1] for p in points) / len(points)
-    self.painter.drawText(QPointF(cenX, cenY), '[{}]'.format(vlink.name))
+    p_count = len(points)
+    cen_x = sum(p[0] for p in points) / p_count
+    cen_y = sum(p[1] for p in points) / p_count
+    self.painter.drawText(
+        QRectF(cen_x-50, cen_y-50, 100, 100),
+        Qt.AlignCenter,
+        '[{}]'.format(vlink.name)
+    )
 
 
 def _drawPath(self):
@@ -233,7 +281,7 @@ def _drawPath(self):
             self.Points,
             self.pathInterval()
         )
-        if self.solutionShow:
+        if self.selectionMode == 2:
             for expr in exprs:
                 self._BaseCanvas__drawSolution(
                     expr[0],
@@ -295,32 +343,48 @@ def _drawSlvsRanges(self):
         self.painter.setBrush(Qt.NoBrush)
 
 
-def _selectedPointFunc(self,
-    selection: List[int],
-    inSelection: Callable[[float, float], bool]
-):
-    """Select point(s) function."""
-    selection.clear()
-    for i, vpoint in enumerate(self.Points):
-        if inSelection(vpoint.cx * self.zoom, vpoint.cy * -self.zoom):
-            if i not in selection:
-                selection.append(i)
-
-
-def _mouseSelectedPoint(self):
-    """Select one point."""
-    _selectedPointFunc(self,
-        self.selector.selection,
-        lambda x, y: self.selector.distanceLimit(x, y, self.selectionRadius)
-    )
-
-
-def _rectangularSelectedPoint(self):
-    """Select points by rectangle."""
-    _selectedPointFunc(self,
-        self.selector.selection_rect,
-        self.selector.inRect
-    )
+def _select_func(self, *, rect: bool = False):
+    """Select function."""
+    self.selector.selection_rect.clear()
+    if self.selectionMode == 0:
+        
+        def catch(x: float, y: float) -> bool:
+            """Detection function for points."""
+            if rect:
+                return self.selector.inRect(x, y)
+            else:
+                return self.selector.isClose(x, y, self.sr)
+        
+        for i, vpoint in enumerate(self.Points):
+            if catch(vpoint.cx * self.zoom, vpoint.cy * -self.zoom):
+                if i not in self.selector.selection_rect:
+                    self.selector.selection_rect.append(i)
+    elif self.selectionMode == 1:
+        
+        def catch(vlink: VLink) -> bool:
+            """Detection function for links.
+            
+            + Is polygon: Using Qt polygon geometry.
+            + If just a line: Create a range for mouse detection.
+            """
+            points = _pointsPos(self, vlink)
+            if len(points) > 2:
+                polygon = QPolygonF(convex_hull(points))
+            else:
+                points_up = [(x + self.sr, y + self.sr) for x, y in points]
+                points_down = [(x - self.sr, y - self.sr) for x, y in points]
+                polygon = QPolygonF(convex_hull(points_up + points_down))
+            if rect:
+                return polygon.intersects(QPolygonF(self.selector.toQRect()))
+            else:
+                return polygon.containsPoint(QPointF(self.selector.x, self.selector.y), Qt.WindingFill)
+        
+        for i, vlink in enumerate(self.Links):
+            if i == 0:
+                continue
+            if catch(vlink):
+                if i not in self.selector.selection_rect:
+                    self.selector.selection_rect.append(i)
 
 
 def _snap(self, num: float, isZoom: bool = True) -> float:
@@ -409,8 +473,8 @@ def paintEvent(self, event):
     )):
         self.ox += (width - self.width_old) / 2
         self.oy += (height - self.height_old) / 2
-    #It only can be called when 'self' is the instance of 'DynamicCanvas'.
-    super(self.__class__, self).paintEvent(event)
+    #'self' is the instance of 'DynamicCanvas'.
+    BaseCanvas.paintEvent(self, event)
     self.painter.setFont(QFont('Arial', self.fontSize))
     #Draw links except ground.
     for vlink in self.Links[1:]:
@@ -438,14 +502,11 @@ def paintEvent(self, event):
         self.painter.setPen(pen)
         _drawFrame(self)
     #Rectangular selection
-    if self.selector.hasSelection:
+    if self.selector.picking:
         pen = QPen(Qt.gray)
         pen.setWidth(1)
         self.painter.setPen(pen)
-        self.painter.drawRect(QRectF(
-            QPointF(self.selector.x, self.selector.y),
-            QPointF(self.selector.sx, self.selector.sy)
-        ))
+        self.painter.drawRect(self.selector.toQRect())
     self.painter.end()
     #Record the widget size.
     self.width_old = width
@@ -471,15 +532,15 @@ def mousePressEvent(self, event):
     self.selector.x = _snap(self, event.x() - self.ox)
     self.selector.y = _snap(self, event.y() - self.oy)
     if event.buttons() == Qt.MiddleButton:
-        self.selector.middleDragged = True
+        self.selector.middle_dragged = True
         x = self.selector.x / self.zoom
         y = self.selector.y / -self.zoom
         self.browse_tracking.emit(x, y)
     if event.buttons() == Qt.LeftButton:
-        self.selector.leftDragged = True
-        _mouseSelectedPoint(self)
-        if self.selector.selection:
-            self.selected.emit(tuple(self.selector.selection[:1]), True)
+        self.selector.left_dragged = True
+        _select_func(self)
+        if self.selector.selection_rect:
+            self.selected.emit(tuple(self.selector.selection_rect[:1]), True)
 
 
 def mouseDoubleClickEvent(self, event):
@@ -494,10 +555,11 @@ def mouseDoubleClickEvent(self, event):
     if button == Qt.LeftButton:
         self.selector.x = _snap(self, event.x() - self.ox)
         self.selector.y = _snap(self, event.y() - self.oy)
-        _mouseSelectedPoint(self)
-        if self.selector.selection:
-            self.selected.emit((self.selector.selection[0],), True)
-            self.doubleclick_edit.emit(self.selector.selection[0])
+        _select_func(self)
+        if self.selector.selection_rect:
+            self.selected.emit(tuple(self.selector.selection_rect[:1]), True)
+            self.doubleclick_edit.emit(self.selector.selection_rect[0])
+    event.accept()
 
 
 def mouseReleaseEvent(self, event):
@@ -507,34 +569,32 @@ def mouseReleaseEvent(self, event):
     + Left button: Select a point.
     + Free move mode: Edit the point(s) coordinate.
     """
-    if self.selector.leftDragged:
+    if self.selector.left_dragged:
         self.selector.selection_old = list(self.selections)
-        km = QApplication.keyboardModifiers()
+        km = self.selector.km()
         #Add Point
         if km == Qt.AltModifier:
             self.alt_add.emit()
         #Only one clicked.
         elif (
-            (abs(event.x() - self.ox - self.selector.x) < self.selectionRadius/2) and
-            (abs(event.y() - self.oy - self.selector.y) < self.selectionRadius/2)
+            (abs(event.x() - self.ox - self.selector.x) < self.sr/2) and
+            (abs(event.y() - self.oy - self.selector.y) < self.sr/2)
         ):
             if (
-                (not self.selector.selection) and
+                (not self.selector.selection_rect) and
                 km != Qt.ControlModifier and
                 km != Qt.ShiftModifier
             ):
                 self.noselected.emit()
         #Edit point coordinates.
-        elif (self.freemove != FreeMode.NoFreeMove):
+        elif (self.selectionMode == 0) and (self.freemove != FreeMode.NoFreeMove):
             self.freemoved.emit(tuple((row, (
                 self.Points[row].cx,
                 self.Points[row].cy,
             )) for row in self.selections))
-    self.selector.selection_rect.clear()
-    self.selector.middleDragged = False
-    self.selector.leftDragged = False
-    self.selector.hasSelection = False
+    self.selector.release()
     self.update()
+    event.accept()
 
 
 def mouseMoveEvent(self, event):
@@ -545,16 +605,39 @@ def mouseMoveEvent(self, event):
     """
     x = (event.x() - self.ox) / self.zoom
     y = (event.y() - self.oy) / -self.zoom
-    if self.selector.middleDragged:
+    if self.selector.middle_dragged:
         self.ox = event.x() - self.selector.x
         self.oy = event.y() - self.selector.y
         self.update()
-    elif self.selector.leftDragged:
-        if self.freemove != FreeMode.NoFreeMove:
+    elif self.selector.left_dragged:
+        if self.freemove == FreeMode.NoFreeMove:
+            #Rectangular selection.
+            self.selector.picking = True
+            self.selector.sx = _snap(self, event.x() - self.ox)
+            self.selector.sy = _snap(self, event.y() - self.oy)
+            _select_func(self, rect=True)
+            selection = self.selector.currentSelection()
+            if selection:
+                self.selected.emit(selection, False)
+            else:
+                self.noselected.emit()
+            QToolTip.showText(
+                event.globalPos(),
+                "({:.02f}, {:.02f})\n({:.02f}, {:.02f})\n{} {}(s)".format(
+                    self.selector.x / self.zoom,
+                    self.selector.y / self.zoom,
+                    self.selector.sx / self.zoom,
+                    self.selector.sy / -self.zoom,
+                    len(selection),
+                    'link' if self.selectionMode == 1 else 'point'
+                ),
+                self
+            )
+        elif self.selectionMode == 0:
             if self.freemove == FreeMode.Translate:
                 #Free move translate function.
-                mouse_x = _snap(self, x - self.selector.x/self.zoom, False)
-                mouse_y = _snap(self, y - self.selector.y/-self.zoom, False)
+                mouse_x = _snap(self, x - self.selector.x / self.zoom, False)
+                mouse_y = _snap(self, y - self.selector.y / -self.zoom, False)
                 QToolTip.showText(
                     event.globalPos(),
                     "{:+.02f}, {:+.02f}".format(mouse_x, mouse_y),
@@ -581,8 +664,8 @@ def mouseMoveEvent(self, event):
                     r = hypot(vpoint.x, vpoint.y)
                     beta = atan2(vpoint.y, vpoint.x)
                     vpoint.move((
-                        r*cos(alpha + beta),
-                        r*sin(alpha + beta)
+                        r * cos(alpha + beta),
+                        r * sin(alpha + beta)
                     ))
             elif self.freemove == FreeMode.Reflect:
                 #Free move reflect function.
@@ -602,32 +685,9 @@ def mouseMoveEvent(self, event):
                             (vpoint.x * fx, vpoint.y * fy),
                             (vpoint.x * fx, vpoint.y * fy)
                         )
-        else:
-            #Rectangular selection.
-            self.selector.hasSelection = True
-            self.selector.sx = _snap(self, event.x() - self.ox)
-            self.selector.sy = _snap(self, event.y() - self.oy)
-            QToolTip.showText(event.globalPos(), "{:.02f}, {:.02f}".format(
-                self.selector.sx / self.zoom,
-                self.selector.sy / -self.zoom
-            ), self)
-            _rectangularSelectedPoint(self)
-            km = QApplication.keyboardModifiers()
-            if self.selector.selection_rect:
-                if km in (Qt.ControlModifier, Qt.ShiftModifier):
-                    self.selected.emit(tuple(set(
-                        self.selector.selection_old +
-                        self.selector.selection_rect
-                    )), False)
-                else:
-                    self.selected.emit(
-                        tuple(self.selector.selection_rect),
-                        False
-                    )
-            else:
-                self.noselected.emit()
         self.update()
     self.tracking.emit(x, y)
+    event.accept()
 
 
 def zoomToFit(self):

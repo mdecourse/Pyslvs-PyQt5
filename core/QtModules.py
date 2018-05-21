@@ -8,6 +8,8 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from PyQt5.QtCore import (
+    pyqtSignal,
+    pyqtSlot,
     QCoreApplication,
     QFileInfo,
     QModelIndex,
@@ -25,8 +27,6 @@ from PyQt5.QtCore import (
     QTimer,
     QUrl,
     Qt,
-    pyqtSignal,
-    pyqtSlot,
 )
 from PyQt5.QtWidgets import (
     QAbstractItemView,
@@ -80,6 +80,7 @@ from PyQt5.QtGui import (
     QPainterPath,
     QPen,
     QPixmap,
+    QPolygonF,
     QTextCursor,
 )
 from PyQt5.QtChart import (
@@ -93,6 +94,9 @@ from PyQt5.QtChart import (
 from PyQt5.QtCore import qVersion, PYQT_VERSION_STR
 
 __all__ = [
+    'pyqtSignal',
+    'pyqtSlot',
+    'qVersion',
     'PYQT_VERSION_STR',
     'QAbstractItemView',
     'QAction',
@@ -139,6 +143,7 @@ __all__ = [
     'QPixmap',
     'QPoint',
     'QPointF',
+    'QPolygonF',
     'QProgressDialog',
     'QPushButton',
     'QRectF',
@@ -167,7 +172,4 @@ __all__ = [
     'QVBoxLayout',
     'QWidget',
     'Qt',
-    'pyqtSignal',
-    'pyqtSlot',
-    'qVersion'
 ]
