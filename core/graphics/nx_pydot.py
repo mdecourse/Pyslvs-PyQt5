@@ -7,6 +7,7 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import Dict, Tuple
 from networkx import (
     Graph,
     nx_pydot,
@@ -16,7 +17,6 @@ from networkx import (
     spectral_layout,
     random_layout
 )
-from typing import Dict, Tuple
 from core.QtModules import (
     QImage,
     QSize,
@@ -162,7 +162,7 @@ def graph(
             painter.drawPolygon(*convex_hull([
                 (pos[n][0], -pos[n][1])
                 for n, edge in edges_view(G) if link in edge
-            ]))
+            ], as_qpoint=True))
     for k, (x, y) in pos.items():
         if node_mode:
             color = colorNum(len(list(G.neighbors(k)))-1)

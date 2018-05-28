@@ -7,7 +7,6 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from pygments.lexers import Python3Lexer
 from typing import (
     Tuple,
     List,
@@ -16,6 +15,7 @@ from typing import (
     Iterator,
     Union,
 )
+from pygments.lexers import Python3Lexer
 from core.QtModules import (
     Qt,
     QApplication,
@@ -43,7 +43,7 @@ from core.io import (
     AddTable,
     EditPointTable,
     SlvsParser,
-    slvs_output,
+    SlvsOutputDialog,
     dxfSketch,
     QTIMAGES,
     strbetween,
@@ -76,8 +76,8 @@ def _v_to_slvs(self) -> Callable[[], Tuple[Tuple[int, int]]]:
 def _readSlvs(self, file_name: str):
     """Read slvs format.
     
-    + Choose a layout.
-    + Read the entities of the layout.
+    + Choose a group.
+    + Read the entities of the group.
     """
     parser = SlvsParser(file_name)
     if not parser.isValid():
@@ -86,22 +86,27 @@ def _readSlvs(self, file_name: str):
             "The format is not support."
         )
         return
-    layout, ok = QInputDialog.getItem(self,
-        "Solvespace layout",
-        "Choose a layout:\n" +
-        "(Please know that the layout must contain a sketch only.)",
-        parser.layouts(),
+    groups = parser.getGroups()
+    if not groups:
+        QMessageBox.warning(self,
+            "Format error",
+            "The model file is empty."
+        )
+        return
+    group, ok = QInputDialog.getItem(self,
+        "Solvespace groups",
+        "Choose a group:\n" +
+        "(Please know that the group must contain a sketch only.)",
+        ["@".join(g) for g in groups],
         0,
         False
     )
     if not ok:
-        parser.close()
         return
     self.clear()
     self.FileWidget.reset()
-    print("Read from layout: {}".format(layout))
-    expr = parser.parse(layout)
-    parser.close()
+    print("Read from group: {}".format(group))
+    expr = parser.parse(group.split('@')[0])
     self.parseExpression(expr)
 
 
@@ -378,18 +383,20 @@ def on_action_Save_branch_triggered(self):
 
 def on_action_Output_to_Solvespace_triggered(self):
     """Solvespace 2d save function."""
-    file_name = self.outputTo(
-        "Solvespace sketch",
-        ["Solvespace module (*.slvs)"]
-    )
-    if not file_name:
-        return
-    slvs_output(
+    dlg = SlvsOutputDialog(
+        self.env,
+        self.FileWidget.file_name.baseName(),
         self.EntitiesPoint.dataTuple(),
         _v_to_slvs(self),
-        file_name
+        self
     )
-    self.saveReplyBox("Solvespace sketch", file_name)
+    dlg.show()
+    if dlg.exec_():
+        path = dlg.path_edit.text()
+        if not path:
+            path = dlg.path_edit.placeholderText()
+        self.setLocate(path)
+        self.saveReplyBox("Solvespace sketch", path)
 
 
 def on_action_Output_to_DXF_triggered(self):
@@ -424,13 +431,13 @@ def outputTo(self, formatName: str, formatChoose: List[str]) -> str:
     file_name, suffix = QFileDialog.getSaveFileName(
         self,
         "Save to {}...".format(formatName),
-        self.env+'/'+self.FileWidget.file_name.baseName()+suffix0,
+        self.env + '/' + self.FileWidget.file_name.baseName() + suffix0,
         ';;'.join(formatChoose)
     )
     if file_name:
         suffix = strbetween(suffix, '(', ')').split('*')[-1]
         print("Format: {}".format(suffix))
-        if QFileInfo(file_name).suffix()!=suffix[1:]:
+        if QFileInfo(file_name).suffix() != suffix[1:]:
             file_name += suffix
         self.setLocate(QFileInfo(file_name).absolutePath())
     return file_name
