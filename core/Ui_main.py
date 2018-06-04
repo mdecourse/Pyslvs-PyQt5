@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/home/ahshoe/桌面/Pyslvs-PyQt5/core/main.ui'
+# Form implementation generated from reading ui file 'C:\Users\ahshoe\Desktop\Pyslvs-PyQt5\core\main.ui'
 #
-# Created by: PyQt5 UI code generator 5.10
+# Created by: PyQt5 UI code generator 5.10.1
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -233,7 +233,7 @@ class Ui_MainWindow(object):
         self.settings_scrollarea.setWidgetResizable(True)
         self.settings_scrollarea.setObjectName("settings_scrollarea")
         self.scrollAreaWidgetContents = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 413, 823))
+        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 436, 723))
         self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
         self.verticalLayout_3 = QtWidgets.QVBoxLayout(self.scrollAreaWidgetContents)
         self.verticalLayout_3.setObjectName("verticalLayout_3")
@@ -308,13 +308,6 @@ class Ui_MainWindow(object):
         self.jointsize_option.setMaximum(100)
         self.jointsize_option.setObjectName("jointsize_option")
         self.formLayout.setWidget(8, QtWidgets.QFormLayout.FieldRole, self.jointsize_option)
-        self.snap_label = QtWidgets.QLabel(self.settings_ui_groupbox)
-        self.snap_label.setObjectName("snap_label")
-        self.formLayout.setWidget(10, QtWidgets.QFormLayout.LabelRole, self.snap_label)
-        self.snap_option = QtWidgets.QDoubleSpinBox(self.settings_ui_groupbox)
-        self.snap_option.setMaximum(50.0)
-        self.snap_option.setObjectName("snap_option")
-        self.formLayout.setWidget(10, QtWidgets.QFormLayout.FieldRole, self.snap_option)
         self.zoomby_label = QtWidgets.QLabel(self.settings_ui_groupbox)
         self.zoomby_label.setObjectName("zoomby_label")
         self.formLayout.setWidget(9, QtWidgets.QFormLayout.LabelRole, self.zoomby_label)
@@ -323,6 +316,13 @@ class Ui_MainWindow(object):
         self.zoomby_option.addItem("")
         self.zoomby_option.addItem("")
         self.formLayout.setWidget(9, QtWidgets.QFormLayout.FieldRole, self.zoomby_option)
+        self.snap_label = QtWidgets.QLabel(self.settings_ui_groupbox)
+        self.snap_label.setObjectName("snap_label")
+        self.formLayout.setWidget(10, QtWidgets.QFormLayout.LabelRole, self.snap_label)
+        self.snap_option = QtWidgets.QDoubleSpinBox(self.settings_ui_groupbox)
+        self.snap_option.setMaximum(50.0)
+        self.snap_option.setObjectName("snap_option")
+        self.formLayout.setWidget(10, QtWidgets.QFormLayout.FieldRole, self.snap_option)
         self.verticalLayout_3.addWidget(self.settings_ui_groupbox)
         self.settings_history_groupbox = QtWidgets.QGroupBox(self.scrollAreaWidgetContents)
         self.settings_history_groupbox.setObjectName("settings_history_groupbox")
@@ -531,7 +531,7 @@ class Ui_MainWindow(object):
         self.verticalLayout_2.addWidget(self.MainSplitter)
         MainWindow.setCentralWidget(self.centralWidget)
         self.menuBar = QtWidgets.QMenuBar(MainWindow)
-        self.menuBar.setGeometry(QtCore.QRect(0, 0, 989, 30))
+        self.menuBar.setGeometry(QtCore.QRect(0, 0, 989, 26))
         self.menuBar.setObjectName("menuBar")
         self.menuFile = QtWidgets.QMenu(self.menuBar)
         self.menuFile.setStatusTip("")
@@ -802,10 +802,10 @@ class Ui_MainWindow(object):
         self.marginfactor_label.setText(_translate("MainWindow", "Margin of \"zoom to fit\""))
         self.marginfactor_option.setSuffix(_translate("MainWindow", "%"))
         self.jointsize_label.setText(_translate("MainWindow", "Joint annotation size (diameter)"))
-        self.snap_label.setText(_translate("MainWindow", "Snap the mouse when dragging"))
         self.zoomby_label.setText(_translate("MainWindow", "Center zooming by"))
         self.zoomby_option.setItemText(0, _translate("MainWindow", "Cursor"))
         self.zoomby_option.setItemText(1, _translate("MainWindow", "Cavas center"))
+        self.snap_label.setText(_translate("MainWindow", "Snap the mouse when dragging"))
         self.settings_history_groupbox.setTitle(_translate("MainWindow", "History"))
         self.UndoLimit_label.setText(_translate("MainWindow", "Undo limit"))
         self.undolimit_option.setSuffix(_translate("MainWindow", " times"))

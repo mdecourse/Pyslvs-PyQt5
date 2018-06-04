@@ -1,4 +1,4 @@
-[![Version](https://img.shields.io/badge/version-18.05.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
+[![Version](https://img.shields.io/badge/version-18.06.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases/latest)
 [![Build Status](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5.svg)](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5)
 [![PYTHON](https://img.shields.io/badge/python-3.5%20↑-blue.svg)](https://www.python.org/)
 [![PYQT](https://img.shields.io/badge/pyqt-5.10%20↑-orange.svg)](https://riverbankcomputing.com/software/pyqt/intro)
@@ -34,7 +34,7 @@ Pyslvs on [Sourceforge](https://sourceforge.net/projects/pyslvs/).
 
 1. [Stand-alone Executable File](#stand-alone-executable-file)
 
-1. [Power By](#power-by)
+1. [Powered By](#powered-by)
 
 # Introduction
 
@@ -198,10 +198,11 @@ Pyslvs can support for following format.
 
 + Pyslvs workbook database (*.pyslvs).
 + Expression (just a string).
-+ Solvespace format (*.slvs).
++ [Solvespace] format (*.slvs).
 + DXF format (*.dxf).
 + Image capture (all of [Qt supports]).
 
+[Solvespace]: https://github.com/solvespace/solvespace
 [Qt supports]: http://doc.qt.io/qt-5/qimage.html#reading-and-writing-image-files
 
 **Input formats**:
@@ -209,6 +210,18 @@ Pyslvs can support for following format.
 + Pyslvs workbook database (*.pyslvs).
 + Expression (just a string).
 + Solvespace format (*.slvs, only supports very few of constraints).
+
+The workbook mechanism will generate the sketch frame as *.slvs format like follow:
+
+![](images/IO_slvs_origin.png)
+
+![](images/IO_slvs_frame.png)
+
+A part file will split the sketch and boundary with two groups.
+
+![](images/IO_slvs_part.png)
+
+The part files can be import to assemble with main sketch file. However, the 3D features still can not be generated from external program yet, so user need to do it by self.
 
 For the IO method of Solvespace format, you can also refer to two Python scripts 'read' and 'write' in Pyslvs IO module.
 
@@ -457,17 +470,17 @@ Make command:
 > make
 ```
 
-# Power By
+# Powered By
 
 Made by [Qt5] and Python IDE [Eric 6].
 
-If there is no special reason, please to use the new version of the kits.
+If there is no special reason, please install the new version of the kits.
 
 Including Python modules:
 
 * [SIP] (GPLv2, GPLv3)
 * [PyQt5], [PyQtChart] (GPLv3)
-* [dxfwrite] (MIT)
+* [ezdxf] (MIT)
 * [numpy] (BSD 3-Clause)
 * [Cython] (Apache 2.0)
 * [openpyxl] (MIT)
@@ -498,7 +511,7 @@ Here is the **origin kernel** repository:
 [Eric 6]: http://eric-ide.python-projects.org/
 
 [numpy]: http://www.numpy.org/
-[dxfwrite]: https://pypi.python.org/pypi/dxfwrite/
+[ezdxf]: https://ezdxf.readthedocs.io/en/latest/index.html
 [Cython]: http://cython.org/
 [openpyxl]: http://openpyxl.readthedocs.io/
 [psutil]: https://github.com/giampaolo/psutil

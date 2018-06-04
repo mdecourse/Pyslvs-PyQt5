@@ -44,14 +44,14 @@ from core.io import (
     EditPointTable,
     SlvsParser,
     SlvsOutputDialog,
-    dxfSketch,
+    DxfOutputDialog,
     QTIMAGES,
     strbetween,
 )
 from core.libs import parse_params, PMKSLexer
 
 
-def _openURL(url: str):
+def _open_url(url: str):
     """Use to open link."""
     QDesktopServices.openUrl(QUrl(url))
 
@@ -182,17 +182,17 @@ def on_windowTitle_fullpath_clicked(self):
 
 def on_action_Get_Help_triggered(self):
     """Open website: mde.tw"""
-    _openURL("http://mde.tw")
+    _open_url("http://mde.tw")
 
 
 def on_action_Pyslvs_com_triggered(self):
     """Open website: pyslvs.com"""
-    _openURL("http://www.pyslvs.com/blog/index.html")
+    _open_url("http://www.pyslvs.com/blog/index.html")
 
 
 def on_action_github_repository_triggered(self):
     """Open website: Github repository."""
-    _openURL("https://github.com/KmolYuan/Pyslvs-PyQt5")
+    _open_url("https://github.com/KmolYuan/Pyslvs-PyQt5")
 
 
 def on_action_About_Pyslvs_triggered(self):
@@ -233,6 +233,7 @@ def on_action_New_Workbook_triggered(self):
 
 def clear(self):
     """Clear to create commit stage."""
+    self.freemode_disable.trigger()
     self.mechanism_storage_name_tag.clear()
     self.mechanism_storage.clear()
     self.CollectionTabPage.clear()
@@ -362,7 +363,7 @@ def on_action_Import_Workbook_triggered(self):
 def on_action_Save_triggered(self, isBranch: bool):
     """Save action."""
     file_name = self.FileWidget.file_name.absoluteFilePath()
-    if self.FileWidget.file_name.suffix()=='pyslvs':
+    if self.FileWidget.file_name.suffix() == 'pyslvs':
         self.FileWidget.save(file_name, isBranch)
     else:
         self.on_action_Save_as_triggered(isBranch)
@@ -401,18 +402,20 @@ def on_action_Output_to_Solvespace_triggered(self):
 
 def on_action_Output_to_DXF_triggered(self):
     """DXF 2d save function."""
-    file_name = self.outputTo(
-        "Drawing Exchange Format",
-        ["Drawing Exchange Format (*.dxf)"]
-    )
-    if not file_name:
-        return
-    dxfSketch(
+    dlg = DxfOutputDialog(
+        self.env,
+        self.FileWidget.file_name.baseName(),
         self.EntitiesPoint.dataTuple(),
         _v_to_slvs(self),
-        file_name
+        self
     )
-    self.saveReplyBox("Drawing Exchange Format", file_name)
+    dlg.show()
+    if dlg.exec_():
+        path = dlg.path_edit.text()
+        if not path:
+            path = dlg.path_edit.placeholderText()
+        self.setLocate(path)
+        self.saveReplyBox("Drawing Exchange Format", path)
 
 
 def on_action_Output_to_Picture_triggered(self):
@@ -513,7 +516,7 @@ def on_action_Output_to_PMKS_triggered(self):
         QMessageBox.Save
     )
     if reply == QMessageBox.Open:
-        _openURL(url)
+        _open_url(url)
     elif reply == QMessageBox.Save:
         QApplication.clipboard().setText(url)
 
@@ -579,7 +582,7 @@ def on_action_Check_update_triggered(self):
         QMessageBox.Ok
     )
     if reply == QMessageBox.Ok:
-        _openURL(url)
+        _open_url(url)
 
 
 def checkFileChanged(self) -> bool:

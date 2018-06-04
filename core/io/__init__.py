@@ -9,9 +9,9 @@ __email__ = "pyslvs@gmail.com"
 
 from .script import ScriptDialog, slvsProcessScript
 from .images import QTIMAGES
-from .slvs import SlvsParser, SlvsOutputDialog
-from .dxf import dxfSketch
+from .slvs import SlvsParser
 from .loggingHandler import XStream
+from .output_option import SlvsOutputDialog, DxfOutputDialog
 from .peewee import FileWidget
 from .undo_redo import (
     AddTable, DeleteTable,
@@ -42,7 +42,7 @@ __all__ = [
     'QTIMAGES',
     'SlvsParser',
     'SlvsOutputDialog',
-    'dxfSketch',
+    'DxfOutputDialog',
     'XStream',
     'FileWidget',
     'strbetween',

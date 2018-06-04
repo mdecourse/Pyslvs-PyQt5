@@ -92,6 +92,8 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import Optional
+
 
 def _shift16(num: int) -> int:
     """Left shift with 16 bit.
@@ -179,20 +181,6 @@ class SlvsWriter:
     def entity_shift16(self):
         """Shift entity counting."""
         self.entity_num = _shift16(self.entity_num)
-    
-    def save_slvs(self, file_name: str):
-        """Save the file."""
-        self.entity_plane(0x80020000, 0x80020002, 0x80020001)
-        self.entity_normal_copy(0x80020001, 0x80020002)
-        self.entity_point_2d(0x80020002, 2012, 1)
-        with open(file_name, 'w', encoding="iso-8859-15") as f:
-            f.write('\n\n'.join('\n\n'.join(script) for script in [
-                self.script_group,
-                self.script_param,
-                self.script_request,
-                self.script_entity,
-                self.script_constraint,
-            ]) + '\n\n')
     
     def group_origin(self, num: int = 1, name: str = "#references"):
         """First group called "#references"."""
@@ -497,6 +485,31 @@ class SlvsWriter:
             "AddConstraint",
         ]))
     
+    def constraint_diameter(self,
+        num: int,
+        e1: int,
+        val: float,
+        *,
+        offset: Optional[int] = None
+    ):
+        """Constraint the diameter of a circle."""
+        if offset is None:
+            offset = val / 2
+        self.script_constraint.append('\n'.join([
+            "Constraint.h.v={:08x}".format(num),
+            "Constraint.type={}".format(90),
+            "Constraint.group.v={:08x}".format(self.__group),
+            "Constraint.workplane.v={:08x}".format(self.__workplane),
+            "Constraint.valA={:.20f}".format(val),
+            "Constraint.entityA.v={:08x}".format(e1),
+            "Constraint.other=0",
+            "Constraint.other2=0",
+            "Constraint.reference=0",
+            "Constraint.disp.offset.x={:.20f}".format(offset),
+            "Constraint.disp.offset.y={:.20f}".format(offset),
+            "AddConstraint",
+        ]))
+    
     def constraint_angle(self,
         num: int,
         l1: int,
@@ -580,3 +593,17 @@ class SlvsWriter:
             "Constraint.disp.offset.y={:.20f}".format(y + offset),
             "AddConstraint",
         ]))
+    
+    def save(self, file_name: str):
+        """Save the file."""
+        self.entity_plane(0x80020000, 0x80020002, 0x80020001)
+        self.entity_normal_copy(0x80020001, 0x80020002)
+        self.entity_point_2d(0x80020002, 2012, 1)
+        with open(file_name, 'w', encoding="iso-8859-15") as f:
+            f.write('\n\n'.join('\n\n'.join(script) for script in [
+                self.script_group,
+                self.script_param,
+                self.script_request,
+                self.script_entity,
+                self.script_constraint,
+            ]) + '\n\n')

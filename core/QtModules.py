@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
-"""This module contain all the Qt objects we needed."""
+"""This module contain all the Qt objects we needed.
+
+Customized class will define below.
+"""
 
 __author__ = "Yuan Chang"
 __copyright__ = "Copyright (C) 2016-2018"
