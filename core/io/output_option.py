@@ -20,10 +20,21 @@ from core.QtModules import (
     QFileDialog,
     QTextEdit,
     QWidget,
+    QLabel,
+    QComboBox,
+    QDoubleSpinBox,
+    QHBoxLayout,
+    QSizePolicy,
+    QSpacerItem,
 )
 from core.libs import VPoint
 from .slvs import slvs_frame, slvs_part
-from .dxf import dxf_frame, dxf_boundary
+from .dxf import (
+    DXF_VERSIONS,
+    DXF_VERSIONS_MAP,
+    dxf_frame,
+    dxf_boundary,
+)
 from .Ui_output_option import Ui_Dialog
 
 
@@ -65,7 +76,9 @@ class _OutputDialog(QDialog, Ui_Dialog):
     
     @pyqtSlot()
     def on_choosedir_button_clicked(self):
-        """Choose path and it will be set as environment variable if accepted."""
+        """Choose path and it will be set as
+        environment variable if accepted.
+        """
         path = self.path_edit.text()
         if not isdir(path):
             path = self.path_edit.placeholderText()
@@ -102,7 +115,7 @@ class _OutputDialog(QDialog, Ui_Dialog):
 
 class SlvsOutputDialog(_OutputDialog):
     
-    """Solvespace format."""
+    """Dialog for Solvespace format."""
     
     def __init__(self, *args):
         """Type name: "Solvespace module"."""
@@ -155,11 +168,39 @@ class SlvsOutputDialog(_OutputDialog):
 
 class DxfOutputDialog(_OutputDialog):
     
-    """DXF format."""
+    """Dialog for DXF format."""
     
     def __init__(self, *args):
         """Type name: "Solvespace module"."""
         super(DxfOutputDialog, self).__init__("Solvespace module", *args)
+        #DXF version option.
+        version_label = QLabel("DXF version:", self)
+        self.version_option = QComboBox(self)
+        self.version_option.addItems(sorted((
+            "{} - {}".format(name, DXF_VERSIONS_MAP[name])
+            for name in DXF_VERSIONS
+        ), key=lambda v: v.split(" ")[-1]))
+        self.version_option.setCurrentIndex(self.version_option.count() - 1)
+        self.version_option.setSizePolicy(QSizePolicy(
+            QSizePolicy.Expanding,
+            QSizePolicy.Fixed
+        ))
+        dxf_version_layout = QHBoxLayout()
+        dxf_version_layout.addWidget(version_label)
+        dxf_version_layout.addWidget(self.version_option)
+        self.main_layout.insertLayout(3, dxf_version_layout)
+        #Parts interval.
+        interval_label = QLabel("Parts interval:", self)
+        self.interval_option = QDoubleSpinBox(self)
+        self.interval_option.setMinimum(0.01)
+        self.interval_option.setValue(30)
+        dxf_interval_layout = QHBoxLayout()
+        dxf_interval_layout.addWidget(interval_label)
+        dxf_interval_layout.addItem(
+            QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
+        )
+        dxf_interval_layout.addWidget(self.interval_option)
+        self.assembly_layout.insertLayout(2, dxf_interval_layout)
     
     def do(self, dir: QDir) -> Optional[bool]:
         """Output types:
@@ -172,10 +213,24 @@ class DxfOutputDialog(_OutputDialog):
             self.exist_warning(file_name)
             return
         
+        version = self.version_option.currentText().split(" ")[0]
+        
         if self.frame_radio.isChecked():
             #Frame
-            dxf_frame(self.vpoints, self.v_to_slvs, file_name)
+            dxf_frame(
+                self.vpoints,
+                self.v_to_slvs,
+                version,
+                file_name
+            )
         elif self.assembly_radio.isChecked():
             #Boundary
-            dxf_boundary(self.vpoints, file_name)
+            dxf_boundary(
+                self.vpoints,
+                self.link_radius.value(),
+                self.interval_option.value(),
+                version,
+                file_name
+            )
+        
         return True
