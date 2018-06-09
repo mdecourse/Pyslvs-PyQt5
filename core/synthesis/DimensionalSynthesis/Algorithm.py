@@ -49,7 +49,7 @@ from .DimensionalSynthesis_dialog import (
     defaultSettings,
     DifferentialPrams,
     AlgorithmType,
-    Options_show,
+    AlgorithmOptionDialog,
     PathAdjustDialog,
     ProgressDialog,
     PreviewDialog,
@@ -92,7 +92,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         self.Settings = deepcopy(defaultSettings)
         self.__setAlgorithmToDefault()
         
-        def get_solutions_func():
+        def get_solutions_func() -> Tuple[str]:
             """For preview canvas."""
             try:
                 return self.mech_params['Expression']
@@ -105,6 +105,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         
         #Splitter
         self.up_splitter.setSizes([80, 100])
+        self.down_splitter.setSizes([20, 80])
         
         #Table widget column width.
         self.ground_joints.setColumnWidth(0, 50)
@@ -121,6 +122,8 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         #Signals
         self.Result_list.clicked.connect(self.__hasResult)
         self.path_clear.clicked.connect(self.__clearPath)
+        
+        self.clear()
     
     def clear(self):
         """Clear all sub-widgets."""
@@ -736,7 +739,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             type_num = AlgorithmType.Firefly
         elif self.type2.isChecked():
             type_num = AlgorithmType.DE
-        dlg = Options_show(type_num, self.Settings, self)
+        dlg = AlgorithmOptionDialog(type_num, self.Settings, self)
         dlg.show()
         if not dlg.exec_():
             return
@@ -746,7 +749,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             'IMax': tablePL(0), 'IMin': tablePL(1),
             'LMax': tablePL(2), 'LMin': tablePL(3),
             'FMax': tablePL(4), 'FMin': tablePL(5),
-            'AMax': tablePL(6), 'AMin': tablePL(7)
+            'AMax': tablePL(6), 'AMin': tablePL(7),
         }
         if dlg.maxGen_option.isChecked():
             self.Settings['maxGen'] = dlg.maxGen.value()

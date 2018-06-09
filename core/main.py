@@ -27,8 +27,8 @@ from typing import (
 from argparse import Namespace
 from networkx import Graph
 from core.QtModules import (
-    Qt,
     pyqtSlot,
+    Qt,
     QMainWindow,
     QUndoStack,
     QFileInfo,
@@ -75,9 +75,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         
         self.args = args
         self.env = ""
+        self.DOF = 0
         
         self.setLocate(
-            QFileInfo(self.args.i).canonicalFilePath() if self.args.i else
+            QFileInfo(self.args.i).canonicalFilePath()
+            if self.args.i else
             QStandardPaths.writableLocation(QStandardPaths.DesktopLocation)
         )
         
@@ -254,23 +256,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.MainCanvas.zoomToFit()
     
     @pyqtSlot(int)
-    def on_EntitiesTab_currentChanged(self, index):
+    def on_EntitiesTab_currentChanged(self, index: int):
         """Connect selection signal for main canvas."""
-        if index == 0:
-            try:
-                self.EntitiesLink.rowSelectionChanged.disconnect()
-            except TypeError:
-                pass
-            self.EntitiesPoint.rowSelectionChanged.connect(self.MainCanvas.setSelection)
-        elif index == 1:
-            try:
-                self.EntitiesPoint.rowSelectionChanged.disconnect()
-            except TypeError:
-                pass
-            self.EntitiesLink.rowSelectionChanged.connect(self.MainCanvas.setSelection)
-        self.EntitiesPoint.clearSelection()
-        self.EntitiesLink.clearSelection()
-        self.EntitiesExpr.clearSelection()
+        tables = (self.EntitiesPoint, self.EntitiesLink, self.EntitiesExpr)
+        try:
+            for table in tables:
+                table.rowSelectionChanged.disconnect()
+        except TypeError:
+            pass
+        tables[index].rowSelectionChanged.connect(self.MainCanvas.setSelection)
+        for table in tables:
+            table.clearSelection()
         self.InputsWidget.clearSelection()
     
     @pyqtSlot()
@@ -522,10 +518,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         _entities.clonePoint(self)
     
     @pyqtSlot(tuple)
-    def setFreemoved(self,
-        coordinates: Tuple[Tuple[int, Tuple[float, float]]]
-    ):
-        _entities.setFreemoved(self, coordinates)
+    def setFreemove(self, coords: Tuple[Tuple[int, Tuple[float, float, float]]]):
+        _entities.setFreemove(self, coords)
+    
+    @pyqtSlot(bool)
+    def setLinkageFreemove(self, enable: bool):
+        _entities.setLinkageFreemove(self, enable)
+    
+    @pyqtSlot(int)
+    def adjustLinkage(self, value: int):
+        _entities.adjustLinkage(self, value)
     
     def setCoordsAsCurrent(self):
         _entities.setCoordsAsCurrent(self)

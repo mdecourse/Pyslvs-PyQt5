@@ -70,7 +70,7 @@ class AlgorithmType(Enum):
     DE = "Differential Evolution"
 
 
-class Options_show(QDialog, Ui_Dialog):
+class AlgorithmOptionDialog(QDialog, Ui_Dialog):
     
     """Option dialog.
     
@@ -83,12 +83,12 @@ class Options_show(QDialog, Ui_Dialog):
         parent
     ):
         """Load the settings to user interface."""
-        super(Options_show, self).__init__(parent)
+        super(AlgorithmOptionDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        self.setWindowTitle("{} Options".format(algorithm.value))
         
         self.algorithm = algorithm
-        self.settings_tab.setTabText(1, self.algorithm.value)
         self.__initPLTable()
         self.__initAPTable()
         for table in [self.APTable, self.PLTable]:

@@ -6,6 +6,12 @@
 # __license__ = "AGPL"
 # __email__ = "pyslvs@gmail.com"
 
+from typing import (
+    Tuple,
+    Sequence,
+    Dict,
+    Union,
+)
 from cpython cimport bool
 from libc.math cimport (
     sqrt,
@@ -430,13 +436,23 @@ cdef inline int base_friend(int node, object vpoints):
             return i
 
 
-cdef inline tuple data_collecting(object exprs, dict mapping, object vpoints_):
+def data_collecting(
+    exprs: Sequence[Tuple[str]],
+    mapping: Dict[int, str],
+    vpoints: Sequence[VPoint]
+) -> Tuple[Dict[str, Union[Tuple[float, float], float]], int]:
+    """Python wrapper of c version function."""
+    return data_collecting_c(exprs, mapping, vpoints)
+
+
+cdef inline tuple data_collecting_c(object exprs, dict mapping, object vpoints_):
     """Input data:
     
-    exprs: [('PLAP', 'P0', 'L0', 'a0', 'P1', 'P2'), ...]
-    mapping: {0: 'P0', 1: 'P2', 2: 'P3', 3: 'P4', ...}
-    vpoints_: [VPoint0, VPoint1, VPoint2, ...]
-    pos: [(x0, y0), (x1, y1), (x2, y2), ...]
+    + exprs: [('PLAP', 'P0', 'L0', 'a0', 'P1', 'P2'), ...]
+    + mapping: {0: 'P0', 1: 'P2', 2: 'P3', 3: 'P4', ...}
+        + Specify linkage length: mapping['L0'] = 20.0
+    + vpoints_: [VPoint0, VPoint1, VPoint2, ...]
+    + pos: [(x0, y0), (x1, y1), (x2, y2), ...]
     
     vpoints will make a copy that we don't want to modified itself.
     """
@@ -488,8 +504,12 @@ cdef inline tuple data_collecting(object exprs, dict mapping, object vpoints_):
                     vpoint_.cy
                 )
     
-    cdef int i
-    cdef dict mapping_r = {link: i for i, link in mapping.items()}
+    cdef k, v
+    #Reverse mapping, exclude specified linkage length.
+    cdef dict mapping_r = {
+        v: k
+        for k, v in mapping.items() if (type(k) == int)
+    }
     
     cdef list pos = []
     for vpoint in vpoints:
@@ -498,7 +518,7 @@ cdef inline tuple data_collecting(object exprs, dict mapping, object vpoints_):
         else:
             pos.append(vpoint.c[1])
     
-    cdef int bf
+    cdef int i, bf
     cdef double angle
     #Add slider slot virtual coordinates.
     for i, vpoint in enumerate(vpoints):
@@ -530,25 +550,43 @@ cdef inline tuple data_collecting(object exprs, dict mapping, object vpoints_):
         target = mapping_r[expr[-1]]
         if expr[0] == 'PLAP':
             #Link 1: expr[2]
-            data_dict[expr[2]] = tuple_distance(pos[node], pos[target])
+            if expr[2] in mapping:
+                data_dict[expr[2]] = mapping[expr[2]]
+            else:
+                data_dict[expr[2]] = tuple_distance(pos[node], pos[target])
             #Inputs
             dof += 1
         elif expr[0] == 'PLLP':
             #Link 1: expr[2]
-            data_dict[expr[2]] = tuple_distance(pos[node], pos[target])
+            if expr[2] in mapping:
+                data_dict[expr[2]] = mapping[expr[2]]
+            else:
+                data_dict[expr[2]] = tuple_distance(pos[node], pos[target])
             #Link 2: expr[3]
-            data_dict[expr[3]] = tuple_distance(pos[mapping_r[expr[4]]], pos[target])
+            if expr[3] in mapping:
+                data_dict[expr[3]] = mapping[expr[3]]
+            else:
+                data_dict[expr[3]] = tuple_distance(pos[mapping_r[expr[4]]], pos[target])
         elif expr[0] == 'PLPP':
             #Link 1: expr[2]
-            data_dict[expr[2]] = tuple_distance(pos[node], pos[target])
+            if expr[2] in mapping:
+                data_dict[expr[2]] = mapping[expr[2]]
+            else:
+                data_dict[expr[2]] = tuple_distance(pos[node], pos[target])
             #PLPP[P1, L0, P2, S2](P2)
             #So we should get P2 first.
             data_dict[expr[3]] = pos[mapping_r[expr[3]]]
         elif expr[0] == 'PXY':
             #X: expr[2]
-            data_dict[expr[2]] = pos[target][0] - pos[node][0]
+            if expr[2] in mapping:
+                data_dict[expr[2]] = mapping[expr[2]]
+            else:
+                data_dict[expr[2]] = pos[target][0] - pos[node][0]
             #Y: expr[3]
-            data_dict[expr[3]] = pos[target][1] - pos[node][1]
+            if expr[3] in mapping:
+                data_dict[expr[3]] = mapping[expr[3]]
+            else:
+                data_dict[expr[3]] = pos[target][1] - pos[node][1]
         #Targets
         targets.add(expr[-1])
     
@@ -559,11 +597,16 @@ cdef inline tuple data_collecting(object exprs, dict mapping, object vpoints_):
     return data_dict, dof
 
 
-cpdef list expr_path(object exprs, dict mapping, object vpoints, double interval):
+cpdef list expr_path(
+    object exprs,
+    dict mapping,
+    object vpoints,
+    double interval
+):
     """Auto preview function."""
     cdef dict data_dict
     cdef int dof
-    data_dict, dof = data_collecting(exprs, mapping, vpoints)
+    data_dict, dof = data_collecting_c(exprs, mapping, vpoints)
     
     #Angles.
     cdef double a = 0
@@ -574,10 +617,15 @@ cpdef list expr_path(object exprs, dict mapping, object vpoints, double interval
     return return_path(expr_join(exprs), data_dict, mapping, dof, interval)
 
 
-cpdef list expr_solving(object exprs, dict mapping, object vpoints, object angles):
+cpdef list expr_solving(
+    object exprs,
+    dict mapping,
+    object vpoints,
+    object angles
+):
     """Solving function."""
     cdef dict data_dict
-    data_dict, _ = data_collecting(exprs, mapping, vpoints)
+    data_dict, _ = data_collecting_c(exprs, mapping, vpoints)
     
     #Angles.
     cdef double a

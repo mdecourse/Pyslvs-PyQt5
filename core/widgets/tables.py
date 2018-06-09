@@ -12,12 +12,13 @@ __email__ = "pyslvs@gmail.com"
 from typing import (
     Tuple,
     List,
+    Dict,
     Iterator,
     Union,
 )
 from core.QtModules import (
-    Qt,
     pyqtSignal,
+    Qt,
     QTableWidget,
     QSizePolicy,
     QAbstractItemView,
@@ -89,25 +90,31 @@ class _BaseTableWidget(QTableWidget):
         self.setFocus()
         keyboardModifiers = QApplication.keyboardModifiers()
         if keyDetect:
-            if keyboardModifiers == Qt.ShiftModifier:
-                self.__setSelectedRanges(selections, continueSelect=True, unSelect=False)
-            elif keyboardModifiers == Qt.ControlModifier:
-                self.__setSelectedRanges(selections, continueSelect=True, unSelect=True)
-            else:
-                self.__setSelectedRanges(selections, continueSelect=False, unSelect=False)
+            continue_select, unselect = {
+                Qt.ShiftModifier: (True, False),
+                Qt.ControlModifier: (True, True),
+            }.get(keyboardModifiers, (False, False))
+            self.__setSelectedRanges(
+                selections,
+                continue_select=continue_select,
+                unSelect=unselect
+            )
         else:
-            continueSelect = (keyboardModifiers == Qt.ShiftModifier)
-            self.__setSelectedRanges(selections, continueSelect=continueSelect, unSelect=False)
+            self.__setSelectedRanges(
+                selections,
+                continue_select=(keyboardModifiers == Qt.ShiftModifier),
+                unSelect=False
+            )
     
     def __setSelectedRanges(self,
         selections: Tuple[int],
         *,
-        continueSelect: bool,
+        continue_select: bool,
         unSelect: bool
     ):
         """Different mode of select function."""
         selectedRows = self.selectedRows()
-        if not continueSelect:
+        if not continue_select:
             self.clearSelection()
         self.setCurrentCell(selections[-1], 0)
         for row in selections:
@@ -223,7 +230,9 @@ class PointTableWidget(_BaseTableWidget):
             coords.append(coords[0])
         return coords
     
-    def updateCurrentPosition(self, coords: Tuple[Tuple[Tuple[float, float]]]):
+    def updateCurrentPosition(self,
+        coords: Tuple[Union[Tuple[Tuple[float, float], Tuple[float, float]]]]
+    ):
         """Update the current coordinate for a point."""
         for i, c in enumerate(coords):
             if type(c[0]) == float:
@@ -344,25 +353,62 @@ class LinkTableWidget(_BaseTableWidget):
 
 class ExprTableWidget(_BaseTableWidget):
     
-    """Expression table."""
+    """Expression table.
+    
+    + Freemove request: linkage name, length
+    """
+    
+    reset = pyqtSignal(bool)
+    freemove_request = pyqtSignal(bool)
     
     def __init__(self, parent):
         column_count = ('p0', 'p1', 'p2', 'p3', 'p4', 'target')
         super(ExprTableWidget, self).__init__(0, column_count, parent)
         for column in range(self.columnCount()):
-            self.setColumnWidth(column, 60)
+            self.setColumnWidth(column, 80)
         self.exprs = []
+        
+        @pyqtSlot(QTableWidgetItem)
+        def adjustRequest(item: QTableWidgetItem):
+            """This function is use to change linkage length
+            without to drag the points.
+            """
+            if item:
+                self.freemove_request.emit(item.text().startswith('L'))
+            else:
+                self.freemove_request.emit(False)
+        
+        #Double click behavior.
+        self.currentItemChanged.connect(adjustRequest)
     
-    def setExpr(self, exprs: List[Tuple[str]]):
-        if exprs == self.exprs:
-            return
-        self.clear()
-        self.setRowCount(len(exprs))
+    def setExpr(self,
+        exprs: List[Tuple[str]],
+        data_dict: Dict[str, Union[Tuple[float, float], float]]
+    ):
+        """Set the table items for new coming expression."""
+        if exprs != self.exprs:
+            self.clear()
+            self.setRowCount(len(exprs))
         for row, expr in enumerate(exprs):
             self.setItem(row, self.columnCount() - 1, QTableWidgetItem(expr[-1]))
             for column, e in enumerate(expr[:-1]):
-                self.setItem(row, column, QTableWidgetItem(e))
+                if e in data_dict:
+                    if type(data_dict[e]) == float:
+                        t = "{}:{:.02f}"
+                    else:
+                        t = "{0}:({1[0]:.02f}, {1[1]:.02f})"
+                    text = t.format(e, data_dict[e])
+                else:
+                    text = e
+                item = QTableWidgetItem(text)
+                item.setToolTip(text)
+                self.setItem(row, column, item)
         self.exprs = exprs
+    
+    def clear(self):
+        """Emit to close the linkage free move widget."""
+        super(ExprTableWidget, self).clear()
+        self.reset.emit(False)
 
 
 class SelectionLabel(QLabel):

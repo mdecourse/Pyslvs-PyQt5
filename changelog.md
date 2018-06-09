@@ -8,7 +8,12 @@ Features
 ---
 
 + Free move mode:
+    + Linkage editing is supported in expression table.
     + Fix the error of angle updating.
++ Show the values on expression table.
++ Add solution selection mode with expression table.
++ Dimensional synthesis function:
+    + Re-designed user interface.
 
 Development
 ---

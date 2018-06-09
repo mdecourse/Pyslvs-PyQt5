@@ -6,13 +6,9 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>447</width>
-    <height>641</height>
+    <width>540</width>
+    <height>663</height>
    </rect>
-  </property>
-  <property name="windowIcon">
-   <iconset resource="../../../../Desktop/Pyslvs-PyQt5/icons.qrc">
-    <normaloff>:/icons/Solvespace.ico</normaloff>:/icons/Solvespace.ico</iconset>
   </property>
   <property name="sizeGripEnabled">
    <bool>true</bool>
@@ -39,7 +35,7 @@
         <string>...</string>
        </property>
        <property name="icon">
-        <iconset resource="../../../../Desktop/Pyslvs-PyQt5/icons.qrc">
+        <iconset resource="../../icons.qrc">
          <normaloff>:/icons/loadfile.png</normaloff>:/icons/loadfile.png</iconset>
        </property>
       </widget>
@@ -49,7 +45,7 @@
    <item>
     <widget class="QCheckBox" name="newfolder_option">
      <property name="text">
-      <string>Create a new folder with workbook name</string>
+      <string>Export to a folder with workbook name (it will be create if not exist)</string>
      </property>
      <property name="checked">
       <bool>true</bool>
@@ -82,7 +78,7 @@
      <property name="title">
       <string>Output types</string>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout_5">
+     <layout class="QVBoxLayout" name="output_layout">
       <item>
        <widget class="QRadioButton" name="assembly_radio">
         <property name="text">
@@ -98,9 +94,6 @@
         <layout class="QVBoxLayout" name="assembly_layout">
          <item>
           <widget class="QLabel" name="assembly_label">
-           <property name="text">
-            <string>The part sketchs file will be generated automatically with target directory.</string>
-           </property>
            <property name="wordWrap">
             <bool>true</bool>
            </property>
@@ -158,9 +151,6 @@
         <layout class="QVBoxLayout" name="verticalLayout">
          <item>
           <widget class="QLabel" name="frame_label">
-           <property name="text">
-            <string>There is only sketch file of main mechanism will be generated.</string>
-           </property>
            <property name="wordWrap">
             <bool>true</bool>
            </property>
@@ -238,7 +228,7 @@
   </layout>
  </widget>
  <resources>
-  <include location="../../../../Desktop/Pyslvs-PyQt5/icons.qrc"/>
+  <include location="../../icons.qrc"/>
  </resources>
  <connections>
   <connection>

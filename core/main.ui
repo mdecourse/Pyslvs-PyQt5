@@ -222,6 +222,51 @@
                         <property name="bottomMargin">
                          <number>0</number>
                         </property>
+                        <item>
+                         <widget class="QWidget" name="linkage_freemode_widget" native="true">
+                          <property name="enabled">
+                           <bool>false</bool>
+                          </property>
+                          <layout class="QHBoxLayout" name="horizontalLayout_3">
+                           <item>
+                            <widget class="QLineEdit" name="linkage_freemode_linkname">
+                             <property name="sizePolicy">
+                              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                               <horstretch>0</horstretch>
+                               <verstretch>0</verstretch>
+                              </sizepolicy>
+                             </property>
+                             <property name="maximumSize">
+                              <size>
+                               <width>30</width>
+                               <height>16777215</height>
+                              </size>
+                             </property>
+                             <property name="readOnly">
+                              <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QSlider" name="linkage_freemode_slider">
+                             <property name="maximum">
+                              <number>100</number>
+                             </property>
+                             <property name="orientation">
+                              <enum>Qt::Horizontal</enum>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QDoubleSpinBox" name="linkage_freemode_spinbox">
+                             <property name="maximum">
+                              <double>100.000000000000000</double>
+                             </property>
+                            </widget>
+                           </item>
+                          </layout>
+                         </widget>
+                        </item>
                        </layout>
                       </widget>
                      </item>
@@ -497,8 +542,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>436</width>
-                  <height>723</height>
+                  <width>413</width>
+                  <height>823</height>
                  </rect>
                 </property>
                 <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -544,7 +589,7 @@
                        <number>30</number>
                       </property>
                       <property name="singleStep">
-                       <number>5</number>
+                       <number>2</number>
                       </property>
                      </widget>
                     </item>
@@ -1148,21 +1193,9 @@
                   <property name="statusTip">
                    <string>Clear GUI console.</string>
                   </property>
-                  <property name="text">
-                   <string>Clear</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QPushButton" name="closeConsoleButton">
-                  <property name="maximumSize">
-                   <size>
-                    <width>25</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>X</string>
+                  <property name="icon">
+                   <iconset resource="../icons.qrc">
+                    <normaloff>:/icons/clean.png</normaloff>:/icons/clean.png</iconset>
                   </property>
                  </widget>
                 </item>
@@ -1189,7 +1222,7 @@
      <x>0</x>
      <y>0</y>
      <width>989</width>
-     <height>26</height>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -1666,6 +1699,9 @@
    </property>
   </action>
   <action name="action_Show_console">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="../icons.qrc">
      <normaloff>:/icons/konsole.png</normaloff>:/icons/konsole.png</iconset>
@@ -1810,9 +1846,9 @@
   </connection>
   <connection>
    <sender>action_Show_console</sender>
-   <signal>triggered()</signal>
+   <signal>toggled(bool)</signal>
    <receiver>ConsoleWidget</receiver>
-   <slot>show()</slot>
+   <slot>setVisible(bool)</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>
@@ -1825,18 +1861,18 @@
    </hints>
   </connection>
   <connection>
-   <sender>closeConsoleButton</sender>
+   <sender>clearConsole</sender>
    <signal>clicked()</signal>
-   <receiver>ConsoleWidget</receiver>
-   <slot>hide()</slot>
+   <receiver>consoleWidgetBrowser</receiver>
+   <slot>clear()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1000</x>
-     <y>173</y>
+     <x>959</x>
+     <y>121</y>
     </hint>
     <hint type="destinationlabel">
-     <x>822</x>
-     <y>451</y>
+     <x>762</x>
+     <y>480</y>
     </hint>
    </hints>
   </connection>
