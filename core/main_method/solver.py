@@ -24,7 +24,7 @@ from core.libs import (
     VPoint,
     data_collecting,
     expr_solving,
-    dof,
+    vpoint_dof,
 )
 
 
@@ -32,8 +32,8 @@ def resolve(self):
     """Resolve: Use Solvespace lib."""
     inputs = list(self.InputsWidget.getInputsVariables())
     vpoints = self.EntitiesPoint.dataTuple()
+    solve_kernel = self.planarsolver_option.currentIndex()
     try:
-        solve_kernel = self.planarsolver_option.currentIndex()
         if solve_kernel == 0:
             result = expr_solving(
                 self.getTriangle(),
@@ -55,7 +55,7 @@ def resolve(self):
         self.DOFview.setVisible(False)
     else:
         self.EntitiesPoint.updateCurrentPosition(result)
-        self.DOF = dof(vpoints)
+        self.DOF = vpoint_dof(vpoints)
         self.DOFview.setText("{} ({})".format(self.DOF, len(inputs)))
         self.ConflictGuide.setVisible(False)
         self.DOFview.setVisible(True)
@@ -95,7 +95,7 @@ def getCollection(self) -> Dict[str, Union[
     Dict[str, None], #Driver
     Dict[str, None], #Follower
     Dict[str, List[Tuple[float, float]]], #Target
-    str, #Link_Expression
+    str, #Link_expr
     str, #Expression
     Tuple[Tuple[int, int]], #Graph
     Dict[int, Tuple[float, float]], #pos
@@ -107,7 +107,7 @@ def getCollection(self) -> Dict[str, Union[
     + Driver
     + Follower
     + Target
-    + Link_Expression
+    + Link_expr
     + Expression
     x constraint
     
@@ -192,7 +192,7 @@ def getCollection(self) -> Dict[str, Union[
         'Driver': {'P{}'.format(p): None for p in drivers},
         'Follower': {'P{}'.format(p): None for p in followers},
         'Target': {p: None for p in cus},
-        'Link_Expression': link_expression,
+        'Link_expr': link_expression,
         'Expression': expression,
         'Graph': graph,
         'constraint': [],
