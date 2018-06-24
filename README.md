@@ -66,16 +66,20 @@ Previews in Windows 8.1 theme:
 Here's some command line options for Pyslvs.
 
 ```bash
+#Download or update submodule:
+git submodule init
+git submodule update
+
 #After following compile steps:
 make build-kernel
 
-# Open GUI by Python:
+#Open GUI by Python:
 python launch_pyslvs.py
 
-# Or see the help:
+#Or see the help:
 python launch_pyslvs.py --help
 
-# Run the unit test:
+#Run the unit test:
 python test_pyslvs.py
 ```
 
@@ -493,11 +497,10 @@ Including Python modules:
 
 Pyslvs is under [GNU Affero General Public License v3].
 
-Here is the **origin kernel** repository:
+Kernel repository:
 
 * [Python-solvespace]
-* [Dimensional Synthesis of Planar Four-bar Linkages]
-* [Triangle solver]
+* [Pyslvs]
 
 [Solvespace]: http://solvespace.com
 [PyQt5]: https://www.riverbankcomputing.com/software/pyqt/download5
@@ -522,7 +525,6 @@ Here is the **origin kernel** repository:
 [Pygments]: http://pygments.org/
 
 [Python-solvespace]: https://github.com/KmolYuan/python-solvespace
-[Dimensional Synthesis of Planar Four-bar Linkages]: https://github.com/kmollee/algorithm
-[Triangle solver]: https://gist.github.com/KmolYuan/c5a94b769bc410524bba66acc5204a8f
+[Pyslvs]: https://github.com/KmolYuan/pyslvs
 
 [GNU Affero General Public License v3]: https://github.com/KmolYuan/Pyslvs-PyQt5/blob/master/LICENSE
