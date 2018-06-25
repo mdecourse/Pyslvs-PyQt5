@@ -7,6 +7,7 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import Dict, Any
 from core.QtModules import (
     QDialog,
     Qt,
@@ -16,9 +17,9 @@ from core.QtModules import (
 from .Ui_progress import Ui_Dialog
 from .thread import WorkerThread
 from .options import AlgorithmType
-from typing import Dict, Any
 
-class Progress_show(QDialog, Ui_Dialog):
+
+class ProgressDialog(QDialog, Ui_Dialog):
     
     """Progress dialog.
     
@@ -28,15 +29,18 @@ class Progress_show(QDialog, Ui_Dialog):
     
     def __init__(self,
         type_num: AlgorithmType,
-        mechanismParams: Dict[str, Any],
+        mech_params: Dict[str, Any],
         setting: Dict[str, Any],
-        parent=None
+        parent
     ):
-        super(Progress_show, self).__init__(parent)
+        """Input the algorithm settings."""
+        super(ProgressDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        self.rejected.connect(self.closeWork)
+        self.rejected.connect(self.__closeWork)
+        
         self.mechanisms = []
+        
         #Batch label.
         if 'maxGen' in setting:
             self.limit = setting['maxGen']
@@ -57,19 +61,21 @@ class Progress_show(QDialog, Ui_Dialog):
             ))
             self.limit_mode = 'maxTime'
         self.loopTime.setEnabled(self.limit > 0)
+        
         #Timer.
         self.time = 0
         self.timer = QTimer(self)
         self.timer.setInterval(1000)
-        self.timer.timeout.connect(self.setTime)
+        self.timer.timeout.connect(self.__setTime)
+        
         #Worker thread.
-        self.work = WorkerThread(type_num, mechanismParams, setting)
-        self.work.progress_update.connect(self.setProgress)
-        self.work.result.connect(self.getResult)
-        self.work.done.connect(self.finish)
+        self.work = WorkerThread(type_num, mech_params, setting)
+        self.work.progress_update.connect(self.__setProgress)
+        self.work.result.connect(self.__getResult)
+        self.work.done.connect(self.__finish)
     
     @pyqtSlot(int, str)
-    def setProgress(self, progress, fitness):
+    def __setProgress(self, progress, fitness):
         """Progress bar will always full."""
         value = progress + self.limit * self.work.currentLoop
         if (self.limit_mode in ('minFit', 'maxTime')) or self.limit==0:
@@ -78,7 +84,7 @@ class Progress_show(QDialog, Ui_Dialog):
         self.fitness_label.setText(fitness)
     
     @pyqtSlot()
-    def setTime(self):
+    def __setTime(self):
         """Set time label."""
         self.time += 1
         self.time_label.setText("{:02d}:{:02d}:{:02d}".format(
@@ -103,7 +109,7 @@ class Progress_show(QDialog, Ui_Dialog):
         self.Interrupt.setEnabled(True)
     
     @pyqtSlot(dict, float)
-    def getResult(self,
+    def __getResult(self,
         mechanism: Dict[str, Any],
         time_spand: float
     ):
@@ -112,7 +118,7 @@ class Progress_show(QDialog, Ui_Dialog):
         self.time_spand = time_spand
     
     @pyqtSlot()
-    def finish(self):
+    def __finish(self):
         """Finish the proccess."""
         self.timer.stop()
         self.accept()
@@ -125,7 +131,7 @@ class Progress_show(QDialog, Ui_Dialog):
             print("The thread has been interrupted.")
     
     @pyqtSlot()
-    def closeWork(self):
+    def __closeWork(self):
         """Close the thread."""
         if self.work.isRunning():
             self.work.stop()

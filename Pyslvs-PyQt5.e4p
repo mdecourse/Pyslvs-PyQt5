@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric project file for project Pyslvs-PyQt5 -->
-<!-- Saved: 2018-03-17, 15:06:21 -->
+<!-- Saved: 2018-05-31, 21:01:39 -->
 <!-- Copyright (C) 2018 KmolYuan, pyslvs@gmail.com -->
 <Project version="5.1">
   <Language></Language>
@@ -27,39 +27,53 @@
     <Source>core/graphics/chart.py</Source>
     <Source>core/graphics/color.py</Source>
     <Source>core/graphics/nx_pydot.py</Source>
-    <Source>core/graphics/planarSolving.py</Source>
     <Source>core/info/Ui_about.py</Source>
     <Source>core/info/__init__.py</Source>
     <Source>core/info/about.py</Source>
     <Source>core/info/info.py</Source>
-    <Source>core/io/Ui_dxfType.py</Source>
-    <Source>core/io/Ui_peeweeIO.py</Source>
+    <Source>core/io/Ui_overview.py</Source>
+    <Source>core/io/Ui_peewee.py</Source>
     <Source>core/io/Ui_script.py</Source>
     <Source>core/io/__init__.py</Source>
-    <Source>core/io/dxfIO.py</Source>
-    <Source>core/io/elements.py</Source>
+    <Source>core/io/dxf.py</Source>
     <Source>core/io/example.py</Source>
     <Source>core/io/images.py</Source>
-    <Source>core/io/larkParser.py</Source>
     <Source>core/io/loggingHandler.py</Source>
-    <Source>core/io/peeweeIO.py</Source>
-    <Source>core/io/scriptIO.py</Source>
-    <Source>core/io/slvsIO.py</Source>
-    <Source>core/io/undoRedo.py</Source>
+    <Source>core/io/overview.py</Source>
+    <Source>core/io/peewee.py</Source>
+    <Source>core/io/script.py</Source>
+    <Source>core/io/slvs/Ui_output_option.py</Source>
+    <Source>core/io/slvs/__init__.py</Source>
+    <Source>core/io/slvs/frame.py</Source>
+    <Source>core/io/slvs/output_option.py</Source>
+    <Source>core/io/slvs/part.py</Source>
+    <Source>core/io/slvs/read.py</Source>
+    <Source>core/io/slvs/write.py</Source>
+    <Source>core/io/undo_redo.py</Source>
     <Source>core/libs/__init__.py</Source>
-    <Source>core/libs/pyslvs_algorithm/__init__.py</Source>
-    <Source>core/libs/pyslvs_algorithm/de.pyx</Source>
-    <Source>core/libs/pyslvs_algorithm/firefly.pyx</Source>
-    <Source>core/libs/pyslvs_algorithm/planarlinkage.pyx</Source>
-    <Source>core/libs/pyslvs_algorithm/rga.pyx</Source>
-    <Source>core/libs/pyslvs_algorithm/setup.py</Source>
-    <Source>core/libs/pyslvs_algorithm/tinycadlib.pyx</Source>
-    <Source>core/libs/pyslvs_topologic/__init__.py</Source>
-    <Source>core/libs/pyslvs_topologic/number.pyx</Source>
-    <Source>core/libs/pyslvs_topologic/setup.py</Source>
-    <Source>core/libs/pyslvs_topologic/topologic.pyx</Source>
+    <Source>core/libs/pyslvs/__init__.py</Source>
+    <Source>core/libs/pyslvs/de.pyx</Source>
+    <Source>core/libs/pyslvs/firefly.pyx</Source>
+    <Source>core/libs/pyslvs/number.pyx</Source>
+    <Source>core/libs/pyslvs/parser.py</Source>
+    <Source>core/libs/pyslvs/planarlinkage.pxd</Source>
+    <Source>core/libs/pyslvs/planarlinkage.pyx</Source>
+    <Source>core/libs/pyslvs/rga.pyx</Source>
+    <Source>core/libs/pyslvs/setup.py</Source>
+    <Source>core/libs/pyslvs/tinycadlib.pxd</Source>
+    <Source>core/libs/pyslvs/tinycadlib.pyx</Source>
+    <Source>core/libs/pyslvs/topologic.pyx</Source>
+    <Source>core/libs/pyslvs/triangulation.pyx</Source>
     <Source>core/libs/python_solvespace/__init__.py</Source>
+    <Source>core/libs/python_solvespace/cad.py</Source>
+    <Source>core/libs/python_solvespace/planarSolving.py</Source>
     <Source>core/main.py</Source>
+    <Source>core/main_method/__init__.py</Source>
+    <Source>core/main_method/actions.py</Source>
+    <Source>core/main_method/entities.py</Source>
+    <Source>core/main_method/io.py</Source>
+    <Source>core/main_method/solver.py</Source>
+    <Source>core/main_method/storage.py</Source>
     <Source>core/synthesis/Collections/Structure.py</Source>
     <Source>core/synthesis/Collections/TriangularIteration.py</Source>
     <Source>core/synthesis/Collections/TriangularIteration_dialog/Ui_collections.py</Source>
@@ -100,19 +114,22 @@
     <Source>core/widgets/custom.py</Source>
     <Source>core/widgets/inputs.py</Source>
     <Source>core/widgets/main_canvas.py</Source>
+    <Source>core/widgets/main_canvas_method.py</Source>
     <Source>core/widgets/rotatable.py</Source>
-    <Source>core/widgets/table.py</Source>
+    <Source>core/widgets/tables.py</Source>
     <Source>icons_rc.py</Source>
     <Source>launch_pyslvs.py</Source>
     <Source>preview_rc.py</Source>
+    <Source>test_pyslvs.py</Source>
   </Sources>
   <Forms>
     <Form>core/entities/edit_link.ui</Form>
     <Form>core/entities/edit_point.ui</Form>
     <Form>core/info/about.ui</Form>
-    <Form>core/io/dxfType.ui</Form>
-    <Form>core/io/peeweeIO.ui</Form>
+    <Form>core/io/overview.ui</Form>
+    <Form>core/io/peewee.ui</Form>
     <Form>core/io/script.ui</Form>
+    <Form>core/io/slvs/output_option.ui</Form>
     <Form>core/main.ui</Form>
     <Form>core/synthesis/Collections/Structure.ui</Form>
     <Form>core/synthesis/Collections/TriangularIteration.ui</Form>
@@ -134,11 +151,12 @@
     <Resource>preview.qrc</Resource>
   </Resources>
   <Others>
+    <Other>.travis.yml</Other>
     <Other>Makefile</Other>
     <Other>README.md</Other>
     <Other>appimage_recipe.sh</Other>
-    <Other>core/libs/pyslvs_algorithm/Makefile</Other>
-    <Other>core/libs/pyslvs_topologic/Makefile</Other>
+    <Other>changelog</Other>
+    <Other>core/libs/pyslvs/Makefile</Other>
     <Other>core/libs/python_solvespace/Makefile</Other>
     <Other>requirements.txt</Other>
   </Others>
@@ -263,4 +281,180 @@
     <FiletypeAssociation pattern="README" type="OTHERS"/>
     <FiletypeAssociation pattern="README.*" type="OTHERS"/>
   </FiletypeAssociations>
+  <Documentation>
+    <DocumentationParams>
+      <dict>
+        <key>
+          <string>ERIC4DOC</string>
+        </key>
+        <value>
+          <dict>
+            <key>
+              <string>noempty</string>
+            </key>
+            <value>
+              <bool>True</bool>
+            </value>
+            <key>
+              <string>noindex</string>
+            </key>
+            <value>
+              <bool>True</bool>
+            </value>
+            <key>
+              <string>outputDirectory</string>
+            </key>
+            <value>
+              <string>doc</string>
+            </value>
+            <key>
+              <string>qtHelpEnabled</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>qtHelpOutputDirectory</string>
+            </key>
+            <value>
+              <string>doc</string>
+            </value>
+            <key>
+              <string>useRecursion</string>
+            </key>
+            <value>
+              <bool>True</bool>
+            </value>
+          </dict>
+        </value>
+      </dict>
+    </DocumentationParams>
+  </Documentation>
+  <Checkers>
+    <CheckersParams>
+      <dict>
+        <key>
+          <string>PYLINT</string>
+        </key>
+        <value>
+          <dict>
+            <key>
+              <string>dialogReport</string>
+            </key>
+            <value>
+              <bool>True</bool>
+            </value>
+            <key>
+              <string>disabledMessages</string>
+            </key>
+            <value>
+              <string></string>
+            </value>
+            <key>
+              <string>enableBasic</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableClasses</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableDesign</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableExceptions</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableFormat</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableImports</string>
+            </key>
+            <value>
+              <bool>True</bool>
+            </value>
+            <key>
+              <string>enableLogging</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableMetrics</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableMiscellaneous</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableNewstyle</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableSimilarities</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableStringFormat</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableTypecheck</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enableVariables</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>enabledMessages</string>
+            </key>
+            <value>
+              <string></string>
+            </value>
+            <key>
+              <string>htmlReport</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+            <key>
+              <string>txtReport</string>
+            </key>
+            <value>
+              <bool>False</bool>
+            </value>
+          </dict>
+        </value>
+      </dict>
+    </CheckersParams>
+  </Checkers>
 </Project>

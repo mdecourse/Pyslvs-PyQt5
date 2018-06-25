@@ -9,14 +9,10 @@ __email__ = "pyslvs@gmail.com"
 
 from .color import (
     colorNum,
-    colorName,
-    colorIcons,
+    colorNames,
+    colorIcon,
     colorQt,
     colorPath
-)
-from .planarSolving import (
-    slvsProcess,
-    SlvsException
 )
 from .chart import DataChart
 from .canvas import (
@@ -24,31 +20,29 @@ from .canvas import (
     PreviewCanvas,
     convex_hull,
     edges_view,
-    replace_by_dict
+    graph2vpoints,
 )
 from .nx_pydot import (
     graph,
     engine_picker,
-    EngineList,
-    EngineError
+    engines,
+    EngineError,
 )
 
 __all__ = [
     'colorNum',
-    'colorName',
-    'colorIcons',
+    'colorNames',
+    'colorIcon',
     'colorQt',
     'colorPath',
-    'slvsProcess',
-    'SlvsException',
     'DataChart',
     'BaseCanvas',
     'PreviewCanvas',
     'convex_hull',
     'edges_view',
-    'replace_by_dict',
+    'graph2vpoints',
     'graph',
     'engine_picker',
-    'EngineList',
-    'EngineError'
+    'engines',
+    'EngineError',
 ]

@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file '/home/ahshoe/桌面/Pyslvs-PyQt5/core/synthesis/Collections/Structure.ui'
 #
-# Created by: PyQt5 UI code generator 5.9
+# Created by: PyQt5 UI code generator 5.10
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -13,7 +13,7 @@ class Ui_Form(object):
         Form.setObjectName("Form")
         Form.resize(431, 562)
         icon = QtGui.QIcon()
-        icon.addPixmap(QtGui.QPixmap(":/icons/collection-structure.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon.addPixmap(QtGui.QPixmap(":/icons/structure.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         Form.setWindowIcon(icon)
         self.verticalLayout_4 = QtWidgets.QVBoxLayout(Form)
         self.verticalLayout_4.setObjectName("verticalLayout_4")
@@ -161,7 +161,7 @@ class Ui_Form(object):
         self.triangle_button = QtWidgets.QPushButton(self.widget)
         self.triangle_button.setEnabled(False)
         icon8 = QtGui.QIcon()
-        icon8.addPixmap(QtGui.QPixmap(":/icons/collection-triangular-iteration.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon8.addPixmap(QtGui.QPixmap(":/icons/triangular-iteration.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.triangle_button.setIcon(icon8)
         self.triangle_button.setObjectName("triangle_button")
         self.verticalLayout_2.addWidget(self.triangle_button)

@@ -7,69 +7,114 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import List
 from core.QtModules import (
-    QDialog,
+    pyqtSlot,
     Qt,
+    QDialog,
     QIcon,
     QPixmap,
     QListWidgetItem,
-    pyqtSlot,
+    QColorDialog,
 )
-from core.graphics import colorName, colorIcons
-from .Ui_edit_point import Ui_Dialog as edit_point_Dialog
+from core.graphics import (
+    colorNames,
+    colorQt,
+    colorIcon,
+)
+from core.libs import VPoint, VLink
+from .Ui_edit_point import Ui_Dialog
 
-class edit_point_show(QDialog, edit_point_Dialog):
+
+class EditPointDialog(QDialog, Ui_Dialog):
     
     """Option dialog.
     
     Only edit the target path after closed.
     """
     
-    def __init__(self, Points, Links, pos=False, parent=None):
-        super(edit_point_show, self).__init__(parent)
+    def __init__(self,
+        vpoints: List[VPoint],
+        vlinks: List[VLink],
+        pos: bool,
+        parent
+    ):
+        """Input data reference from main window.
+        
+        + Needs VPoints and VLinks information.
+        + If row is false: Create action.
+        """
+        super(EditPointDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         icon = self.windowIcon()
         self.LinkIcon = QIcon(QPixmap(":/icons/link.png"))
-        self.Points = Points
-        self.Links = Links
-        for i, e in enumerate(colorName()):
-            self.Color.insertItem(i, colorIcons(e), e)
-        for vlink in Links:
+        self.vpoints = vpoints
+        self.vlinks = vlinks
+        vpoints_count = len(vpoints)
+        for i, e in enumerate(colorNames):
+            self.color_box.insertItem(i, colorIcon(e), e)
+        for vlink in vlinks:
             self.noSelected.addItem(QListWidgetItem(self.LinkIcon, vlink.name))
         if pos is False:
-            self.Point.addItem(icon, 'Point{}'.format(len(Points)))
-            self.Point.setEnabled(False)
-            self.Color.setCurrentIndex(self.Color.findText('Green'))
+            self.name_box.addItem(icon, 'Point{}'.format(vpoints_count))
+            self.name_box.setEnabled(False)
+            self.color_box.setCurrentIndex(self.color_box.findText('Green'))
         else:
-            for i in range(len(Points)):
-                self.Point.insertItem(i, icon, 'Point{}'.format(i))
-            self.Point.setCurrentIndex(pos)
+            for i in range(vpoints_count):
+                self.name_box.insertItem(i, icon, 'Point{}'.format(i))
+            self.name_box.setCurrentIndex(pos)
     
     @pyqtSlot(int)
-    def on_Point_currentIndexChanged(self, index):
+    def on_name_box_currentIndexChanged(self, index):
         """Load the parameters of the point."""
-        if not len(self.Points) > index:
+        if not len(self.vpoints) > index:
             return
-        vpoint = self.Points[index]
-        self.X_coordinate.setValue(vpoint.x)
-        self.Y_coordinate.setValue(vpoint.y)
-        self.Color.setCurrentIndex(self.Color.findText(vpoint.colorSTR))
-        self.Type.setCurrentIndex(vpoint.type)
-        self.Angle.setValue(vpoint.angle)
+        vpoint = self.vpoints[index]
+        self.x_box.setValue(vpoint.x)
+        self.y_box.setValue(vpoint.y)
+        colorText = vpoint.colorSTR
+        colorIndex = self.color_box.findText(colorText)
+        if colorIndex > -1:
+            self.color_box.setCurrentIndex(colorIndex)
+        else:
+            self.color_box.addItem(colorIcon(colorText), colorText)
+            self.color_box.setCurrentIndex(self.color_box.count() - 1)
+        self.type_box.setCurrentIndex(vpoint.type)
+        self.angle_box.setValue(vpoint.angle)
         self.noSelected.clear()
         self.selected.clear()
         for linkName in vpoint.links:
             self.selected.addItem(QListWidgetItem(self.LinkIcon, linkName))
-        for vlink in self.Links:
+        for vlink in self.vlinks:
             if vlink.name in vpoint.links:
                 continue
             self.noSelected.addItem(QListWidgetItem(self.LinkIcon, vlink.name))
     
     @pyqtSlot(int)
-    def on_Type_currentIndexChanged(self, index):
+    def on_color_box_currentIndexChanged(self, index):
+        """Change the color icon of pick button."""
+        self.colorpick_button.setIcon(self.color_box.itemIcon(
+            self.color_box.currentIndex()
+        ))
+    
+    @pyqtSlot()
+    def on_colorpick_button_clicked(self):
+        """Add a custom color from current color."""
+        color = QColorDialog.getColor(
+            colorQt(self.color_box.currentText()),
+            self
+        )
+        if not color.isValid():
+            return
+        rgb_str = str((color.red(), color.green(), color.blue()))
+        self.color_box.addItem(colorIcon(rgb_str), rgb_str)
+        self.color_box.setCurrentIndex(self.color_box.count() - 1)
+    
+    @pyqtSlot(int)
+    def on_type_box_currentIndexChanged(self, index):
         """Toggle the slider angle option."""
-        self.Angle.setEnabled(index!=0)
+        self.angle_box.setEnabled(index != 0)
     
     @pyqtSlot(QListWidgetItem)
     def on_noSelected_itemDoubleClicked(self, item):

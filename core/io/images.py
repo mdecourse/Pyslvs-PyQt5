@@ -7,7 +7,7 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-Qt_images = (
+QTIMAGES = (
     "Portable Network Graphics (*.png)",
     "Joint Photographic Experts Group (*.jpg)",
     "Bitmap Image file (*.bmp)",
@@ -15,5 +15,6 @@ Qt_images = (
     "Tagged Image File Format (*.tiff)",
     "Windows Icon (*.ico)",
     "Wireless Application Protocol Bitmap (*.wbmp)",
-    "X BitMap (*.xbm)", "X Pixmap (*.xpm)"
+    "X Bitmap (*.xbm)",
+    "X Pixmap (*.xpm)",
 )

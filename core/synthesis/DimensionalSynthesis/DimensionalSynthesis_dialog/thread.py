@@ -7,25 +7,26 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from core.QtModules import (
-    QThread,
-    pyqtSignal,
-    QMutex,
-    QMutexLocker,
+from typing import (
+    Tuple,
+    List,
+    Dict,
+    Any,
 )
 import timeit
 import platform
+from psutil import virtual_memory
 import numpy
 import numpy.distutils.cpuinfo
-from psutil import virtual_memory
-from typing import Dict, Any
+from core.QtModules import pyqtSignal, QThread
 from core.libs import (
     Genetic,
     Firefly,
     DiffertialEvolution,
+    Planar,
 )
-from core.libs import build_planar
 from .options import AlgorithmType
+
 
 class WorkerThread(QThread):
     
@@ -37,14 +38,16 @@ class WorkerThread(QThread):
     
     def __init__(self,
         type_num: AlgorithmType,
-        mechanismParams: Dict[str, Any],
+        mech_params: Dict[str, Any],
         settings: Dict[str, Any]
     ):
+        """Input settings from dialog, then call public method 'start'
+        to start the algorithm.
+        """
         super(WorkerThread, self).__init__(None)
         self.stoped = False
-        self.mutex = QMutex()
         self.type_num = type_num
-        self.mechanismParams = mechanismParams
+        self.mech_params = mech_params
         self.settings = settings
         self.loop = 1
     
@@ -54,14 +57,11 @@ class WorkerThread(QThread):
     
     def run(self):
         """Start the algorithm loop."""
-        with QMutexLocker(self.mutex):
-            self.stoped = False
-        for name, path in self.mechanismParams['Target'].items():
+        for name, path in self.mech_params['Target'].items():
             print("- [{}]: {}".format(name, tuple(
-                (round(x, 2), round(y, 2))
-                for x, y in path
+                (round(x, 2), round(y, 2)) for x, y in path
             )))
-        mechanismObj = build_planar(self.mechanismParams)
+        mechanismObj = Planar(self.mech_params)
         if self.type_num == AlgorithmType.RGA:
             foo = Genetic
         elif self.type_num == AlgorithmType.Firefly:
@@ -71,8 +71,8 @@ class WorkerThread(QThread):
         self.fun = foo(
             mechanismObj,
             self.settings,
-            progress_fun=self.progress_update.emit,
-            interrupt_fun=self.isStoped,
+            progress_fun = self.progress_update.emit,
+            interrupt_fun = self.__isStoped,
         )
         T0 = timeit.default_timer()
         self.currentLoop = 0
@@ -85,21 +85,21 @@ class WorkerThread(QThread):
                 #Cancel the remaining tasks.
                 print("Canceled.")
                 continue
-            mechanism, time_spand = self.algorithm()
+            mechanism, time_spand = self.__algorithm()
             self.result.emit(mechanism, time_spand)
         T1 = timeit.default_timer()
         totalTime = round(T1-T0, 2)
         print("total cost time: {} [s]".format(totalTime))
         self.done.emit()
     
-    def algorithm(self) -> [Dict[str, Any], float]:
+    def __algorithm(self) -> Tuple[Dict[str, Any], float]:
         """Get the algorithm result."""
         t0 = timeit.default_timer()
-        fitnessParameter, time_and_fitness = self.generateProcess()
+        params, tf = self.__generateProcess()
         t1 = timeit.default_timer()
         time_spand = round(t1 - t0, 2)
         cpu = numpy.distutils.cpuinfo.cpu.info[0]
-        lastGen = time_and_fitness[-1][0]
+        lastGen = tf[-1][0]
         mechanism = {
             'time': time_spand,
             'lastGen': lastGen,
@@ -116,24 +116,26 @@ class WorkerThread(QThread):
                 ),
                 'cpu': cpu.get("model name", cpu.get('ProcessorNameString', ''))
             },
-            'TimeAndFitness': time_and_fitness
+            'TimeAndFitness': tf
         }
         mechanism['Algorithm'] = self.type_num.value
-        mechanism.update(self.mechanismParams)
-        mechanism.update(fitnessParameter)
+        mechanism.update(self.mech_params)
+        mechanism.update(params)
         print("cost time: {} [s]".format(time_spand))
         return mechanism, time_spand
     
-    def generateProcess(self):
+    def __generateProcess(self) -> Tuple[
+        Dict[str, Any],
+        List[Tuple[int, float, float]]
+    ]:
         """Execute algorithm and sort out the result."""
-        fitnessParameter, time_and_fitness = self.fun.run()
-        return(fitnessParameter, time_and_fitness)
+        params, tf = self.fun.run()
+        return params, tf
+    
+    def __isStoped(self) -> bool:
+        """Return stop status for Cython function."""
+        return self.stoped
     
     def stop(self):
         """Stop the algorithm."""
-        with QMutexLocker(self.mutex):
-            self.stoped = True
-    
-    def isStoped(self):
-        """Return stop status for Cython function."""
-        return self.stoped
+        self.stoped = True

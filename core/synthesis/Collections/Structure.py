@@ -7,6 +7,12 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import (
+    List,
+    Tuple,
+    Optional,
+)
+from networkx import Graph, is_isomorphic
 from core.QtModules import (
     QWidget,
     pyqtSignal,
@@ -26,45 +32,52 @@ from core.QtModules import (
     QFileInfo,
     QApplication,
 )
-from core.io import Qt_images
+from core.io import QTIMAGES
 from core.graphics import (
     graph,
     engine_picker,
-    EngineList,
-    EngineError
+    engines,
+    EngineError,
 )
-from networkx import (
-    Graph,
-    is_isomorphic
-)
-from typing import List, Tuple
 from .Ui_Structure import Ui_Form
 
-class TestError(Exception):
+
+class _TestError(Exception):
     pass
 
-class CollectionsStructure(QWidget, Ui_Form):
+
+class StructureWidget(QWidget, Ui_Form):
     
-    """Structure widget."""
+    """Structure widget.
+    
+    Preview the structures that was been added in collection list by user.
+    """
     
     layout_sender = pyqtSignal(Graph, dict)
     
-    def __init__(self, parent=None):
-        super(CollectionsStructure, self).__init__(parent)
+    def __init__(self, parent):
+        """Get IO dialog functions from parent."""
+        super(StructureWidget, self).__init__(parent)
         self.setupUi(self)
         self.outputTo = parent.outputTo
         self.saveReplyBox = parent.saveReplyBox
         self.inputFrom = parent.inputFrom
-        self.add_points_by_graph = parent.add_points_by_graph
+        self.addPointsByGraph = parent.addPointsByGraph
         self.unsaveFunc = parent.workbookNoSave
+        
+        """Data structures."""
         self.collections = []
         self.collections_layouts = []
         self.collections_grounded = []
-        self.graph_engine.addItems(EngineList)
+        
+        """Engine list."""
+        self.graph_engine.addItems(engines)
         self.graph_engine.setCurrentIndex(2)
-        self.graph_engine.currentIndexChanged.connect(self.on_reload_atlas_clicked)
+        self.graph_engine.currentIndexChanged.connect(
+            self.on_reload_atlas_clicked
+        )
     
-    def clearSelection(self):
+    def __clearSelection(self):
         """Clear the selection preview data."""
         self.grounded_list.clear()
         self.selection_window.clear()
@@ -79,7 +92,7 @@ class CollectionsStructure(QWidget, Ui_Form):
         self.triangle_button.setEnabled(False)
         self.collections.clear()
         self.collection_list.clear()
-        self.clearSelection()
+        self.__clearSelection()
     
     @pyqtSlot()
     def on_clear_button_clicked(self):
@@ -104,7 +117,7 @@ class CollectionsStructure(QWidget, Ui_Form):
     
     @pyqtSlot()
     @pyqtSlot(str)
-    def on_reload_atlas_clicked(self, p0=None):
+    def on_reload_atlas_clicked(self, p0: Optional[str] = None):
         """Reload atlas with the engine."""
         if not self.collections:
             return
@@ -123,6 +136,7 @@ class CollectionsStructure(QWidget, Ui_Form):
             len(self.collections),
             self
         )
+        progdlg.setAttribute(Qt.WA_DeleteOnClose, True)
         progdlg.setWindowTitle("Type synthesis")
         progdlg.resize(400, progdlg.height())
         progdlg.setModal(True)
@@ -146,7 +160,9 @@ class CollectionsStructure(QWidget, Ui_Form):
                 break
             else:
                 self.collections_layouts.append(engine)
-                item.setToolTip(str(G.edges))
+                item.setToolTip(
+                    "{}\nUse the right-click menu to operate.".format(G.edges)
+                )
                 self.collection_list.addItem(item)
                 progdlg.setValue(i+1)
     
@@ -155,14 +171,14 @@ class CollectionsStructure(QWidget, Ui_Form):
         G = Graph(edges)
         try:
             if not edges:
-                raise TestError("is empty graph.")
+                raise _TestError("is empty graph.")
             for n in G.nodes:
                 if len(list(G.neighbors(n)))<2:
-                    raise TestError("is not close chain")
+                    raise _TestError("is not close chain")
             for H in self.collections:
                 if is_isomorphic(G, H):
-                    raise TestError("is isomorphic")
-        except TestError as e:
+                    raise _TestError("is isomorphic")
+        except _TestError as e:
             QMessageBox.warning(self, "Add Collection Error", "Error: {}".format(e))
             return
         self.collections.append(G)
@@ -190,7 +206,7 @@ class CollectionsStructure(QWidget, Ui_Form):
         try:
             edges = eval(edgesSTR)
             if any(len(edge)!=2 for edge in edges):
-                raise SyntaxError("Wrong format")
+                raise IOError("Wrong format")
         except Exception as e:
             QMessageBox.warning(self, str(e), "Error: {}".format(e))
             return
@@ -200,17 +216,18 @@ class CollectionsStructure(QWidget, Ui_Form):
     @pyqtSlot()
     def on_add_by_files_button_clicked(self):
         """Append atlas by text files."""
-        fileNames = self.inputFrom(
+        file_names = self.inputFrom(
             "Edges data",
             ["Text File (*.txt)"],
             multiple=True
         )
-        if not fileNames:
+        if not file_names:
             return
         read_data = []
-        for fileName in fileNames:
-            with open(fileName, 'r') as f:
-                read_data += f.read().split('\n')
+        for file_name in file_names:
+            with open(file_name, 'r') as f:
+                for line in f:
+                    read_data.append(line[:-1])
         collections = []
         for edges in read_data:
             try:
@@ -239,8 +256,8 @@ class CollectionsStructure(QWidget, Ui_Form):
         )
         if not ok:
             return
-        fileName = self.outputTo("Atlas image", Qt_images)
-        if not fileName:
+        file_name = self.outputTo("Atlas image", QTIMAGES)
+        if not file_name:
             return
         icon_size = self.collection_list.iconSize()
         width = icon_size.width()
@@ -262,8 +279,8 @@ class CollectionsStructure(QWidget, Ui_Form):
         painter.end()
         pixmap = QPixmap()
         pixmap.convertFromImage(image_main)
-        pixmap.save(fileName, format=QFileInfo(fileName).suffix())
-        self.saveReplyBox("Atlas", fileName)
+        pixmap.save(file_name, format=QFileInfo(file_name).suffix())
+        self.saveReplyBox("Atlas", file_name)
     
     @pyqtSlot()
     def on_save_edges_clicked(self):
@@ -271,12 +288,12 @@ class CollectionsStructure(QWidget, Ui_Form):
         count = self.collection_list.count()
         if not count:
             return
-        fileName = self.outputTo("Atlas edges expression", ["Text file (*.txt)"])
-        if not fileName:
+        file_name = self.outputTo("Atlas edges expression", ["Text file (*.txt)"])
+        if not file_name:
             return
-        with open(fileName, 'w') as f:
+        with open(file_name, 'w') as f:
             f.write('\n'.join(str(G.edges) for G in self.collections))
-        self.saveReplyBox("edges expression", fileName)
+        self.saveReplyBox("edges expression", file_name)
     
     @pyqtSlot(QListWidgetItem, QListWidgetItem)
     def on_collection_list_currentItemChanged(self, item, p0):
@@ -327,7 +344,7 @@ class CollectionsStructure(QWidget, Ui_Form):
         )
         if reply != QMessageBox.Yes:
             return
-        self.clearSelection()
+        self.__clearSelection()
         self.collection_list.takeItem(row)
         del self.collections[row]
         self.unsaveFunc()
@@ -358,18 +375,22 @@ class CollectionsStructure(QWidget, Ui_Form):
         item.setIcon(icon)
         self.collections_grounded.append(G)
         self.grounded_list.addItem(item)
+        
+        def isomorphic(G: Graph, l: List[Graph]) -> bool:
+            for H in l:
+                if is_isomorphic(G, H):
+                    return True
+            return False
+        
         for node in G.nodes:
             G_ = Graph(G)
             G_.remove_node(node)
-            error = False
-            for H in self.collections_grounded:
-                if is_isomorphic(G_, H):
-                    error = True
-            if error:
+            if isomorphic(G_, self.collections_grounded):
                 continue
-            item = QListWidgetItem("link_{} constrainted".format(node))
+            item = QListWidgetItem("link_{}".format(node))
             icon = graph(
-                G, self.grounded_list.iconSize().width(),
+                G,
+                self.grounded_list.iconSize().width(),
                 self.ground_engine,
                 except_node=node
             )
@@ -389,10 +410,14 @@ class CollectionsStructure(QWidget, Ui_Form):
         if text == "Released":
             ground_link = None
         else:
-            ground_link = int(text.replace(" constrainted", "").split("_")[1])
+            ground_link = int(text.split("_")[1])
         reply = QMessageBox.question(self,
             "Message",
             "Merge \"{}\" chain to your canvas?".format(text)
         )
         if reply == QMessageBox.Yes:
-            self.add_points_by_graph(G, self.ground_engine, ground_link)
+            self.addPointsByGraph(
+                G,
+                self.ground_engine,
+                ground_link
+            )

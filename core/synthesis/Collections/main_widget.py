@@ -14,36 +14,52 @@ from core.QtModules import (
     QIcon,
     QPixmap,
 )
-from .Structure import CollectionsStructure
-from .TriangularIteration import CollectionsTriangularIteration
+from .Structure import StructureWidget
+from .TriangularIteration import TriangularIterationWidget
+
 
 class Collections(QWidget):
     
     """Just a widget contains a sub tab widget."""
     
-    def __init__(self, parent=None):
+    def __init__(self, parent):
+        """Create two widget page and using main window to make their parent."""
         super(Collections, self).__init__(parent)
         layout = QVBoxLayout(self)
         tabWidget = QTabWidget(self)
         layout.addWidget(tabWidget)
         self.setWindowIcon(QIcon(QPixmap(":/icons/collections.png")))
-        self.CollectionsStructure = CollectionsStructure(parent)
-        self.CollectionsTriangularIteration = CollectionsTriangularIteration(parent)
-        self.CollectionsTriangularIteration.addToCollection = self.CollectionsStructure.addCollection
-        tabWidget.addTab(self.CollectionsStructure, self.CollectionsStructure.windowIcon(), "Structure")
-        tabWidget.addTab(self.CollectionsTriangularIteration, self.CollectionsTriangularIteration.windowIcon(), "Triangular iteration")
-        self.CollectionsStructure.triangle_button.clicked.connect(lambda: tabWidget.setCurrentIndex(1))
-        self.CollectionsStructure.layout_sender.connect(self.CollectionsTriangularIteration.setGraph)
+        self.StructureWidget = StructureWidget(parent)
+        self.TriangularIterationWidget = TriangularIterationWidget(
+            self.StructureWidget.addCollection,
+            parent
+        )
+        tabWidget.addTab(
+            self.StructureWidget,
+            self.StructureWidget.windowIcon(),
+            "Structures"
+        )
+        tabWidget.addTab(
+            self.TriangularIterationWidget,
+            self.TriangularIterationWidget.windowIcon(),
+            "Triangular iteration"
+        )
+        self.StructureWidget.triangle_button.clicked.connect(
+            lambda: tabWidget.setCurrentIndex(1)
+        )
+        self.StructureWidget.layout_sender.connect(
+            self.TriangularIterationWidget.setGraph
+        )
     
     def clear(self):
         """Clear the sub-widgets."""
-        self.CollectionsStructure.clear()
-        self.CollectionsTriangularIteration.clear()
+        self.StructureWidget.clear()
+        self.TriangularIterationWidget.clear()
     
     def CollectDataFunc(self):
         """Return collections to peewee IO."""
-        return [tuple(G.edges) for G in self.CollectionsStructure.collections]
+        return [tuple(G.edges) for G in self.StructureWidget.collections]
     
     def TriangleDataFunc(self):
         """Return profiles to peewee IO."""
-        return self.CollectionsTriangularIteration.collections
+        return self.TriangularIterationWidget.collections

@@ -17,13 +17,15 @@
     <file>icons/PMKSLogo.png</file>
     <file>icons/script.png</file>
     <file>icons/XML.png</file>
-    <!--Network icons-->
-    <file>icons/local.png</file>
-    <file>icons/ZeroMQ.png</file>
     <!--Panel icons-->
     <file>icons/mechanism.png</file>
     <file>icons/history.png</file>
     <file>icons/synthesis.png</file>
+    <!--Free move mode icons-->
+    <file>icons/freemove_off.png</file>
+    <file>icons/reflect.png</file>
+    <file>icons/rotate.png</file>
+    <file>icons/translate.png</file>
     <!--Dialog icons-->
     <file>icons/arrow_down.png</file>
     <file>icons/arrow_up.png</file>
@@ -32,9 +34,8 @@
     <file>icons/capture.png</file>
     <file>icons/chart.png</file>
     <file>icons/clean.png</file>
-    <file>icons/close.png</file>
-    <file>icons/collection-structure.png</file>
-    <file>icons/collection-triangular-iteration.png</file>
+    <file>icons/structure.png</file>
+    <file>icons/triangular-iteration.png</file>
     <file>icons/collections.png</file>
     <file>icons/ConflictGuide.png</file>
     <file>icons/connect.png</file>
@@ -44,10 +45,9 @@
     <file>icons/delete.png</file>
     <file>icons/DimensionalSynthesis.png</file>
     <file>icons/disconnect.png</file>
+    <file>icons/edges_to_atlas.png</file>
     <file>icons/example.png</file>
     <file>icons/exit.png</file>
-    <file>icons/freemove_off.png</file>
-    <file>icons/freemove_on.png</file>
     <file>icons/fullscreen.png</file>
     <file>icons/git.png</file>
     <file>icons/guide.png</file>
@@ -63,7 +63,6 @@
     <file>icons/normalsized.png</file>
     <file>icons/NumberAndTypeSynthesis.png</file>
     <file>icons/paste.png</file>
-    <file>icons/PathTrack.png</file>
     <file>icons/pause.png</file>
     <file>icons/play.png</file>
     <file>icons/properties.png</file>
@@ -71,7 +70,6 @@
     <file>icons/record.png</file>
     <file>icons/redo.png</file>
     <file>icons/rename.png</file>
-    <file>icons/rod.png</file>
     <file>icons/savefile.png</file>
     <file>icons/select_all.png</file>
     <file>icons/settings.png</file>

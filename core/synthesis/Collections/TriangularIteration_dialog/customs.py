@@ -16,6 +16,7 @@ from core.QtModules import (
 )
 from .Ui_customs import Ui_Dialog
 
+
 class CustomsDialog(QDialog, Ui_Dialog):
     
     """Option dialog.
@@ -26,20 +27,23 @@ class CustomsDialog(QDialog, Ui_Dialog):
     Settings will be edited in each operation.
     """
     
-    def __init__(self, parent=None):
+    def __init__(self, parent):
+        """Add data and widget references from parent."""
         super(CustomsDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        
         self.cus = parent.PreviewWindow.cus
         self.same = parent.PreviewWindow.same
         self.pos = parent.PreviewWindow.pos
         self.status = parent.PreviewWindow.status
         self.joint_combobox = parent.joint_name
+        
         for row in range(parent.grounded_list.count()):
             self.link_choose.addItem(parent.grounded_list.item(row).text())
         for name, link in self.cus.items():
             self.custom_list.addItem("{} -> {}".format(name, link))
-        self.reload_quote_choose()
+        self.__reloadQuoteChoose()
         self.quote_choose.setCurrentIndex(0)
         for s, qs in self.same.items():
             self.multiple_list.addItem("{} -> {}".format(
@@ -47,7 +51,7 @@ class CustomsDialog(QDialog, Ui_Dialog):
                 'P{}'.format(qs)
             ))
     
-    def reload_quote_choose(self):
+    def __reloadQuoteChoose(self):
         """Reload joints from 'pos' dict."""
         s_old = self.quote_choose.currentText()
         self.quote_choose.clear()
@@ -81,7 +85,7 @@ class CustomsDialog(QDialog, Ui_Dialog):
     def on_delete_button_clicked(self):
         """Remove a custom joint."""
         row = self.custom_list.currentRow()
-        if not row>-1:
+        if not row > -1:
             return
         name = self.custom_list.item(row).text().split(" -> ")[0]
         num = int(name.replace('P', ''))
@@ -126,16 +130,16 @@ class CustomsDialog(QDialog, Ui_Dialog):
         quote = int(qs.replace('P', ''))
         self.same[joint] = quote
         self.multiple_list.addItem("{} -> {}".format(s, qs))
-        self.reload_quote_choose()
+        self.__reloadQuoteChoose()
     
     @pyqtSlot()
     def on_delete_mj_button_clicked(self):
         """Remove a multiple joint."""
         row = self.multiple_list.currentRow()
-        if not row>-1:
+        if not row > -1:
             return
         name = self.multiple_list.item(row).text().split(" -> ")[0]
         joint = int(name.replace('P', ''))
         self.same.pop(joint)
         self.multiple_list.takeItem(row)
-        self.reload_quote_choose()
+        self.__reloadQuoteChoose()

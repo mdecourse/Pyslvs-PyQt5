@@ -1,14 +1,16 @@
-[![Version](https://img.shields.io/badge/version-18.3.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
+[![Version](https://img.shields.io/badge/version-18.05.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
 [![Build Status](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5.svg)](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5)
-[![PYTHON](https://img.shields.io/badge/python-3.5%20--%203.6-blue.svg)](https://www.python.org/)
-[![PYQT](https://img.shields.io/badge/pyqt-5.7%20--%205.10-orange.svg)](https://riverbankcomputing.com/software/pyqt/intro)
-[![OS](https://img.shields.io/badge/os-Ubuntu%2C%20Windows-blue.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
+[![PYTHON](https://img.shields.io/badge/python-3.5%20↑-blue.svg)](https://www.python.org/)
+[![PYQT](https://img.shields.io/badge/pyqt-5.10%20↑-orange.svg)](https://riverbankcomputing.com/software/pyqt/intro)
+[![OS](https://img.shields.io/badge/os-Ubuntu%2C%20Windows%20(x64)-blue.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
 [![Downloads](https://img.shields.io/github/downloads/KmolYuan/Pyslvs-PyQt5/total.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
 [![GitHub license](https://img.shields.io/badge/license-AGPLv3-blue.svg)](https://raw.githubusercontent.com/KmolYuan/Pyslvs-PyQt5/master/LICENSE)
 
-![title](icons/title.png)
+![title](icons/Splash.png)
 
 Website: <http://www.pyslvs.com/blog/index.html>
+
+Pyslvs on [Sourceforge](https://sourceforge.net/projects/pyslvs/).
 
 1. [Introduction](#introduction)
 
@@ -18,16 +20,17 @@ Website: <http://www.pyslvs.com/blog/index.html>
     + [Number and Type Synthesis](#number-and-type-synthesis)
     + [Triangular iteration](#triangular-iteration)
     + [Dimensional Synthesis](#dimensional-synthesis)
+    + [IO Support](#io-support)
 
 1. [Modules Requirement](#modules-requirement)
 
-    + [Graphviz](#graphviz)
-    + [PyQt Stuff](#pyqt-stuff)
+    + [Graphviz (Optional)](#graphviz-optional)
+    + [PyQt Stuff (Development)](#pyqt-stuff-development)
 
 1. [Kernels Requirement](#kernels-requirement)
 
-    + [Python-solvespace Kernel](#python-solvespace-kernel)
     + [Cython Kernel](#cython-kernel)
+    + [Python-Solvespace Kernel](#python-solvespace-kernel)
 
 1. [Stand-alone Executable File](#stand-alone-executable-file)
 
@@ -44,11 +47,9 @@ A GUI-based tool use to solving 2D linkage subject.
     - **Number and Type Synthesis**: Cython algorithm use to find out structure possibilities of the mechanism.
     - **Dimensional Synthesis**: Kernel from three Cython algorithm API (rewrite).
 
-Compatible with Python 3.5, PyQt 5.7 (for PyQtChart) and above.
+Compatible with Python 3.5, PyQt 5.10 (same as PyQtChart) and above.
 
 Cross-platform Development: Ubuntu and Windows (64-bit).
-
-You can install Graphviz optionally. See [here](#graphviz).
 
 **Please note that the other platforms may be available but I have not tested before.**
 
@@ -62,16 +63,20 @@ Previews in Windows 8.1 theme:
 
 ## How to startup
 
-Open GUI by Python:
+Here's some command line options for Pyslvs.
 
 ```bash
-python3 launch_pyslvs.py
-```
+#After following compile steps:
+make build-kernel
 
-Or see the help:
+# Open GUI by Python:
+python launch_pyslvs.py
 
-```bash
-python3 launch_pyslvs.py --help
+# Or see the help:
+python launch_pyslvs.py --help
+
+# Run the unit test:
+python test_pyslvs.py
 ```
 
 ## Symbolic
@@ -94,13 +99,22 @@ The "ground" label is a default name, this link will be the absolute coordinate 
 
 ![PMKS example](images/PMKS_example.png)
 
-Pyslvs was translate the PMKS expression as a string, like below:
+Pyslvs was translate the PMKS expression as a string, likes below:
 
-```
-M[J[R, color[Green], P[0.0, 0.0], L[ground, link_0]], J[R, color[Green], P[12.92, 32.53], L[link_0, link_1]], J[R, color[Green], P[73.28, 67.97], L[link_1, link_2]], J[R, color[Green], P[33.3, 66.95], L[link_1]], J[R, color[Green], P[90.0, 0.0], L[ground, link_2]]]
+```python
+#Single line annotation.
+M[
+    J[R, color[Green], P[0.0, 0.0], L[ground, link_0]],
+    J[R, color[Green], P[12.92, 32.53], L[link_0, link_1]],
+    J[R, color[Green], P[73.28, 67.97], L[link_1, link_2]],
+    J[R, color[Green], P[33.3, 66.95], L[link_1]],
+    J[R, color[Green], P[90.0, 0.0], L[ground, link_2]],
+]
 ```
 
 Then the expression can be parse in Pyslvs to create the mechanism.
+
+The grammar is defined with Extended Backus–Naur Form (EBNF), you can checkout the source code of parser.
 
 ## Kinematics Simulation
 
@@ -158,7 +172,7 @@ When the structure profile is complete, is time to doing dimensional synthesis!
 Generate a mechanism with path requirement by random variables.
 
 + The structure settings is get from triangular iteration.
-+ There also have algorithm options, such like constrains or probability.
++ There also have algorithm options, such like constraints or probability.
 
 ![](images/Dimensional_Synthesis.png)
 
@@ -175,6 +189,41 @@ Three kinds of task target:
 + Stop at the maximum generation.
 + Get the minimum fitness value.
 + Stop at the maximum time.
+
+## IO Support
+
+Pyslvs can support for following format.
+
+**Output formats**:
+
++ Pyslvs workbook database (*.pyslvs).
++ Expression (just a string).
++ [Solvespace] format (*.slvs).
++ DXF format (*.dxf).
++ Image capture (all of [Qt supports]).
+
+[Solvespace]: https://github.com/solvespace/solvespace
+[Qt supports]: http://doc.qt.io/qt-5/qimage.html#reading-and-writing-image-files
+
+**Input formats**:
+
++ Pyslvs workbook database (*.pyslvs).
++ Expression (just a string).
++ Solvespace format (*.slvs, only supports very few of constraints).
+
+The workbook mechanism will generate the sketch frame as *.slvs format like follow:
+
+![](images/IO_slvs_origin.png)
+
+![](images/IO_slvs_frame.png)
+
+A part file will split the sketch and boundary with two groups.
+
+![](images/IO_slvs_part.png)
+
+The part files can be import to assemble with main sketch file. However, the 3D features still can not be generated from external program yet, so user need to do it by self.
+
+For the IO method of Solvespace format, you can also refer to two Python scripts 'read' and 'write' in Pyslvs IO module.
 
 # Modules Requirement
 
@@ -198,7 +247,7 @@ Makefile tool: [MinGW] or [Msys 2][msys].
 > pip install -r requirements.txt
 ```
 
-## Graphviz
+## Graphviz (Optional)
 
 Graphviz tools provide some graph engine that can make the position of dots in atlas looks more pretty.
 
@@ -214,7 +263,7 @@ Then use the `dot` command to check if it works.
 
 If you are not willing to install Graphviz, you can just using built-in layout from NetworkX.
 
-## PyQt Stuff
+## PyQt Stuff (Development)
 
 PyQt5 and QtChart are now pack into the wheel file that Windows and Ubuntu can use them.
 
@@ -263,9 +312,53 @@ Make command:
 make build-kernel
 ```
 
-This project including 2 kernels should build, please following the steps if you are first time to use.
+This project including two kernels should build, please following the steps if you are first time to use.
 
-## Python-solvespace Kernel
+## Cython Kernel
+
+Cython libraries of Pyslvs, including:
+
+1. Solver:
+    + parser
+    + tinycadlib
+    + triangulation
+1. Dimensional synthesis:
+    + planarlinkage
+    + rga
+    + firefly
+    + de
+1. Number synthesis:
+    + number
+1. Topologic synthesis:
+    + topologic
+
+This module only require "[Lark-parser]" module (and [Pygments] provide highlighting optionaly), so it can works independently without to startup GUI.
+
+Make command:
+
+```bash
+make build-pyslvs
+```
+
+**Ubuntu**:
+
+Ubuntu user can compile the kernel by Cython directly.
+
+**Windows**:
+
+There's two options to choose SDK:
+
+1. Using Microsoft Visual Studio. You can get it from [here][visualstudio-link], then startup the Visual Studio Community and install Windows SDK.
+1. Using [Msys 2][msys]. It is based on MinGW 64-bit version.
+1. Just using [MinGW 64-bit][mingw64].
+
+[visualstudio-link]: https://www.visualstudio.com/downloads/
+[msys]: http://www.msys2.org/
+[mingw64]: https://sourceforge.net/projects/mingw-w64/
+
+When using MinGW, you can refer the steps of this article: <https://stackoverflow.com/questions/34135280/valueerror-unknown-ms-compiler-version-1900>
+
+## Python-Solvespace Kernel
 
 Make command:
 
@@ -313,7 +406,7 @@ self.dll_libraries=[]
 self.dll_libraries = get_msvcr()
 ```
 
-Commit `self.dll_libraries = get_msvcr()`.
+Note out `self.dll_libraries = get_msvcr()`.
 
 And then adjust source code about Virtual Studio. Find this code in `where_your_python\include\pyconfig.h`.
 
@@ -346,34 +439,6 @@ Edit it to this:
 #define hypot _hypot
 #endif
 ```
-
-## Cython Kernel
-
-Type and Dimensional synthesis libraries.
-
-Make command:
-
-```bash
-make build-cython
-```
-
-**Ubuntu**:
-
-Ubuntu user can compile the kernel by Cython directly.
-
-**Windows**:
-
-There's two options to choose SDK:
-
-1. Using Microsoft Visual Studio. You can get it from [here][visualstudio-link], then startup the Visual Studio Community and install Windows SDK.
-1. Using [Msys 2][msys]. It is based on MinGW 64-bit version.
-
-[visualstudio-link]: https://www.visualstudio.com/downloads/
-[msys]: http://www.msys2.org/
-
-After the actual test, Microsoft Visual Studio SDK will take a large of file size in your disk, but the executable file will smaller than Msys.
-
-One benefit of Msys is that it is portable.
 
 # Stand-alone Executable File
 
@@ -409,6 +474,8 @@ Make command:
 
 Made by [Qt5] and Python IDE [Eric 6].
 
+If there is no special reason, please to use the new version of the kits.
+
 Including Python modules:
 
 * [SIP] (GPLv2, GPLv3)
@@ -416,15 +483,15 @@ Including Python modules:
 * [dxfwrite] (MIT)
 * [numpy] (BSD 3-Clause)
 * [Cython] (Apache 2.0)
-* [PyZMQ] (New BSD 3-Clause, LGPL, Apache)
 * [openpyxl] (MIT)
 * [psutil] (BSD)
 * [peewee] (MIT)
 * [Lark-parser] (MIT)
 * [NetworkX] (BSD 3-Clause)
 * [Pydot] (MIT)
+* [Pygments] (BSD)
 
-Pyslvs is under [GNU Affero General Public License v3](https://github.com/KmolYuan/Pyslvs-PyQt5/blob/master/LICENSE).
+Pyslvs is under [GNU Affero General Public License v3].
 
 Here is the **origin kernel** repository:
 
@@ -446,14 +513,16 @@ Here is the **origin kernel** repository:
 [numpy]: http://www.numpy.org/
 [dxfwrite]: https://pypi.python.org/pypi/dxfwrite/
 [Cython]: http://cython.org/
-[PyZMQ]: http://zeromq.org/bindings:python
 [openpyxl]: http://openpyxl.readthedocs.io/
 [psutil]: https://github.com/giampaolo/psutil
 [peewee]: http://docs.peewee-orm.com/en/latest/
 [Lark-parser]: https://github.com/erezsh/lark
 [NetworkX]: https://networkx.github.io/
 [Pydot]: https://github.com/erocarrera/pydot
+[Pygments]: http://pygments.org/
 
 [Python-solvespace]: https://github.com/KmolYuan/python-solvespace
 [Dimensional Synthesis of Planar Four-bar Linkages]: https://github.com/kmollee/algorithm
 [Triangle solver]: https://gist.github.com/KmolYuan/c5a94b769bc410524bba66acc5204a8f
+
+[GNU Affero General Public License v3]: https://github.com/KmolYuan/Pyslvs-PyQt5/blob/master/LICENSE

@@ -7,6 +7,8 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import List, Optional
+from networkx import Graph
 from core.QtModules import (
     QWidget,
     QMenu,
@@ -29,41 +31,61 @@ from core.QtModules import (
     QInputDialog,
     QFileInfo,
 )
-from networkx import Graph
-from core.io import Qt_images, v_to_graph
+from core.io import QTIMAGES
 from core.libs import NumberSynthesis, topo
 from core.graphics import (
     graph,
-    EngineList,
-    EngineError
+    engines,
+    EngineError,
 )
 from .Ui_Permutations import Ui_Form
 
+
 class NumberAndTypeSynthesis(QWidget, Ui_Form):
     
-    """Number and type synthesis widget."""
+    """Number and type synthesis widget.
+    
+    Calculate the combinations of mechanism family and show the atlas.
+    """
     
     def __init__(self, parent):
+        """Reference names:
+        
+        + IO functions from main window.
+        + Table data from PMKS expression.
+        + Graph data function from main window.
+        """
         super(NumberAndTypeSynthesis, self).__init__(parent)
         self.setupUi(self)
+        self.save_edges_auto_label.setStatusTip(self.save_edges_auto.statusTip())
+        
+        #Function references
         self.outputTo = parent.outputTo
         self.saveReplyBox = parent.saveReplyBox
         self.inputFrom = parent.inputFrom
+        self.jointDataFunc = parent.EntitiesPoint.dataTuple
+        self.linkDataFunc = parent.EntitiesLink.dataTuple
+        self.getGraph = parent.getGraph
+        
+        #Splitters
         self.splitter.setStretchFactor(0, 2)
         self.splitter.setStretchFactor(1, 15)
+        
         self.answer = []
-        self.save_edges_auto_label.setStatusTip(self.save_edges_auto.statusTip())
-        self.NL_input.valueChanged.connect(self.adjust_NJ_NL_dof)
-        self.NJ_input.valueChanged.connect(self.adjust_NJ_NL_dof)
-        self.graph_engine.addItems(EngineList)
+        
+        #Signals
+        self.NL_input.valueChanged.connect(self.__adjustStructureData)
+        self.NJ_input.valueChanged.connect(self.__adjustStructureData)
+        self.graph_engine.addItems(engines)
         self.graph_engine.setCurrentIndex(2)
         self.graph_link_as_node.clicked.connect(self.on_reload_atlas_clicked)
         self.graph_engine.currentIndexChanged.connect(
             self.on_reload_atlas_clicked
         )
         self.Topologic_result.customContextMenuRequested.connect(
-            self.Topologic_result_context_menu
+            self.__topologicResultContextMenu
         )
+        
         """Context menu
         
         + Add to collections
@@ -83,8 +105,6 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             self.copy_edges,
             self.copy_image
         ])
-        self.jointDataFunc = parent.Entities_Point.data
-        self.linkDataFunc = parent.Entities_Link.data
         self.clear()
     
     def clear(self):
@@ -106,25 +126,25 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         jointData = self.jointDataFunc()
         linkData = self.linkDataFunc()
         if jointData and linkData:
-            self.Expression_edges.setText(str(v_to_graph(jointData, linkData)))
+            self.Expression_edges.setText(str(self.getGraph()))
         else:
             self.Expression_edges.setText("")
         keep_dof_checked = self.keep_dof.isChecked()
         self.keep_dof.setChecked(False)
         self.NL_input.setValue(
-            sum(len(vlink.points)>1 for vlink in linkData)+
+            sum(len(vlink.points) > 1 for vlink in linkData)+
             sum(
-                len(vpoint.links)-1 for vpoint in jointData
+                len(vpoint.links) - 2 for vpoint in jointData
                 if (vpoint.type == 2) and (len(vpoint.links) > 1)
             )
         )
         self.NJ_input.setValue(sum(
-            (len(vpoint.links)-1 + int(vpoint.type == 2))
-            for vpoint in jointData if len(vpoint.links)>1
+            (len(vpoint.links) - 1 + int(vpoint.type == 2))
+            for vpoint in jointData if (len(vpoint.links) > 1)
         ))
         self.keep_dof.setChecked(keep_dof_checked)
     
-    def adjust_NJ_NL_dof(self):
+    def __adjustStructureData(self):
         """Update NJ and NL values.
         
         If user don't want to keep the DOF:
@@ -205,7 +225,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             row = self.Expression_number.currentRow()
         if self.Expression_number.currentItem() is None:
             return
-        answer = self.combineType(row)
+        answer = self.__typeCombine(row)
         if answer:
             self.answer = answer
             self.on_reload_atlas_clicked()
@@ -224,7 +244,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         answers = []
         break_point = False
         for row in range(self.Expression_number.count()):
-            answer = self.combineType(row)
+            answer = self.__typeCombine(row)
             if answer:
                 answers += answer
             else:
@@ -242,7 +262,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         self.answer = answers
         self.on_reload_atlas_clicked()
     
-    def combineType(self, row: int):
+    def __typeCombine(self, row: int) -> List[Graph]:
         """Combine and show progress dialog."""
         item = self.Expression_number.item(row)
         progdlg = QProgressDialog(
@@ -252,19 +272,24 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             100,
             self
         )
+        progdlg.setAttribute(Qt.WA_DeleteOnClose, True)
         progdlg.setWindowTitle("Type synthesis - ({})".format(item.text()))
         progdlg.setMinimumSize(QSize(500, 120))
         progdlg.setModal(True)
         progdlg.show()
-        #Call in every loop.
+        
         def stopFunc():
+            """If stop by GUI."""
             QCoreApplication.processEvents()
             progdlg.setValue(progdlg.value() + 1)
             return progdlg.wasCanceled()
-        def setjobFunc(job, maximum):
+        
+        def setjobFunc(job: str, maximum: float):
+            """New job."""
             progdlg.setLabelText(job)
             progdlg.setValue(0)
             progdlg.setMaximum(maximum+1)
+        
         answer, time = topo(
             item.links,
             not self.graph_degenerate.isChecked(),
@@ -281,7 +306,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
     
     @pyqtSlot()
     @pyqtSlot(str)
-    def on_reload_atlas_clicked(self, p0=None):
+    def on_reload_atlas_clicked(self, p0: Optional[str] = None):
         """Reload the atlas. Regardless there has any old data."""
         self.engine = self.graph_engine.currentText().split(" - ")[1]
         self.Topologic_result.clear()
@@ -293,6 +318,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
                 len(self.answer),
                 self
             )
+            progdlg.setAttribute(Qt.WA_DeleteOnClose, True)
             progdlg.setWindowTitle("Type synthesis")
             progdlg.resize(400, progdlg.height())
             progdlg.setModal(True)
@@ -301,13 +327,13 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
                 QCoreApplication.processEvents()
                 if progdlg.wasCanceled():
                     return
-                if self.drawAtlas(i, G):
+                if self.__drawAtlas(i, G):
                     progdlg.setValue(i+1)
                 else:
                     break
             progdlg.setValue(progdlg.maximum())
     
-    def drawAtlas(self, i: int, G: Graph) -> bool:
+    def __drawAtlas(self, i: int, G: Graph) -> bool:
         """Draw atlas and return True if done."""
         item = QListWidgetItem("No. {}".format(i + 1))
         try:
@@ -328,7 +354,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             self.Topologic_result.addItem(item)
             return True
     
-    def atlas_image(self, row: int =None) -> QImage:
+    def __atlasImage(self, row: int =None) -> QImage:
         """Capture a result item icon to image."""
         w = self.Topologic_result
         if row is None:
@@ -338,7 +364,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         return item.icon().pixmap(w.iconSize()).toImage()
     
     @pyqtSlot(QPoint)
-    def Topologic_result_context_menu(self, point):
+    def __topologicResultContextMenu(self, point):
         """Context menu for the type synthesis results."""
         index = self.Topologic_result.currentIndex().row()
         self.add_collection.setEnabled(index>-1)
@@ -354,7 +380,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             clipboard.setText(str(self.answer[index].edges))
         elif action==self.copy_image:
             #Turn the transparent background to white.
-            image1 = self.atlas_image()
+            image1 = self.__atlasImage()
             image2 = QImage(image1.size(), image1.format())
             image2.fill(QColor(Qt.white).rgb())
             painter = QPainter(image2)
@@ -386,7 +412,7 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         We should turn transparent background to white first.
         Then using QImage class to merge into one image.
         """
-        fileName = ""
+        file_name = ""
         lateral = 0
         if self.save_edges_auto.isChecked():
             lateral, ok = QInputDialog.getInt(self,
@@ -396,8 +422,8 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             )
             if not ok:
                 return
-            fileName = self.outputTo("Atlas image", Qt_images)
-            if fileName:
+            file_name = self.outputTo("Atlas image", QTIMAGES)
+            if file_name:
                 reply = QMessageBox.question(self,
                     "Type synthesis",
                     "Do you want to Re-synthesis?",
@@ -419,9 +445,9 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
             )
         if not ok:
             return
-        if not fileName:
-            fileName = self.outputTo("Atlas image", Qt_images)
-        if not fileName:
+        if not file_name:
+            file_name = self.outputTo("Atlas image", QTIMAGES)
+        if not file_name:
             return
         width = self.Topologic_result.iconSize().width()
         image_main = QImage(
@@ -429,12 +455,12 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
                 lateral * width if count>lateral else count * width,
                 ((count // lateral) + bool(count % lateral)) * width
             ),
-            self.atlas_image(0).format()
+            self.__atlasImage(0).format()
         )
         image_main.fill(QColor(Qt.white).rgb())
         painter = QPainter(image_main)
         for row in range(count):
-            image = self.atlas_image(row)
+            image = self.__atlasImage(row)
             painter.drawImage(QPointF(
                 row % lateral * width,
                 row // lateral * width
@@ -442,19 +468,19 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         painter.end()
         pixmap = QPixmap()
         pixmap.convertFromImage(image_main)
-        pixmap.save(fileName, format=QFileInfo(fileName).suffix())
-        self.saveReplyBox("Atlas", fileName)
+        pixmap.save(file_name, format=QFileInfo(file_name).suffix())
+        self.saveReplyBox("Atlas", file_name)
     
     @pyqtSlot()
     def on_save_edges_clicked(self):
         """Saving all the atlas to text file."""
-        fileName = ""
+        file_name = ""
         if self.save_edges_auto.isChecked():
-            fileName = self.outputTo(
+            file_name = self.outputTo(
                 "Atlas edges expression",
                 ["Text file (*.txt)"]
             )
-            if not fileName:
+            if not file_name:
                 return
             reply = QMessageBox.question(self,
                 "Type synthesis",
@@ -469,16 +495,16 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         count = self.Topologic_result.count()
         if not count:
             return
-        if not fileName:
-            fileName = self.outputTo(
+        if not file_name:
+            file_name = self.outputTo(
                 "Atlas edges expression",
                 ["Text file (*.txt)"]
             )
-        if not fileName:
+        if not file_name:
             return
-        with open(fileName, 'w') as f:
+        with open(file_name, 'w') as f:
             f.write('\n'.join(str(G.edges) for G in self.answer))
-        self.saveReplyBox("edges expression", fileName)
+        self.saveReplyBox("edges expression", file_name)
     
     @pyqtSlot()
     def on_Edges_to_altas_clicked(self):
@@ -486,17 +512,18 @@ class NumberAndTypeSynthesis(QWidget, Ui_Form):
         
         This opreation will load all edges to list widget first.
         """
-        fileNames = self.inputFrom(
+        file_names = self.inputFrom(
             "Edges data",
-            ["Text File (*.txt)"],
+            ["Text file (*.txt)"],
             multiple=True
         )
-        if not fileNames:
+        if not file_names:
             return
         read_data = []
-        for fileName in fileNames:
-            with open(fileName, 'r') as f:
-                read_data += f.read().split('\n')
+        for file_name in file_names:
+            with open(file_name, 'r') as f:
+                for line in f:
+                    read_data.append(line[:-1])
         answer = []
         for edges in read_data:
             try:

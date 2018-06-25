@@ -7,11 +7,12 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from core.QtModules import QObject, pyqtSignal
 import sys
 import logging
+from core.QtModules import QObject, pyqtSignal
 
-class QtHandler(logging.Handler):
+
+class _QtHandler(logging.Handler):
     
     """Logging handle."""
     
@@ -25,13 +26,15 @@ class QtHandler(logging.Handler):
             return
         XStream.stdout().write('{}\n'.format(record))
 
-logger = logging.getLogger(__name__)
-handler = QtHandler()
-handler.setFormatter(logging.Formatter("%(asctime)s | %(message)s"))
-logger.addHandler(handler)
 
-SYS_STDOUT = sys.stdout
-SYS_STDERR = sys.stderr
+_logger = logging.getLogger(__name__)
+_handler = _QtHandler()
+_handler.setFormatter(logging.Formatter("%(asctime)s | %(message)s"))
+_logger.addHandler(_handler)
+
+_SYS_STDOUT = sys.stdout
+_SYS_STDERR = sys.stderr
+
 
 class XStream(QObject):
     
@@ -70,7 +73,7 @@ class XStream(QObject):
     
     def back():
         """Disconnect from Qt widget."""
-        sys.stdout = SYS_STDOUT
-        sys.stderr = SYS_STDERR
+        sys.stdout = _SYS_STDOUT
+        sys.stderr = _SYS_STDERR
         XStream._stdout = None
         XStream._stderr = None

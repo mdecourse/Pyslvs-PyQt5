@@ -7,17 +7,18 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import List
+import numpy as np
 from core.QtModules import (
     QDialog,
     Qt,
     pyqtSlot,
     QMessageBox,
 )
-import numpy as np
-from typing import Sequence
 from .Ui_path_adjust import Ui_Dialog
 
-class Path_adjust_show(QDialog, Ui_Dialog):
+
+class PathAdjustDialog(QDialog, Ui_Dialog):
     
     """Option dialog.
     
@@ -25,10 +26,14 @@ class Path_adjust_show(QDialog, Ui_Dialog):
     """
     
     def __init__(self, parent):
-        super(Path_adjust_show, self).__init__(parent)
+        """Just load in path data."""
+        super(PathAdjustDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+        
+        #Get the current path from parent widget.
         self.path = parent.currentPath()
+        
         self.r_path = []
         for x, y in self.path:
             self.path_list.addItem("({}, {})".format(x, y))
@@ -65,7 +70,7 @@ class Path_adjust_show(QDialog, Ui_Dialog):
             return
         index = list(range(l))
         
-        def polyfit(x: Sequence[float], y: Sequence[float], d: int):
+        def polyfit(x: List[float], y: List[float], d: int):
             """Return a 2D fitting equation."""
             coeffs = np.polyfit(x, y, d)
             #Fit values and mean.

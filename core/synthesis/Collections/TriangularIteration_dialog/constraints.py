@@ -7,29 +7,27 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import (
+    Tuple,
+    Iterator,
+    Optional,
+)
+from networkx import Graph
 from core.QtModules import (
+    Qt,
     QDialog,
     QListWidget,
     QListWidgetItem,
-    Qt,
     pyqtSlot,
 )
 from core.graphics import edges_view
-from networkx import Graph
-from typing import Tuple, List
 from .Ui_constraints import Ui_Dialog
 
-def get_list(item: QListWidget) -> List[str]:
-    """A generator to get symbols from list widget."""
-    if not item:
-        return []
-    for e in item.text().split(", "):
-        yield e
 
 def list_items(
     widget: QListWidget,
     returnRow: bool =False
-) -> [[int], QListWidgetItem]:
+) -> Iterator[Tuple[Optional[int], QListWidgetItem]]:
     """A generator to get items from list widget."""
     for row in range(widget.count()):
         if returnRow:
@@ -37,9 +35,18 @@ def list_items(
         else:
             yield widget.item(row)
 
-def four_bar_loops(G: Graph) -> Tuple[int, int, int, int]:
+
+def _get_list(item: QListWidget) -> Iterator[str]:
+    """A generator to get symbols from list widget."""
+    if not item:
+        return []
+    for e in item.text().split(", "):
+        yield e
+
+
+def _four_bar_loops(G: Graph) -> Iterator[Tuple[int, int, int, int]]:
     """A generator to find out the four bar loops."""
-    result = set([])
+    result = set()
     vertexes = {v: k for k, v in edges_view(G)}
     
     def loop_set(
@@ -77,6 +84,7 @@ def four_bar_loops(G: Graph) -> Tuple[int, int, int, int]:
                         result.update(loop)
                         yield loop_set(*loop)
 
+
 class ConstraintsDialog(QDialog, Ui_Dialog):
     
     """Option dialog.
@@ -85,14 +93,16 @@ class ConstraintsDialog(QDialog, Ui_Dialog):
     """
     
     def __init__(self, parent):
+        """Load constraints option from parent."""
         super(ConstraintsDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        cl = tuple(
-            set(get_list(item))
+        
+        cl = {
+            set(_get_list(item))
             for item in list_items(parent.constraint_list)
-        )
-        for chain in four_bar_loops(parent.PreviewWindow.G):
+        }
+        for chain in _four_bar_loops(parent.PreviewWindow.G):
             chain = sorted(chain)
             for i, n in enumerate(chain):
                 if n in parent.PreviewWindow.same:
@@ -109,7 +119,7 @@ class ConstraintsDialog(QDialog, Ui_Dialog):
         if not row > -1:
             return
         self.sorting_list.clear()
-        for point in get_list(self.Loops_list.item(row)):
+        for point in _get_list(self.Loops_list.item(row)):
             self.sorting_list.addItem(point)
     
     @pyqtSlot()

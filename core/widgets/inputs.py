@@ -2,7 +2,14 @@
 
 """The widget of 'Inputs' tab."""
 
+import csv
+from typing import (
+    Tuple,
+    Iterator,
+    Optional,
+)
 from core.QtModules import (
+    pyqtSignal,
     pyqtSlot,
     QWidget,
     QDial,
@@ -18,10 +25,9 @@ from core.io import (
     AddVariable, DeleteVariable,
     AddPath, DeletePath,
 )
-import csv
-from typing import Tuple
 from .rotatable import RotatableView
 from .Ui_inputs import Ui_Form
+
 
 class InputsWidget(QWidget, Ui_Form):
     
@@ -31,167 +37,188 @@ class InputsWidget(QWidget, Ui_Form):
     + Path recording.
     """
     
+    aboutToResolve = pyqtSignal()
+    
     def __init__(self, parent):
         super(InputsWidget, self).__init__(parent)
         self.setupUi(self)
-        #parent's pointer.
-        self.FreeMoveMode = parent.FreeMoveMode
-        self.Entities_Point = parent.Entities_Point
-        self.Entities_Link = parent.Entities_Link
-        self.DynamicCanvasView = parent.DynamicCanvasView
+        #parent's function pointer.
+        self.freemode_button = parent.freemode_button
+        self.EntitiesPoint = parent.EntitiesPoint
+        self.EntitiesLink = parent.EntitiesLink
+        self.MainCanvas = parent.MainCanvas
         self.resolve = parent.resolve
-        self.reload_canvas = parent.reload_canvas
+        self.reloadCanvas = parent.reloadCanvas
         self.outputTo = parent.outputTo
         self.ConflictGuide = parent.ConflictGuide
         self.DOF = lambda: parent.DOF
+        self.rightInput = parent.rightInput
         self.CommandStack = parent.CommandStack
+        self.setCoordsAsCurrent = parent.setCoordsAsCurrent
+        
         #self widgets.
-        self.inputs_Degree = QDial()
-        self.inputs_Degree.setEnabled(False)
-        self.inputs_Degree.valueChanged.connect(self.variableValueUpdate)
-        self.inputs_dial_layout.addWidget(RotatableView(self.inputs_Degree))
-        self.inputs_variable_stop.clicked.connect(self.variableValueReset)
+        self.dial = QDial()
+        self.dial.setStatusTip("Input widget of rotatable joint.")
+        self.dial.setEnabled(False)
+        self.dial.valueChanged.connect(self.__updateVar)
+        self.dial_spinbox.valueChanged.connect(self.__setVar)
+        self.inputs_dial_layout.addWidget(RotatableView(self.dial))
+        
+        self.variable_stop.clicked.connect(self.variableValueReset)
+        
         self.inputs_playShaft = QTimer(self)
         self.inputs_playShaft.setInterval(10)
-        self.inputs_playShaft.timeout.connect(self.inputs_change_index)
-        '''Inputs record context menu
+        self.inputs_playShaft.timeout.connect(self.__changeIndex)
+        
+        self.variable_list.currentRowChanged.connect(self.__dialOk)
+        self.update_pos.clicked.connect(self.setCoordsAsCurrent)
+        
+        """Inputs record context menu
         
         + Copy data from Point{}
         + ...
-        '''
-        self.inputs_record.customContextMenuRequested.connect(
-            self.on_inputs_record_context_menu
+        """
+        self.popMenu_record_list = QMenu(self)
+        self.record_list.customContextMenuRequested.connect(
+            self.on_record_list_context_menu
         )
-        self.popMenu_inputs_record = QMenu(self)
-        self.clear()
+        self.pathData = {}
     
     def clear(self):
-        self.pathData = {}
-        self.inputs_record.clear()
-        self.inputs_variable.clear()
+        self.pathData.clear()
+        for i in range(self.record_list.count() - 1):
+            self.record_list.takeItem(1)
+        self.variable_list.clear()
     
     @pyqtSlot(tuple)
-    def inputs_points_setSelection(self, selections):
+    def setSelection(self, selections: Tuple[int]):
         """Set one selection from canvas."""
-        self.inputs_points.setCurrentRow(
-            selections[0]
-            if selections[0] in self.Entities_Point.selectedRows()
-            else -1
-        )
+        self.joint_list.setCurrentRow(selections[0])
     
     @pyqtSlot()
-    def inputs_points_clearSelection(self):
+    def clearSelection(self):
         """Clear the points selection."""
-        self.inputs_points.setCurrentRow(-1)
+        self.drive_link_list.clear()
+        self.base_link_list.clear()
+        self.joint_list.setCurrentRow(-1)
     
     @pyqtSlot(int)
-    def on_inputs_points_currentRowChanged(self, row: int):
+    def on_joint_list_currentRowChanged(self, row: int):
         """Change the point row from input widget."""
-        self.inputs_baseLinks.clear()
+        self.base_link_list.clear()
         if not row > -1:
             return
-        if row not in self.Entities_Point.selectedRows():
-            self.Entities_Point.setSelections((row,), False)
-        for linkName in self.Entities_Point.item(row, 1).text().split(','):
+        if row not in self.EntitiesPoint.selectedRows():
+            self.EntitiesPoint.setSelections((row,), False)
+        for linkName in self.EntitiesPoint.item(row, 1).text().split(','):
             if not linkName:
                 continue
-            self.inputs_baseLinks.addItem(linkName)
+            self.base_link_list.addItem(linkName)
     
     @pyqtSlot(int)
-    def on_inputs_baseLinks_currentRowChanged(self, row: int):
+    def on_base_link_list_currentRowChanged(self, row: int):
         """Set the drive links from base link."""
-        self.inputs_driveLinks.clear()
+        self.drive_link_list.clear()
         if not row > -1:
             return
-        inputs_point = self.inputs_points.currentRow()
-        linkNames = self.Entities_Point.item(inputs_point, 1).text().split(',')
+        inputs_point = self.joint_list.currentRow()
+        linkNames = self.EntitiesPoint.item(inputs_point, 1).text().split(',')
         for linkName in linkNames:
-            if linkName == self.inputs_baseLinks.currentItem().text():
+            if linkName == self.base_link_list.currentItem().text():
                 continue
-            self.inputs_driveLinks.addItem(linkName)
+            self.drive_link_list.addItem(linkName)
     
     @pyqtSlot(int)
-    def on_inputs_driveLinks_currentRowChanged(self, row: int):
+    def on_drive_link_list_currentRowChanged(self, row: int):
         """Set enable of 'add variable' button."""
         if not row > -1:
-            self.inputs_variable_add.setEnabled(False)
+            self.variable_list_add.setEnabled(False)
             return
-        typeText = self.inputs_points.currentItem().text().split()[0]
-        self.inputs_variable_add.setEnabled(typeText=='[R]')
+        typeText = self.joint_list.currentItem().text().split()[0]
+        self.variable_list_add.setEnabled(typeText=='[R]')
     
     @pyqtSlot()
-    def on_inputs_variable_add_clicked(self):
+    def on_variable_list_add_clicked(self):
         """Add inputs variable from click button."""
-        self.add_inputs_variable(
-            self.inputs_points.currentRow(),
-            self.inputs_baseLinks.currentItem().text(),
-            self.inputs_driveLinks.currentItem().text()
+        self.__addInputsVariable(
+            self.joint_list.currentRow(),
+            self.base_link_list.currentItem().text(),
+            self.drive_link_list.currentItem().text()
         )
     
-    def add_inputs_variable(self,
+    def __addInputsVariable(self,
         point: int,
         base_link: str,
-        drive_links: str
+        drive_link: str
     ):
         """Add variable with '->' sign."""
-        if self.inputs_variable.count() >= self.DOF():
+        if not self.DOF() > 0:
             return
+        for vlink in self.EntitiesLink.data():
+            if (vlink.name in {base_link, drive_link}) and (len(vlink.points) < 2):
+                return
         name = 'Point{}'.format(point)
-        text = '->'.join([
+        vars = [
             name,
             base_link,
-            drive_links,
-            "{:.02f}".format(self.getLinkAngle(point, drive_links))
-        ])
-        for variable in self.get_inputs_variables():
-            if name == variable[0]:
+            drive_link,
+            "{:.02f}".format(self.__getLinkAngle(point, drive_link))
+        ]
+        for n, base, drive, a in self.getInputsVariables():
+            if {base_link, drive_link} == {base, drive}:
                 return
         self.CommandStack.beginMacro("Add variable of {}".format(name))
-        self.CommandStack.push(AddVariable(text, self.inputs_variable))
+        self.CommandStack.push(AddVariable(
+            '->'.join(vars),
+            self.variable_list
+        ))
         self.CommandStack.endMacro()
     
-    def add_inputs_variables(self,
+    def addInputsVariables(self,
         variables: Tuple[Tuple[int, str, str]]
     ):
         """Add from database."""
         for variable in variables:
-            self.add_inputs_variable(*variable)
+            self.__addInputsVariable(*variable)
     
     @pyqtSlot(int)
-    def on_inputs_variable_currentRowChanged(self, row: int =None):
+    def __dialOk(self, p0: Optional[int] = None):
         """Set the angle of base link and drive link."""
-        if row is None:
-            row = self.inputs_variable.currentRow()
+        row = self.variable_list.currentRow()
         enabled = row > -1
-        rotatable = enabled and not self.FreeMoveMode.isChecked()
-        self.inputs_Degree.setEnabled(rotatable)
-        self.oldVariableValue = self.inputs_Degree.value() / 100.
-        self.inputs_variable_play.setEnabled(rotatable)
-        self.inputs_variable_speed.setEnabled(rotatable)
-        self.inputs_Degree.setValue(float(
-            self.inputs_variable.currentItem().text().split('->')[-1])*100
-            if enabled else 0
+        rotatable = (
+            enabled and
+            not self.freemode_button.isChecked() and
+            self.rightInput()
         )
+        self.dial.setEnabled(rotatable)
+        self.dial_spinbox.setEnabled(rotatable)
+        self.oldVar = self.dial.value() / 100.
+        self.variable_play.setEnabled(rotatable)
+        self.variable_speed.setEnabled(rotatable)
+        self.dial.setValue(float(
+            self.variable_list.currentItem().text().split('->')[-1]
+        ) * 100 if enabled else 0)
     
-    def inputs_variable_excluding(self, row: int =None):
+    def variableExcluding(self, row: int =None):
         """Remove variable if the point was been deleted.
         
         Default: all.
         """
         one_row = row is not None
-        for i, variable in enumerate(self.get_inputs_variables()):
+        for i, variable in enumerate(self.getInputsVariables()):
             row_ = variable[0]
             #If this is not origin point any more.
             if one_row and (row != row_):
                 continue
             self.CommandStack.beginMacro("Remove variable of Point{}".format(row))
-            self.CommandStack.push(DeleteVariable(i, self.inputs_variable))
+            self.CommandStack.push(DeleteVariable(i, self.variable_list))
             self.CommandStack.endMacro()
     
     @pyqtSlot()
-    def on_inputs_variable_remove_clicked(self):
+    def on_variable_remove_clicked(self):
         """Remove and reset angle."""
-        row = self.inputs_variable.currentRow()
+        row = self.variable_list.currentRow()
         if not row > -1:
             return
         reply = QMessageBox.question(self,
@@ -200,111 +227,147 @@ class InputsWidget(QWidget, Ui_Form):
         )
         if reply != QMessageBox.Yes:
             return
-        self.inputs_variable_stop.click()
+        self.variable_stop.click()
         self.CommandStack.beginMacro("Remove variable of Point{}".format(row))
-        self.CommandStack.push(DeleteVariable(row, self.inputs_variable))
+        self.CommandStack.push(DeleteVariable(row, self.variable_list))
         self.CommandStack.endMacro()
-        self.Entities_Point.getBackPosition()
+        self.EntitiesPoint.getBackPosition()
         self.resolve()
     
-    def getLinkAngle(self, row: int, link: str) -> float:
+    def __getLinkAngle(self, row: int, linkname: str) -> float:
         """Get the angle of base link and drive link."""
-        Point = self.Entities_Point.data()
-        Link = self.Entities_Link.data()
-        LinkIndex = [vlink.name for vlink in Link]
-        relate = Link[LinkIndex.index(link)].points
-        base = Point[row]
-        drive = Point[relate[relate.index(row)-1]]
+        vpoints = self.EntitiesPoint.dataTuple()
+        vlinks = self.EntitiesLink.dataTuple()
+        
+        def findpoints(name: str) -> Tuple[int]:
+            for vlink in vlinks:
+                if name == vlink.name:
+                    return vlink.points
+        
+        relate = findpoints(linkname)
+        base = vpoints[row]
+        drive = vpoints[relate[relate.index(row)-1]]
         return base.slopeAngle(drive)
     
-    def get_inputs_variables(self) -> Tuple[int, str, str, float]:
-        """A generator use to get variables."""
-        for row in range(self.inputs_variable.count()):
-            variable = self.inputs_variable.item(row).text().split('->')
+    def getInputsVariables(self) -> Iterator[Tuple[int, str, str, float]]:
+        """A generator use to get variables.
+        
+        [0]: point num
+        [1]: base link
+        [2]: drive link
+        [3]: angle
+        """
+        for row in range(self.variable_list.count()):
+            variable = self.variable_list.item(row).text().split('->')
             variable[0] = int(variable[0].replace('Point', ''))
             variable[3] = float(variable[3])
             yield tuple(variable)
     
-    def inputs_variable_reload(self):
+    def inputCount(self) -> int:
+        """Use to show input variable count."""
+        return self.variable_list.count()
+    
+    def inputPair(self) -> Iterator[Tuple[int, int]]:
+        """Back as point number code."""
+        vlinks = {
+            vlink.name: set(vlink.points)
+            for vlink in self.EntitiesLink.data()
+        }
+        for vars in self.getInputsVariables():
+            points = vlinks[vars[2]].copy()
+            points.remove(vars[0])
+            yield (vars[0], points.pop())
+    
+    def variableReload(self):
         """Auto check the points and type."""
-        self.inputs_points.clear()
-        for i in range(self.Entities_Point.rowCount()):
+        self.joint_list.clear()
+        for i in range(self.EntitiesPoint.rowCount()):
             text = "[{}] Point{}".format(
-                self.Entities_Point.item(i, 2).text(),
+                self.EntitiesPoint.item(i, 2).text(),
                 i
             )
-            self.inputs_points.addItem(text)
+            self.joint_list.addItem(text)
         self.variableValueReset()
     
-    def variableValueUpdate(self, value):
+    @pyqtSlot(float)
+    def __setVar(self, value):
+        self.dial.setValue(int(value % 360 * 100))
+    
+    @pyqtSlot(int)
+    def __updateVar(self, value):
         """Update the value when rotating QDial."""
-        item = self.inputs_variable.currentItem()
+        item = self.variable_list.currentItem()
         value /= 100.
+        self.dial_spinbox.blockSignals(True)
+        self.dial_spinbox.setValue(value)
+        self.dial_spinbox.blockSignals(False)
         if item:
             itemText = item.text().split('->')
-            itemText[-1] = "{:.04f}".format(value)
+            itemText[-1] = "{:.02f}".format(value)
             item.setText('->'.join(itemText))
-            self.resolve()
-        interval = self.inputs_record_interval.value()
+            self.aboutToResolve.emit()
         if (
-            self.inputs_record_record.isChecked() and
-            abs(self.oldVariableValue - value) > interval
+            self.record_start.isChecked() and
+            abs(self.oldVar - value) > self.record_interval.value()
         ):
-            self.DynamicCanvasView.recordPath()
-            self.oldVariableValue = value
+            self.MainCanvas.recordPath()
+            self.oldVar = value
     
     def variableValueReset(self):
         """Reset the value of QDial."""
         if self.inputs_playShaft.isActive():
-            self.inputs_variable_play.setChecked(False)
+            self.variable_play.setChecked(False)
             self.inputs_playShaft.stop()
-        self.Entities_Point.getBackPosition()
-        for i, variable in enumerate(self.get_inputs_variables()):
+        self.EntitiesPoint.getBackPosition()
+        for i, variable in enumerate(self.getInputsVariables()):
             point = variable[0]
             text = '->'.join([
                 'Point{}'.format(point),
                 variable[1],
                 variable[2],
-                "{:.02f}".format(self.getLinkAngle(point, variable[2]))
+                "{:.02f}".format(self.__getLinkAngle(point, variable[2]))
             ])
-            self.inputs_variable.item(i).setText(text)
-        self.on_inputs_variable_currentRowChanged()
+            self.variable_list.item(i).setText(text)
+        self.__dialOk()
         self.resolve()
     
     @pyqtSlot(bool)
-    def on_inputs_variable_play_toggled(self, toggled):
+    def on_variable_play_toggled(self, toggled):
         """Triggered when play button was changed."""
-        self.inputs_Degree.setEnabled(not toggled)
+        self.dial.setEnabled(not toggled)
+        self.dial_spinbox.setEnabled(not toggled)
         if toggled:
             self.inputs_playShaft.start()
         else:
             self.inputs_playShaft.stop()
+            if self.update_pos_option.isChecked():
+                self.setCoordsAsCurrent()
     
     @pyqtSlot()
-    def inputs_change_index(self):
+    def __changeIndex(self):
         """QTimer change index."""
-        index = self.inputs_Degree.value()
-        speed = self.inputs_variable_speed.value()
+        index = self.dial.value()
+        speed = self.variable_speed.value()
         extremeRebound = (
             self.ConflictGuide.isVisible() and
             self.extremeRebound.isChecked()
         )
         if extremeRebound:
             speed *= -1
-            self.inputs_variable_speed.setValue(speed)
+            self.variable_speed.setValue(speed)
         index += int(speed * 6 * (3 if extremeRebound else 1))
-        index %= self.inputs_Degree.maximum()
-        self.inputs_Degree.setValue(index)
+        index %= self.dial.maximum()
+        self.dial.setValue(index)
     
     @pyqtSlot(bool)
-    def on_inputs_record_record_toggled(self, toggled):
+    def on_record_start_toggled(self, toggled):
         """Save to file path data."""
         if toggled:
-            self.DynamicCanvasView.recordStart(int(
-                360 / self.inputs_record_interval.value()
+            self.MainCanvas.recordStart(int(
+                360 / self.record_interval.value()
             ))
             return
-        path = self.DynamicCanvasView.getRecordPath()
+        path = self.MainCanvas.getRecordPath()
         name, ok = QInputDialog.getText(self,
             "Recording completed!",
             "Please input name tag:"
@@ -324,13 +387,13 @@ class InputsWidget(QWidget, Ui_Form):
         """Add path function."""
         self.CommandStack.beginMacro("Add {{Path: {}}}".format(name))
         self.CommandStack.push(AddPath(
-            self.inputs_record,
+            self.record_list,
             name,
             self.pathData,
             path
         ))
         self.CommandStack.endMacro()
-        self.inputs_record.setCurrentRow(self.inputs_record.count() - 1)
+        self.record_list.setCurrentRow(self.record_list.count() - 1)
     
     def loadPaths(self, paths: Tuple[Tuple[Tuple[float, float]]]):
         """Add multiple path."""
@@ -338,27 +401,31 @@ class InputsWidget(QWidget, Ui_Form):
             self.addPath(name, path)
     
     @pyqtSlot()
-    def on_inputs_record_remove_clicked(self):
+    def on_record_remove_clicked(self):
         """Remove path data."""
-        row = self.inputs_record.currentRow()
-        if not row>-1:
+        row = self.record_list.currentRow()
+        if not row > 0:
             return
         self.CommandStack.beginMacro("Delete {{Path: {}}}".format(
-            self.inputs_record.item(row).text()
+            self.record_list.item(row).text()
         ))
         self.CommandStack.push(DeletePath(
             row,
-            self.inputs_record,
+            self.record_list,
             self.pathData
         ))
         self.CommandStack.endMacro()
-        self.inputs_record.setCurrentRow(self.inputs_record.count() - 1)
-        self.reload_canvas()
+        self.record_list.setCurrentRow(self.record_list.count() - 1)
+        self.reloadCanvas()
     
     @pyqtSlot(QListWidgetItem)
-    def on_inputs_record_itemDoubleClicked(self, item):
+    def on_record_list_itemDoubleClicked(self, item):
         """View path data."""
-        data = self.pathData[item.text().split(":")[0]]
+        name = item.text().split(":")[0]
+        try:
+            data = self.pathData[name]
+        except KeyError:
+            return
         reply = QMessageBox.question(
             self,
             "Path data",
@@ -370,71 +437,102 @@ class InputsWidget(QWidget, Ui_Form):
         )
         if reply != QMessageBox.Save:
             return
-        fileName = self.outputTo(
+        file_name = self.outputTo(
             "path data",
             ["Comma-Separated Values (*.csv)", "Text file (*.txt)"]
         )
-        if not fileName:
+        if not file_name:
             return
-        with open(fileName, 'w', newline='') as stream:
+        with open(file_name, 'w', newline='') as stream:
             writer = csv.writer(stream)
             for point in data:
                 for coordinate in point:
                     writer.writerow(coordinate)
                 writer.writerow(())
-        print("Output path data: {}".format(fileName))
+        print("Output path data: {}".format(file_name))
     
     @pyqtSlot(QPoint)
-    def on_inputs_record_context_menu(self, point):
+    def on_record_list_context_menu(self, point):
         """Show the context menu.
         
         Show path [0], [1], ...
         Or copy path coordinates.
         """
-        row = self.inputs_record.currentRow()
-        if row > -1:
-            action = self.popMenu_inputs_record.addAction("Show all")
-            action.index = -1
-            data = self.pathData[
-                self.inputs_record
-                .item(row)
-                .text()
-                .split(":")[0]
-            ]
+        row = self.record_list.currentRow()
+        if not row > -1:
+            return
+        showall_action = self.popMenu_record_list.addAction("Show all")
+        showall_action.index = -1
+        copy_action = self.popMenu_record_list.addAction("Copy as new")
+        name = self.record_list.item(row).text().split(":")[0]
+        try:
+            data = self.pathData[name]
+        except KeyError:
+            #Auto preview path.
+            data = self.MainCanvas.Path.path
+            showall_action.setEnabled(False)
+        else:
             for action_text in ("Show", "Copy data from"):
-                self.popMenu_inputs_record.addSeparator()
+                self.popMenu_record_list.addSeparator()
                 for i in range(len(data)):
                     if data[i]:
-                        action = self.popMenu_inputs_record.addAction(
+                        action = self.popMenu_record_list.addAction(
                             "{} Point{}".format(action_text, i)
                         )
                         action.index = i
-        action = self.popMenu_inputs_record.exec_(
-            self.inputs_record.mapToGlobal(point)
+        action_exec = self.popMenu_record_list.exec_(
+            self.record_list.mapToGlobal(point)
         )
-        if action:
-            if "Copy data from" in action.text():
+        if action_exec:
+            if action_exec == copy_action:
+                """Copy path data."""
+                num = 0
+                while "Copied_{}".format(num) in self.pathData:
+                    num += 1
+                self.addPath("Copied_{}".format(num), data)
+            elif "Copy data from" in action_exec.text():
+                """Copy data to clipboard."""
                 QApplication.clipboard().setText('\n'.join(
-                    "{},{}".format(x, y) for x, y in data[action.index]
+                    "{},{}".format(x, y) for x, y in data[action_exec.index]
                 ))
-            elif "Show" in action.text():
-                if action.index==-1:
-                    self.inputs_record_show.setChecked(True)
-                self.DynamicCanvasView.setPathShow(action.index)
-        self.popMenu_inputs_record.clear()
+            elif "Show" in action_exec.text():
+                """Switch points enabled status."""
+                if action_exec.index == -1:
+                    self.record_show.setChecked(True)
+                self.MainCanvas.setPathShow(action_exec.index)
+        self.popMenu_record_list.clear()
     
     @pyqtSlot()
-    def on_inputs_record_show_clicked(self):
+    def on_record_show_clicked(self):
         """Show all paths or hide."""
-        if self.inputs_record_show.isChecked():
+        if self.record_show.isChecked():
             show = -1
         else:
             show = -2
-        self.DynamicCanvasView.setPathShow(show)
+        self.MainCanvas.setPathShow(show)
     
     @pyqtSlot(int)
-    def on_inputs_record_currentRowChanged(self, row):
+    def on_record_list_currentRowChanged(self, row):
         """Reload the canvas when switch the path."""
-        if self.inputs_record_show.isChecked():
-            self.DynamicCanvasView.setPathShow(-1)
-        self.reload_canvas()
+        if self.record_show.isChecked():
+            self.MainCanvas.setPathShow(-1)
+        self.reloadCanvas()
+    
+    def currentPath(self):
+        """Return current path data to main canvas.
+        
+        + No path.
+        + Show path data.
+        + Auto preview.
+        """
+        row = self.record_list.currentRow()
+        if row == -1:
+            self.MainCanvas.setAutoPath(False)
+            return ()
+        elif row > 0:
+            self.MainCanvas.setAutoPath(False)
+            name = self.record_list.item(row).text()
+            return self.pathData.get(name.split(':')[0], ())
+        elif row == 0:
+            self.MainCanvas.setAutoPath(True)
+            return ()

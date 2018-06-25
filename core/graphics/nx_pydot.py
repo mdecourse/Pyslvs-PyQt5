@@ -7,6 +7,16 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import Dict, Tuple
+from networkx import (
+    Graph,
+    nx_pydot,
+    shell_layout,
+    circular_layout,
+    spring_layout,
+    spectral_layout,
+    random_layout
+)
 from core.QtModules import (
     QImage,
     QSize,
@@ -21,17 +31,7 @@ from core.QtModules import (
 )
 from .color import colorQt, colorNum
 from .canvas import convex_hull, edges_view
-from networkx import (
-    Graph,
-    nx_pydot,
-    shell_layout,
-    circular_layout,
-    spring_layout,
-    spectral_layout,
-    random_layout
-)
-from typing import Dict, Tuple
-inf = float('inf')
+
 
 _nx_engine = (
     "circular",
@@ -48,46 +48,54 @@ _graphviz_engine = (
     "circo",
 )
 
-EngineList = []
-for engine in _nx_engine:
-    EngineList.append("NetworkX - {}".format(engine))
-for engine in _graphviz_engine:
-    EngineList.append("Graphviz - {}".format(engine))
+engines = []
+for engine_name in _nx_engine:
+    engines.append("NetworkX - {}".format(engine_name))
+for engine_name in _graphviz_engine:
+    engines.append("Graphviz - {}".format(engine_name))
+
 
 class EngineError(Exception):
     pass
 
+
+def _reversed_graph(G: Graph) -> Graph:
+    """Edges will become nodes."""
+    G_ = Graph()
+    nodes = dict(edges_view(G))
+    for i, (l1, l2) in nodes.items():
+        for j, edge in nodes.items():
+            if i == j:
+                continue
+            if (l1 in edge) or (l2 in edge):
+                G_.add_edge(i, j)
+    return G_
+
+
 def engine_picker(G: Graph, engine: str, node_mode: bool =False):
     """Generate a position dict."""
     if not node_mode:
-        G_ = Graph()
-        nodes = {i:edge for i, edge in edges_view(G)}
-        for i, (l1, l2) in nodes.items():
-            for j, edge in nodes.items():
-                if i==j:
-                    continue
-                if (l1 in edge) or (l2 in edge):
-                    G_.add_edge(i, j)
-        H = G_
+        H = _reversed_graph(G)
     else:
         H = G
     if type(engine) != str:
         return engine
-    if engine=="random":
-        E = {k:(x*200, y*200) for k, (x, y) in random_layout(H).items()}
-    elif engine=="shell":
+    if engine == "random":
+        E = {k: (x*200, y*200) for k, (x, y) in random_layout(H).items()}
+    elif engine == "shell":
         E = shell_layout(H, scale=100)
-    elif engine=="circular":
+    elif engine == "circular":
         E = circular_layout(H, scale=100)
-    elif engine=="spring":
+    elif engine == "spring":
         E = spring_layout(H, scale=100)
-    elif engine=="spectral":
+    elif engine == "spectral":
         E = spectral_layout(H, scale=100)
     else:
         try:
             E = nx_pydot.graphviz_layout(H, prog=engine)
         except:
             raise EngineError("No Graphviz")
+    inf = float('inf')
     x_max = -inf
     x_min = inf
     y_max = -inf
@@ -111,6 +119,7 @@ def engine_picker(G: Graph, engine: str, node_mode: bool =False):
     ) for node, (x, y) in E.items()}
     return pos
 
+
 def graph(
     G: Graph,
     width: int,
@@ -123,7 +132,7 @@ def graph(
         pos = engine_picker(G, engine, node_mode)
     except EngineError as e:
         raise e
-    width_ = -inf
+    width_ = -float('inf')
     for x, y in pos.values():
         if abs(x) > width_:
             width_ = x
@@ -153,12 +162,12 @@ def graph(
             painter.drawPolygon(*convex_hull([
                 (pos[n][0], -pos[n][1])
                 for n, edge in edges_view(G) if link in edge
-            ]))
+            ], as_qpoint=True))
     for k, (x, y) in pos.items():
         if node_mode:
             color = colorNum(len(list(G.neighbors(k)))-1)
         else:
-            if except_node in tuple(G.edges)[k]:
+            if except_node in dict(edges_view(G))[k]:
                 color = colorQt('Green')
             else:
                 color = colorQt('Blue')

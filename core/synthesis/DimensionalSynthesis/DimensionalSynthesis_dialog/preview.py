@@ -7,6 +7,12 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from math import isnan
+from typing import (
+    Tuple,
+    Dict,
+    Any,
+)
 from core.QtModules import (
     QTimer,
     QPen,
@@ -21,40 +27,53 @@ from core.graphics import (
     BaseCanvas,
     colorQt
 )
-from core.io import get_from_parenthesis, triangle_expr
-from math import isnan
-from typing import Tuple
+from core.io import strbetween
 from .Ui_preview import Ui_Dialog
-inf = float('inf')
 
-class DynamicCanvas(BaseCanvas):
+
+class _DynamicCanvas(BaseCanvas):
     
     """Custom canvas for preview algorithm result."""
     
-    def __init__(self, mechanism, Path, parent=None):
-        super(DynamicCanvas, self).__init__(parent)
+    def __init__(self,
+        mechanism: Dict[str, Any],
+        path: Tuple[Tuple[Tuple[float, float]]],
+        parent
+    ):
+        """Input linkage and path data."""
+        super(_DynamicCanvas, self).__init__(parent)
         self.mechanism = mechanism
-        self.Path.path = Path
+        self.Path.path = path
+        self.length = 0
+        for path in self.Path.path:
+            l = len(path)
+            if l > self.length:
+                self.length = l
         self.targetPath = self.mechanism['Target']
         self.index = 0
         #exp_symbol = ('A', 'B', 'C', 'D', 'E')
-        self.exp_symbol = []
+        self.exp_symbol = set()
         self.links = []
         for exp in self.mechanism['Link_Expression'].split(';'):
-            tags = get_from_parenthesis(exp, '[', ']').split(',')
-            self.links.append(tuple(tags))
-            for name in tags:
-                if name not in self.exp_symbol:
-                    self.exp_symbol.append(name)
-        self.exp_symbol = sorted(self.exp_symbol)
+            names = strbetween(exp, '[', ']').split(',')
+            self.links.append(tuple(names))
+            for name in names:
+                self.exp_symbol.add(name)
+        self.exp_symbol = sorted(
+            self.exp_symbol,
+            key = lambda e: int(e.replace('P', ''))
+        )
+        #Error
+        self.ERROR = False
+        self.no_error = 0
         #Timer start.
         timer = QTimer(self)
-        timer.setInterval(10)
         timer.timeout.connect(self.change_index)
-        timer.start()
+        timer.start(17)
     
-    def zoom_to_fit_limit(self):
+    def __zoomToFitLimit(self) -> Tuple[float, float, float, float]:
         """Limitations of four side."""
+        inf = float('inf')
         x_right = inf
         x_left = -inf
         y_top = -inf
@@ -100,63 +119,69 @@ class DynamicCanvas(BaseCanvas):
         """Drawing functions."""
         width = self.width()
         height = self.height()
-        x_right, x_left, y_top, y_bottom = self.zoom_to_fit_limit()
+        x_right, x_left, y_top, y_bottom = self.__zoomToFitLimit()
         x_diff = x_left - x_right
         y_diff = y_top - y_bottom
-        x_diff = x_diff if x_diff!=0 else 1
-        y_diff = y_diff if y_diff!=0 else 1
+        x_diff = x_diff if (x_diff != 0) else 1
+        y_diff = y_diff if (y_diff != 0) else 1
         if width / x_diff < height / y_diff:
             factor = width / x_diff
         else:
             factor = height / y_diff
         self.zoom = factor * 0.95
-        self.ox = width / 2 - (x_left + x_right) / 2 *self.zoom
-        self.oy = height / 2 + (y_top + y_bottom) / 2 *self.zoom
-        super(DynamicCanvas, self).paintEvent(event)
+        self.ox = width / 2 - (x_left + x_right) / 2 * self.zoom
+        self.oy = height / 2 + (y_top + y_bottom) / 2 * self.zoom
+        super(_DynamicCanvas, self).paintEvent(event)
         #Points that in the current angle section.
+        """First check."""
+        for path in self.Path.path:
+            if not path:
+                continue
+            x, y = path[self.index]
+            if isnan(x):
+                self.index, self.no_error = self.no_error, self.index
+                self.ERROR = True
         self.Point = []
         for i, name in enumerate(self.exp_symbol):
             if (name in self.mechanism['Driver']) or (name in self.mechanism['Follower']):
                 self.Point.append(self.mechanism[name])
             else:
-                try:
-                    x, y = self.Path.path[i][self.index]
-                except IndexError:
-                    self.index += 1
-                    return
-                else:
-                    if isnan(x):
-                        self.index += 1
-                        return
-                    self.Point.append((x, y))
+                x, y = self.Path.path[i][self.index]
+                self.Point.append((x, y))
         #Draw links.
         for i, exp in enumerate(self.links):
-            if i==0:
+            if i == 0:
                 continue
             name = "link_{}".format(i)
-            self.drawLink(name, tuple(self.exp_symbol.index(tag) for tag in exp))
+            self._drawLink(name, tuple(self.exp_symbol.index(tag) for tag in exp))
         #Draw path.
-        self.drawPath()
+        self._drawPath()
         #Draw solving path.
-        self.drawTargetPath()
+        self._BaseCanvas__drawTargetPath()
         #Draw points.
         for i, name in enumerate(self.exp_symbol):
-            coordinate = self.Point[i]
-            if coordinate:
-                color = colorQt('Green')
-                fixed = False
-                if name in self.mechanism['Target']:
-                    color = colorQt('Dark-Orange')
-                elif name in self.mechanism['Driver']:
-                    color = colorQt('Red')
-                    fixed = True
-                elif name in self.mechanism['Follower']:
-                    color = colorQt('Blue')
-                    fixed = True
-                self.drawPoint(i, coordinate[0], coordinate[1], fixed, color)
+            if not self.Point[i]:
+                continue
+            x, y = self.Point[i]
+            color = colorQt('Green')
+            fixed = False
+            if name in self.mechanism['Target']:
+                color = colorQt('Dark-Orange')
+            elif name in self.mechanism['Driver']:
+                color = colorQt('Red')
+                fixed = True
+            elif name in self.mechanism['Follower']:
+                color = colorQt('Blue')
+                fixed = True
+            self._BaseCanvas__drawPoint(i, x, y, fixed, color)
         self.painter.end()
+        if self.ERROR:
+            self.ERROR = False
+            self.index, self.no_error = self.no_error, self.index
+        else:
+            self.no_error = self.index
     
-    def drawLink(self,
+    def _drawLink(self,
         name: str,
         points: Tuple[int]
     ):
@@ -195,7 +220,7 @@ class DynamicCanvas(BaseCanvas):
             cenY *= -self.zoom / len(points)
             self.painter.drawText(QPointF(cenX, cenY), text)
     
-    def drawPath(self):
+    def _drawPath(self):
         """Draw a path.
         
         A simple function than main canvas.
@@ -209,14 +234,15 @@ class DynamicCanvas(BaseCanvas):
             pen.setColor(color)
             pen.setWidth(self.pathWidth)
             self.painter.setPen(pen)
-            self.drawCurve(path)
+            self._BaseCanvas__drawCurve(path)
     
     @pyqtSlot()
     def change_index(self):
         """A slot to change the path index."""
         self.index += 1
-        self.index %= 360
+        self.index %= self.length
         self.update()
+
 
 class PreviewDialog(QDialog, Ui_Dialog):
     
@@ -225,43 +251,50 @@ class PreviewDialog(QDialog, Ui_Dialog):
     We will not be able to change result settings here.
     """
     
-    def __init__(self, mechanism, Path, parent=None):
+    def __init__(self,
+        mechanism: Dict[str, Any],
+        path: Tuple[Tuple[Tuple[float, float]]],
+        parent
+    ):
+        """Show the informations of results, and setup the preview canvas."""
         super(PreviewDialog, self).__init__(parent)
         self.setupUi(self)
-        self.mechanism = mechanism
         self.setWindowTitle("Preview: {} (max {} generations)".format(
-            self.mechanism['Algorithm'], self.mechanism['lastGen']
+            mechanism['Algorithm'], mechanism['lastGen']
         ))
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
         self.main_splitter.setSizes([800, 100])
         self.splitter.setSizes([100, 100, 100])
-        previewWidget = DynamicCanvas(self.mechanism, Path, self)
+        previewWidget = _DynamicCanvas(mechanism, path, self)
         self.left_layout.insertWidget(0, previewWidget)
         #Basic information
         link_tags = []
-        for func, args, target in triangle_expr(self.mechanism['Expression']):
-            for p in args:
+        for expr in mechanism['Expression'].split(';'):
+            for p in strbetween(expr, '[', ']').split(','):
                 if ('L' in p) and (p not in link_tags):
                     link_tags.append(p)
         self.basic_label.setText("\n".join(
-            ["{}: {}".format(tag, self.mechanism[tag]) for tag in ['Algorithm', 'time']] +
-            ["{}: {}".format(tag, self.mechanism[tag]) for tag in self.mechanism['Driver']] +
-            ["{}: {}".format(tag, self.mechanism[tag]) for tag in self.mechanism['Follower']] +
-            ["{}: {}".format(tag, self.mechanism[tag]) for tag in sorted(link_tags)]
+            ["{}: {}".format(tag, mechanism[tag]) for tag in ['Algorithm', 'time']] +
+            ["{}: {}".format(tag, mechanism[tag]) for tag in mechanism['Driver']] +
+            ["{}: {}".format(tag, mechanism[tag]) for tag in mechanism['Follower']] +
+            ["{}: {}".format(tag, mechanism[tag]) for tag in sorted(link_tags)]
         ))
         #Algorithm information
-        interrupt = self.mechanism['interrupted']
-        fitness = self.mechanism['TimeAndFitness'][-1]
-        self.algorithm_label.setText("<html><head/><body><p>"+
-            "<br/>".join(["Max generation: {}".format(self.mechanism['lastGen'])]+
-            ["Fitness: {}".format(fitness if type(fitness)==float else fitness[1])]+
-            ["<img src=\"{}\" width=\"15\"/>".format(":/icons/task-completed.png" if interrupt=='False' else
-            ":/icons/question-mark.png" if interrupt=='N/A' else ":/icons/interrupted.png")+
-            "Interrupted at: {}".format(interrupt)]+
-            ["{}: {}".format(k, v) for k, v in self.mechanism['settings'].items()])+
+        interrupt = mechanism['interrupted']
+        fitness = mechanism['TimeAndFitness'][-1]
+        self.algorithm_label.setText("<html><head/><body><p>" +
+            "<br/>".join(["Max generation: {}".format(mechanism['lastGen'])] +
+            ["Fitness: {}".format(
+                fitness if (type(fitness) == float) else fitness[1]
+            )] + ["<img src=\"{}\" width=\"15\"/>".format(
+                ":/icons/task-completed.png" if (interrupt == 'False') else
+                ":/icons/question-mark.png" if (interrupt == 'N/A') else
+                ":/icons/interrupted.png"
+            ) + "Interrupted at: {}".format(interrupt)] +
+            ["{}: {}".format(k, v) for k, v in mechanism['settings'].items()]) +
             "</p></body></html>")
         #Hardware information
         self.hardware_label.setText("\n".join([
-            "{}: {}".format(tag, self.mechanism['hardwareInfo'][tag])
+            "{}: {}".format(tag, mechanism['hardwareInfo'][tag])
             for tag in ['os', 'memory', 'cpu']
         ]))

@@ -1,6 +1,6 @@
 requests
-pyqt5
-pyqtchart
+pyqt5>=5.10
+pyqtchart>=5.1
 dxfwrite
 numpy
 cython
@@ -10,3 +10,4 @@ peewee
 lark-parser
 networkx
 pydot
+pygments
