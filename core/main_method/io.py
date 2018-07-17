@@ -237,7 +237,7 @@ def clear(self):
     self.mechanism_storage_name_tag.clear()
     self.mechanism_storage.clear()
     self.CollectionTabPage.clear()
-    self.NumberAndTypeSynthesis.clear()
+    self.StructureSynthesis.clear()
     self.InputsWidget.clear()
     self.DimensionalSynthesis.clear()
     self.EntitiesPoint.clear()
@@ -553,7 +553,7 @@ def on_action_See_Python_Scripts_triggered(self):
         "#Project \"{}\"\n".format(self.FileWidget.file_name.baseName()) +
         slvs_process_script(
             tuple(vpoint.expr for vpoint in self.EntitiesPoint.data()),
-            tuple(self.InputsWidget.inputPair())
+            tuple((b, d) for b, d, a in self.InputsWidget.inputPair())
         ),
         Python3Lexer(),
         "Python script",

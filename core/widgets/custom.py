@@ -27,7 +27,7 @@ from core.QtModules import (
 from core.info import __version__
 from core.io import FileWidget
 from core.synthesis import (
-    NumberAndTypeSynthesis,
+    StructureSynthesis,
     Collections,
     DimensionalSynthesis,
 )
@@ -103,19 +103,19 @@ def _appearance(self):
     )
     self.EntitiesLink_layout.addWidget(self.EntitiesLink)
     self.EntitiesExpr = ExprTableWidget(self.EntitiesExpr_widget)
-    self.EntitiesExpr.reset.connect(self.linkage_freemode_widget.setEnabled)
-    self.EntitiesExpr.freemove_request.connect(self.setLinkageFreemove)
+    self.EntitiesExpr.reset.connect(self.link_freemode_widget.setEnabled)
+    self.EntitiesExpr.freemove_request.connect(self.setLinkFreemove)
     self.EntitiesExpr_layout.insertWidget(0, self.EntitiesExpr)
     
-    #Linkage free mode slide bar.
-    self.linkage_freemode_slider.valueChanged.connect(
-        self.linkage_freemode_spinbox.setValue
+    #Link free mode slide bar.
+    self.link_freemode_slider.valueChanged.connect(
+        self.link_freemode_spinbox.setValue
     )
-    self.linkage_freemode_spinbox.valueChanged.connect(
-        self.linkage_freemode_slider.setValue
+    self.link_freemode_spinbox.valueChanged.connect(
+        self.link_freemode_slider.setValue
     )
-    self.linkage_freemode_slider.rangeChanged.connect(
-        self.linkage_freemode_spinbox.setRange
+    self.link_freemode_slider.rangeChanged.connect(
+        self.link_freemode_spinbox.setRange
     )
     
     #Select all button on the Point and Link tab as corner widget.
@@ -207,10 +207,10 @@ def _appearance(self):
     self.MainCanvas.noselected.connect(self.InputsWidget.clearSelection)
     
     #Number and type synthesis.
-    self.NumberAndTypeSynthesis = NumberAndTypeSynthesis(self)
+    self.StructureSynthesis = StructureSynthesis(self)
     self.SynthesisTab.addTab(
-        self.NumberAndTypeSynthesis,
-        self.NumberAndTypeSynthesis.windowIcon(),
+        self.StructureSynthesis,
+        self.StructureSynthesis.windowIcon(),
         "Structural"
     )
     
@@ -221,7 +221,7 @@ def _appearance(self):
         self.CollectionTabPage.windowIcon(),
         "Collections"
     )
-    self.NumberAndTypeSynthesis.addCollection = (
+    self.StructureSynthesis.addCollection = (
         self.CollectionTabPage.StructureWidget.addCollection
     )
     self.FileWidget.CollectDataFunc = (
@@ -325,8 +325,8 @@ def _freemove(self):
             self.freemode_disable = action
     self.freemode_button.setMenu(free_move_mode_menu)
     
-    #Linkage free move by expression table.
-    self.linkage_freemode_slider.sliderReleased.connect(
+    #Link free move by expression table.
+    self.link_freemode_slider.sliderReleased.connect(
         self.MainCanvas.emit_freemove_all
     )
 
@@ -362,6 +362,7 @@ def _options(self):
     self.jointsize_option.valueChanged.connect(self.MainCanvas.setJointSize)
     self.zoomby_option.currentIndexChanged.connect(self.MainCanvas.setZoomBy)
     self.snap_option.valueChanged.connect(self.MainCanvas.setSnap)
+    self.planarsolver_option.currentIndexChanged.connect(self.resolve)
     self.settings_reset.clicked.connect(self.resetOptions)
 
 
@@ -407,7 +408,7 @@ def _point_context_menu(self):
     
     + Add
     ///////
-    + New Linkage
+    + New Link
     + Edit
     + Grounded
     + Multiple joint
@@ -465,7 +466,7 @@ def _link_context_menu(self):
     
     + Add
     + Edit
-    + Merge linkage
+    + Merge links
         - Link0
         - Link1
         - ...
@@ -490,7 +491,7 @@ def _link_context_menu(self):
     )
     self.popMenu_link.addAction(self.action_link_context_edit)
     self.popMenu_link_merge = QMenu(self)
-    self.popMenu_link_merge.setTitle("Merge linkage")
+    self.popMenu_link_merge.setTitle("Merge links")
     self.popMenu_link.addMenu(self.popMenu_link_merge)
     self.action_link_context_copydata = QAction("&Copy table data", self)
     self.action_link_context_copydata.triggered.connect(self.copyLinksTable)
@@ -523,7 +524,7 @@ def _canvas_context_menu(self):
     
     + Add
     ///////
-    + New Linkage
+    + New Link
     + Add [fixed]
     + Add [target path]
     ///////
@@ -571,7 +572,7 @@ def _canvas_context_menu(self):
     + Add [target path]
     ///////
     + Edit
-    + Merge linkage
+    + Merge links
         - Link0
         - Link1
         - ...

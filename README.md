@@ -1,4 +1,4 @@
-[![Version](https://img.shields.io/badge/version-18.06.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases/latest)
+[![Version](https://img.shields.io/badge/version-18.07.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases/latest)
 [![Build Status](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5.svg)](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5)
 [![PYTHON](https://img.shields.io/badge/python-3.5%20↑-blue.svg)](https://www.python.org/)
 [![PYQT](https://img.shields.io/badge/pyqt-5.10%20↑-orange.svg)](https://riverbankcomputing.com/software/pyqt/intro)
@@ -66,9 +66,8 @@ Previews in Windows 8.1 theme:
 Here's some command line options for Pyslvs.
 
 ```bash
-#Download or update submodule:
-git submodule init
-git submodule update
+#Download / update submodule:
+git submodule update --init --recursive
 
 #After following compile steps:
 make build-kernel
@@ -182,7 +181,7 @@ Generate a mechanism with path requirement by random variables.
 
 Contains three algorithms:
 
-+ Real Genetic Algorithm
++ Real-coded Genetic Algorithm
 + Firefly Algorithm
 + Differential Evolution
 
@@ -320,23 +319,7 @@ This project including two kernels should build, please following the steps if y
 
 ## Cython Kernel
 
-Cython libraries of Pyslvs, including:
-
-1. Solver:
-    + parser
-    + tinycadlib
-    + triangulation
-1. Dimensional synthesis:
-    + planarlinkage
-    + rga
-    + firefly
-    + de
-1. Number synthesis:
-    + number
-1. Topologic synthesis:
-    + topologic
-
-This module only require "[Lark-parser]" module (and [Pygments] provide highlighting optionaly), so it can works independently without to startup GUI.
+"[Pyslvs]", Cython libraries of Pyslvs.
 
 Make command:
 
