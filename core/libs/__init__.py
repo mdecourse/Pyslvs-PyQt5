@@ -19,7 +19,6 @@ from .pyslvs import (
     PLLP,
     PLPP,
     PXY,
-    expr_parser,
     expr_solving,
     expr_path,
     data_collecting,
@@ -27,7 +26,7 @@ from .pyslvs import (
     VLink,
     bfgs_vpoint_solving,
     Planar,
-    NumberSynthesis,
+    number_synthesis,
     topo,
     Graph,
     vpoints_configure,
@@ -37,6 +36,7 @@ from .pyslvs import (
     parse_params,
     parse_vpoints,
     PMKSLexer,
+    example_list,
 )
 from .python_solvespace import (
     #Entities & Constraint
@@ -67,7 +67,6 @@ __all__ = [
     'PLLP',
     'PLPP',
     'PXY',
-    'expr_parser',
     'expr_solving',
     'expr_path',
     'data_collecting',
@@ -75,7 +74,7 @@ __all__ = [
     'VLink',
     'bfgs_vpoint_solving',
     'Planar',
-    'NumberSynthesis',
+    'number_synthesis',
     'topo',
     'Graph',
     'vpoints_configure',
@@ -85,6 +84,7 @@ __all__ = [
     'parse_params',
     'parse_vpoints',
     'PMKSLexer',
+    'example_list',
     'create2DSystem',
     'slvsProcess',
 ]
@@ -132,9 +132,12 @@ def create2DSystem(num: int) -> Tuple[System, Workplane, LineSegment2d]:
 
 def slvsProcess(
     vpoints: Tuple[VPoint],
-    constraints: Tuple[Tuple[int, str, str, float]]
+    constraints: Tuple[Tuple[int, int, float]]
 ) -> Tuple[List[Tuple[float, float]], int]:
     """Use element module to convert into solvespace expression."""
+    if not vpoints:
+        return [], 0
+    
     #Define VLinks here.
     vlinks = {}
     for i, vpoint in enumerate(vpoints):
@@ -146,15 +149,14 @@ def slvsProcess(
                 vlinks[linkName] = [i]
     
     #Limitation of Solvespacce kernel sys.
-    pointCount = 0
-    sliderCount = 0
+    point_count = 0
+    slider_count = 0
     for vpoint in vpoints:
-        pointCount += len(vpoint.c)
+        point_count += len(vpoint.c)
         if (vpoint.type == 1) or (vpoint.type == 2):
-            sliderCount += 1
-    constraintCount = len(constraints)
+            slider_count += 1
     
-    sys, wp1, h_line = create2DSystem(pointCount*2 + sliderCount*2 + constraintCount*2)
+    sys, wp1, h_line = create2DSystem(point_count * 2 + slider_count * 2 + len(constraints) * 2)
     
     solved_points = []
     
@@ -195,8 +197,8 @@ def slvsProcess(
             p_base = solved_points[i][0]
             p_assist = Point2d(
                 wp1,
-                sys.add_param(vpoint.cx + 10.*cos(radians(vpoint.angle))),
-                sys.add_param(vpoint.cy + 10.*sin(radians(vpoint.angle)))
+                sys.add_param(vpoint.cx + 10 * cos(radians(vpoint.angle))),
+                sys.add_param(vpoint.cy + 10 * sin(radians(vpoint.angle)))
             )
             l_slot = LineSegment2d(wp1, p_base, p_assist)
             Constraint.distance(10., wp1, p_base, p_assist)
@@ -221,7 +223,7 @@ def slvsProcess(
                 else:
                     p_link_assist = solved_points[relate_n]
                 l_link = LineSegment2d(wp1, p_main, p_link_assist)
-                angle_base = vpoint.slopeAngle(relate_vp)
+                angle_base = vpoint.slope_angle(relate_vp) - vpoint.angle
                 if (angle_base == 0.) or (angle_base == 180.):
                     Constraint.parallel(wp1, l_link, l_slot)
                 else:
@@ -285,8 +287,8 @@ def slvsProcess(
                     #Same point. Just connect to same point.
                     ConnectTo(*(connect_1 if connect_1[0]==0. else connect_2))
                 elif min(
-                    abs(2*connect_1[0] - connect_2[0]),
-                    abs(connect_1[0] - 2*connect_2[0]),
+                    abs(2 * connect_1[0] - connect_2[0]),
+                    abs(connect_1[0] - 2 * connect_2[0]),
                 ) < 0.001:
                     #Collinear.
                     Constraint.on(
@@ -302,37 +304,35 @@ def slvsProcess(
             else:
                 ConnectTo(*connect_1)
     
-    for shaft, base_link, drive_link, angle in constraints:
+    for p0, p1, angle in constraints:
         """The constraints of drive shaft.
         
         Simulate the input variables to the mechanism.
         The 'base points' are shaft center.
         """
-        if vpoints[shaft].type != 0:
-            p_base = solved_points[shaft][0]
+        if vpoints[p0].type != 0:
+            p_base = solved_points[p0][0]
         else:
-            p_base = solved_points[shaft]
+            p_base = solved_points[p0]
         
         #Base link slope angle.
+        base_link = vpoints[p0].links[0]
         if base_link != 'ground':
             relate_base = vlinks[base_link]
-            newRelateOrder_base = relate_base.index(shaft)-1
-            angle -= vpoints[shaft].slopeAngle(vpoints[newRelateOrder_base])
-            angle %= 360.
+            newRelateOrder_base = relate_base.index(p0) - 1
+            angle -= vpoints[p0].slope_angle(vpoints[newRelateOrder_base])
         
-        x = sys.add_param(round(vpoints[shaft].cx + 10.*cos(radians(angle)), 8))
-        y = sys.add_param(round(vpoints[shaft].cy + 10.*sin(radians(angle)), 8))
+        x = sys.add_param(round(vpoints[p0].cx + 10 * cos(radians(angle)), 8))
+        y = sys.add_param(round(vpoints[p0].cy + 10 * sin(radians(angle)), 8))
         p_hand = Point2d(wp1, x, y)
         Constraint.dragged(wp1, p_hand)
         #The virtual link that dragged by "hand".
         leader = LineSegment2d(wp1, p_base, p_hand)
         #Make another virtual link that should follow "hand".
-        relate_drive = vlinks[drive_link]
-        newRelateOrder_drive = relate_drive[relate_drive.index(shaft)-1]
-        if vpoints[newRelateOrder_drive].type != 0:
-            p_drive = solved_points[newRelateOrder_drive][0]
+        if vpoints[p1].type != 0:
+            p_drive = solved_points[p1][0]
         else:
-            p_drive = solved_points[newRelateOrder_drive]
+            p_drive = solved_points[p1]
         link = LineSegment2d(wp1, p_base, p_drive)
         Constraint.angle(wp1, .5, link, leader)
     
