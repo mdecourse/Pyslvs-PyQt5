@@ -25,10 +25,15 @@ from core.libs import (
     VPoint,
     data_collecting,
     expr_solving,
-    expr_path,
     vpoint_dof,
     bfgs_vpoint_solving,
 )
+
+
+def solve(self):
+    """Resolve coordinates and preview path."""
+    self.resolve()
+    self.previewpath()
 
 
 def resolve(self):
@@ -60,6 +65,7 @@ def resolve(self):
                 tuple(self.InputsWidget.inputPair())
             )
     except Exception as e:
+        #Error: Show warning without update data.
         if self.consoleerror_option.isChecked():
             print(traceback.format_exc())
         self.ConflictGuide.setToolTip(str(e))
@@ -67,6 +73,7 @@ def resolve(self):
         self.ConflictGuide.setVisible(True)
         self.DOFview.setVisible(False)
     else:
+        #Done: Update coordinate data.
         self.EntitiesPoint.updateCurrentPosition(result)
         self.DOF = vpoint_dof(vpoints)
         self.DOFview.setText("{} ({})".format(
@@ -75,12 +82,85 @@ def resolve(self):
         ))
         self.ConflictGuide.setVisible(False)
         self.DOFview.setVisible(True)
-    self.autopreview = expr_path(
-        self.getTriangle(vpoints),
-        {n: 'P{}'.format(n) for n in range(len(vpoints))},
-        vpoints,
-        self.InputsWidget.record_interval.value()
-    )
+    self.reloadCanvas()
+
+
+def previewpath(self):
+    """Resolve auto preview path."""
+    if not self.rightInput():
+        return
+    
+    vpoints = self.EntitiesPoint.dataTuple()
+    vpoint_count = len(vpoints)
+    
+    solve_kernel = self.planarsolver_option.currentIndex()
+    interval_o = self.InputsWidget.record_interval.value()
+    nan = float('nan')
+    
+    #path: [[p]: ((x0, y0), (x1, y1), (x2, y2), ...), ...]
+    self.autopreview.clear()
+    for i in range(vpoint_count):
+        self.autopreview.append([])
+    
+    bases = []
+    drivers = []
+    angles_o = []
+    for v in self.InputsWidget.inputPair():
+        bases.append(v[0])
+        drivers.append(v[1])
+        angles_o.append(v[2])
+    
+    i_count = self.InputsWidget.inputCount()
+    #Cumulative angle
+    angles_cum = [0.] * i_count
+    
+    for interval in (interval_o, -interval_o):
+        #Driver pointer
+        dp = 0
+        angles = angles_o.copy()
+        while dp < i_count:
+            try:
+                if solve_kernel == 0:
+                    result = expr_solving(
+                        self.getTriangle(),
+                        {n: 'P{}'.format(n) for n in range(vpoint_count)},
+                        vpoints,
+                        angles
+                    )
+                elif solve_kernel == 1:
+                    result, _ = slvsProcess(
+                        vpoints,
+                        tuple((bases[i], drivers[i], angles[i]) for i in range(i_count))
+                        if not self.freemode_button.isChecked() else ()
+                    )
+                elif solve_kernel == 2:
+                    result = bfgs_vpoint_solving(
+                        vpoints,
+                        tuple((bases[i], drivers[i], angles[i]) for i in range(i_count))
+                    )
+            except Exception:
+                #Update with error sign.
+                for i in range(vpoint_count):
+                    self.autopreview[i].append((nan, nan))
+                #Back to last feasible solution.
+                angles[dp] -= interval
+                dp += 1
+            else:
+                #Update with result.
+                for i in range(vpoint_count):
+                    if result[i][0] == tuple:
+                        self.autopreview[i].append(result[i][1])
+                        vpoints[i].move(*result[i])
+                    else:
+                        self.autopreview[i].append(result[i])
+                        vpoints[i].move(result[i])
+                angles[dp] += interval
+                angles[dp] %= 360
+                angles_cum[dp] += abs(interval)
+                if angles_cum[dp] > 360:
+                    angles[dp] -= interval
+                    dp += 1
+    
     self.reloadCanvas()
 
 
@@ -260,10 +340,10 @@ def rightInput(self) -> bool:
 
 def reloadCanvas(self):
     """Update main canvas data, without resolving."""
+    path = self.InputsWidget.currentPath()
     self.MainCanvas.updateFigure(
         self.EntitiesPoint.dataTuple(),
         self.EntitiesLink.dataTuple(),
         self.getTriangle(),
-        self.InputsWidget.currentPath(),
-        self.autopreview
+        path if path else self.autopreview
     )

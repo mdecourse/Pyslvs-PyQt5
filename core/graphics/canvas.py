@@ -144,7 +144,7 @@ class _Path:
     
     """Path option class."""
     
-    __slots__ = ('autopreview', 'path', 'show', 'curve')
+    __slots__ = ('path', 'show', 'curve')
     
     def __init__(self):
         """Attributes:
@@ -155,7 +155,6 @@ class _Path:
             + Show mode parameter.
             + The path will be the curve, otherwise using the points.
         """
-        self.autopreview = ()
         self.path = ()
         self.show = -1
         self.curve = True
@@ -350,6 +349,8 @@ class BaseCanvas(QWidget):
     
     def drawCurve(self, path: Sequence[Tuple[float, float]]):
         """Draw path as curve."""
+        if len(set(path)) <= 2:
+            return
         pointPath = QPainterPath()
         error = False
         for i, (x, y) in enumerate(path):
@@ -373,6 +374,8 @@ class BaseCanvas(QWidget):
     
     def drawDot(self, path: Sequence[Tuple[float, float]]):
         """Draw path as dots."""
+        if len(set(path)) <= 2:
+            return
         for x, y in path:
             if isnan(x):
                 continue
