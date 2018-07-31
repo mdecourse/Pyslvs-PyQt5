@@ -21,14 +21,15 @@ from typing import (
     Tuple,
     List,
     Dict,
+    Any,
     Union,
     Optional,
 )
 from argparse import Namespace
 from networkx import Graph
 from core.QtModules import (
-    Qt,
     pyqtSlot,
+    Qt,
     QMainWindow,
     QUndoStack,
     QFileInfo,
@@ -60,7 +61,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     Exit with QApplication.
     
     The main window is so much method that was been split it
-    into wrapper function as 'widgets.custom_xxx' module.
+    to wrapper function in 'main_method' module.
     """
     
     def __init__(self, args: Namespace):
@@ -72,19 +73,18 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         """
         super(MainWindow, self).__init__()
         self.setupUi(self)
+        self.setAttribute(Qt.WA_DeleteOnClose)
         
         self.args = args
         self.env = ""
+        self.DOF = 0
+        self.autopreview = []
         
         self.setLocate(
-            QFileInfo(self.args.i).canonicalFilePath() if self.args.i else
+            QFileInfo(self.args.i).canonicalFilePath()
+            if self.args.i else
             QStandardPaths.writableLocation(QStandardPaths.DesktopLocation)
         )
-        
-        #Console widget.
-        self.consoleerror_option.setChecked(self.args.w)
-        if not self.args.debug_mode:
-            self.on_connectConsoleButton_clicked()
         
         #Undo stack streem.
         self.CommandStack = QUndoStack(self)
@@ -92,7 +92,12 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         #Initialize custom UI.
         initCustomWidgets(self)
         self.restoreSettings()
-        self.resolve()
+        
+        #Console widget.
+        self.consoleerror_option.setChecked(self.args.debug_mode)
+        if not self.args.debug_mode:
+            self.on_connectConsoleButton_clicked()
+        self.solve()
         
         #Load workbook from argument.
         _io.readFromArgs(self)
@@ -124,7 +129,6 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.InputsWidget.inputs_playShaft.stop()
         self.saveSettings()
         XStream.back()
-        self.setAttribute(Qt.WA_DeleteOnClose)
         print("Exit.")
         event.accept()
     
@@ -137,11 +141,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
             self.workbookSaved()
         self.EntitiesPoint.clearSelection()
         self.InputsWidget.variableReload()
-        self.resolve()
+        self.solve()
+
+    def solve(self):
+        _solver.solve(self)
     
     @pyqtSlot()
     def resolve(self):
         _solver.resolve(self)
+    
+    def previewpath(self, autopreview: List[Any], vpoints: Tuple[VPoint]):
+        _solver.previewpath(self, autopreview, vpoints)
     
     def getGraph(self) -> List[Tuple[int, int]]:
         return _solver.getGraph(self)
@@ -150,7 +160,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         Dict[str, None], #Driver
         Dict[str, None], #Follower
         Dict[str, List[Tuple[float, float]]], #Target
-        str, #Link_Expression
+        str, #Link_expr
         str, #Expression
         Tuple[Tuple[int, int]], #Graph
         Dict[int, Tuple[float, float]], #pos
@@ -159,16 +169,11 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     ]]:
         return _solver.getCollection(self)
     
-    def getTriangle(self,
-        vpoints: Optional[Tuple[VPoint]] = None
-    ) -> List[Tuple[str]]:
+    def getTriangle(self, vpoints: Optional[Tuple[VPoint]] = None) -> List[Tuple[str]]:
         return _solver.getTriangle(self, vpoints)
     
     def rightInput(self) -> bool:
         return _solver.rightInput(self)
-    
-    def pathInterval(self) -> float:
-        return _solver.pathInterval(self)
     
     def reloadCanvas(self):
         _solver.reloadCanvas(self)
@@ -224,7 +229,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         Result = self.DimensionalSynthesis.mechanism_data[row]
         #exp_symbol = ['A', 'B', 'C', 'D', 'E']
         exp_symbol = []
-        for exp in Result['Link_Expression'].split(';'):
+        for exp in Result['Link_expr'].split(';'):
             for name in strbetween(exp, '[', ']').split(','):
                 if name not in exp_symbol:
                     exp_symbol.append(name)
@@ -238,7 +243,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                 Result[tag][1],
                 color=("Dark-Orange" if (tag in Result['Target']) else None)
             )
-        for i, exp in enumerate(Result['Link_Expression'].split(';')):
+        for i, exp in enumerate(Result['Link_expr'].split(';')):
             self.addNormalLink(
                 tmp_dict[name]
                 for name in strbetween(exp, '[', ']').split(',')
@@ -254,23 +259,17 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.MainCanvas.zoomToFit()
     
     @pyqtSlot(int)
-    def on_EntitiesTab_currentChanged(self, index):
+    def on_EntitiesTab_currentChanged(self, index: int):
         """Connect selection signal for main canvas."""
-        if index == 0:
-            try:
-                self.EntitiesLink.rowSelectionChanged.disconnect()
-            except TypeError:
-                pass
-            self.EntitiesPoint.rowSelectionChanged.connect(self.MainCanvas.setSelection)
-        elif index == 1:
-            try:
-                self.EntitiesPoint.rowSelectionChanged.disconnect()
-            except TypeError:
-                pass
-            self.EntitiesLink.rowSelectionChanged.connect(self.MainCanvas.setSelection)
-        self.EntitiesPoint.clearSelection()
-        self.EntitiesLink.clearSelection()
-        self.EntitiesExpr.clearSelection()
+        tables = (self.EntitiesPoint, self.EntitiesLink, self.EntitiesExpr)
+        try:
+            for table in tables:
+                table.rowSelectionChanged.disconnect()
+        except TypeError:
+            pass
+        tables[index].rowSelectionChanged.connect(self.MainCanvas.setSelection)
+        for table in tables:
+            table.clearSelection()
         self.InputsWidget.clearSelection()
     
     @pyqtSlot()
@@ -464,8 +463,8 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         _io.on_action_Output_to_Picture_clipboard_triggered(self)
     
     @pyqtSlot()
-    def on_action_See_Expression_triggered(self):
-        _io.on_action_See_Expression_triggered(self)
+    def on_action_See_expr_triggered(self):
+        _io.on_action_See_expr_triggered(self)
     
     @pyqtSlot()
     def on_action_See_Python_Scripts_triggered(self):
@@ -522,10 +521,16 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         _entities.clonePoint(self)
     
     @pyqtSlot(tuple)
-    def setFreemoved(self,
-        coordinates: Tuple[Tuple[int, Tuple[float, float]]]
-    ):
-        _entities.setFreemoved(self, coordinates)
+    def setFreemove(self, coords: Tuple[Tuple[int, Tuple[float, float, float]]]):
+        _entities.setFreemove(self, coords)
+    
+    @pyqtSlot(bool)
+    def setLinkFreemove(self, enable: bool):
+        _entities.setLinkFreemove(self, enable)
+    
+    @pyqtSlot(int)
+    def adjustLink(self, value: int):
+        _entities.adjustLink(self, value)
     
     def setCoordsAsCurrent(self):
         _entities.setCoordsAsCurrent(self)

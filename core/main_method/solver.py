@@ -8,11 +8,13 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 
+import traceback
 from typing import (
     Tuple,
     List,
     Set,
     Dict,
+    Any,
     Union,
     Optional,
 )
@@ -21,44 +23,143 @@ from core.graphics import edges_view
 from core.libs import (
     slvsProcess,
     vpoints_configure,
-    expr_solving,
     VPoint,
-    dof,
+    data_collecting,
+    expr_solving,
+    vpoint_dof,
+    bfgs_vpoint_solving,
 )
 
 
+def solve(self):
+    """Resolve coordinates and preview path."""
+    self.resolve()
+    self.MainCanvas.updatePreviewPath()
+
+
 def resolve(self):
-    """Resolve: Use Solvespace lib."""
-    inputs = list(self.InputsWidget.getInputsVariables())
+    """Resolve: Using three libraries to solve the system.
+    
+    + Pyslvs
+    + Python-Solvespace
+    + Sketch Solve
+    """
     vpoints = self.EntitiesPoint.dataTuple()
+    solve_kernel = self.planarsolver_option.currentIndex()
     try:
-        solve_kernel = self.planarsolver_option.currentIndex()
         if solve_kernel == 0:
             result = expr_solving(
                 self.getTriangle(),
                 {n: 'P{}'.format(n) for n in range(len(vpoints))},
                 vpoints,
-                [v[-1] for v in inputs]
+                tuple(v[-1] for v in self.InputsWidget.inputPair())
             )
         elif solve_kernel == 1:
             result, _ = slvsProcess(
                 vpoints,
-                inputs if not self.freemode_button.isChecked() else ()
+                tuple(self.InputsWidget.inputPair())
+                if not self.freemode_button.isChecked() else ()
+            )
+        elif solve_kernel == 2:
+            result = bfgs_vpoint_solving(
+                vpoints,
+                tuple(self.InputsWidget.inputPair())
             )
     except Exception as e:
+        #Error: Show warning without update data.
         if self.consoleerror_option.isChecked():
-            print(e)
+            print(traceback.format_exc())
         self.ConflictGuide.setToolTip(str(e))
         self.ConflictGuide.setStatusTip("Error: {}".format(e))
         self.ConflictGuide.setVisible(True)
         self.DOFview.setVisible(False)
     else:
+        #Done: Update coordinate data.
         self.EntitiesPoint.updateCurrentPosition(result)
-        self.DOF = dof(vpoints)
-        self.DOFview.setText("{} ({})".format(self.DOF, len(inputs)))
+        self.DOF = vpoint_dof(vpoints)
+        self.DOFview.setText("{} ({})".format(
+            self.DOF,
+            self.InputsWidget.inputCount()
+        ))
         self.ConflictGuide.setVisible(False)
         self.DOFview.setVisible(True)
     self.reloadCanvas()
+
+
+def previewpath(self, autopreview: List[Any], vpoints: Tuple[VPoint]):
+    """Resolve auto preview path."""
+    if not self.rightInput():
+        return
+    vpoints = tuple(vpoint.copy() for vpoint in vpoints)
+    vpoint_count = len(vpoints)
+    
+    solve_kernel = self.pathpreview_option.currentIndex()
+    interval_o = self.InputsWidget.record_interval.value()
+    nan = float('nan')
+    
+    #path: [[p]: ((x0, y0), (x1, y1), (x2, y2), ...), ...]
+    autopreview.clear()
+    for i in range(vpoint_count):
+        autopreview.append([])
+    
+    bases = []
+    drivers = []
+    angles_o = []
+    for v in self.InputsWidget.inputPair():
+        bases.append(v[0])
+        drivers.append(v[1])
+        angles_o.append(v[2])
+    
+    i_count = self.InputsWidget.inputCount()
+    #Cumulative angle
+    angles_cum = [0.] * i_count
+    
+    for interval in (interval_o, -interval_o):
+        #Driver pointer
+        dp = 0
+        angles = angles_o.copy()
+        while dp < i_count:
+            try:
+                if solve_kernel == 0:
+                    result = expr_solving(
+                        self.getTriangle(vpoints),
+                        {n: 'P{}'.format(n) for n in range(vpoint_count)},
+                        vpoints,
+                        angles
+                    )
+                elif solve_kernel == 1:
+                    result, _ = slvsProcess(
+                        vpoints,
+                        tuple((bases[i], drivers[i], angles[i]) for i in range(i_count))
+                        if not self.freemode_button.isChecked() else ()
+                    )
+                elif solve_kernel == 2:
+                    result = bfgs_vpoint_solving(
+                        vpoints,
+                        tuple((bases[i], drivers[i], angles[i]) for i in range(i_count))
+                    )
+            except Exception:
+                #Update with error sign.
+                for i in range(vpoint_count):
+                    autopreview[i].append((nan, nan))
+                #Back to last feasible solution.
+                angles[dp] -= interval
+                dp += 1
+            else:
+                #Update with result.
+                for i in range(vpoint_count):
+                    if result[i][0] == tuple:
+                        autopreview[i].append(result[i][1])
+                        vpoints[i].move(*result[i])
+                    else:
+                        autopreview[i].append(result[i])
+                        vpoints[i].move(result[i])
+                angles[dp] += interval
+                angles[dp] %= 360
+                angles_cum[dp] += abs(interval)
+                if angles_cum[dp] > 360:
+                    angles[dp] -= interval
+                    dp += 1
 
 
 def getGraph(self) -> List[Tuple[int, int]]:
@@ -94,7 +195,7 @@ def getCollection(self) -> Dict[str, Union[
     Dict[str, None], #Driver
     Dict[str, None], #Follower
     Dict[str, List[Tuple[float, float]]], #Target
-    str, #Link_Expression
+    str, #Link_expr
     str, #Expression
     Tuple[Tuple[int, int]], #Graph
     Dict[int, Tuple[float, float]], #pos
@@ -106,7 +207,7 @@ def getCollection(self) -> Dict[str, Union[
     + Driver
     + Follower
     + Target
-    + Link_Expression
+    + Link_expr
     + Expression
     x constraint
     
@@ -166,7 +267,7 @@ def getCollection(self) -> Dict[str, Union[
         count += 1
     del count, not_cus
     
-    drivers = {mapping[base] for base, drive in self.InputsWidget.inputPair()}
+    drivers = {mapping[b] for b, d, a in self.InputsWidget.inputPair()}
     followers = {
         mapping[i] for i, vpoint in enumerate(vpoints)
         if ('ground' in vpoint.links) and (i not in drivers)
@@ -191,7 +292,7 @@ def getCollection(self) -> Dict[str, Union[
         'Driver': {'P{}'.format(p): None for p in drivers},
         'Follower': {'P{}'.format(p): None for p in followers},
         'Target': {p: None for p in cus},
-        'Link_Expression': link_expression,
+        'Link_expr': link_expression,
         'Expression': expression,
         'Graph': graph,
         'constraint': [],
@@ -201,20 +302,29 @@ def getCollection(self) -> Dict[str, Union[
     }
 
 
-def getTriangle(self,
-    vpoints: Optional[Tuple[VPoint]] = None
-) -> List[Tuple[str]]:
+def getTriangle(self, vpoints: Optional[Tuple[VPoint]] = None) -> List[Tuple[str]]:
     """Update triangle expression here.
 
     Special function for VPoints.
     """
     if vpoints is None:
         vpoints = self.EntitiesPoint.dataTuple()
+    status = {}
     exprs = vpoints_configure(
         vpoints,
-        tuple(self.InputsWidget.inputPair())
+        tuple((b, d) for b, d, a in self.InputsWidget.inputPair()),
+        status
     )
-    self.EntitiesExpr.setExpr(exprs)
+    data_dict, _ = data_collecting(
+        exprs,
+        {n: 'P{}'.format(n) for n in range(len(vpoints))},
+        vpoints
+    )
+    self.EntitiesExpr.setExpr(
+        exprs,
+        data_dict,
+        tuple(p for p, s in status.items() if not s)
+    )
     return exprs
 
 
@@ -226,15 +336,11 @@ def rightInput(self) -> bool:
     return inputs
 
 
-def pathInterval(self) -> float:
-    """Wrapper use to get path interval."""
-    return self.InputsWidget.record_interval.value()
-
-
 def reloadCanvas(self):
     """Update main canvas data, without resolving."""
     self.MainCanvas.updateFigure(
         self.EntitiesPoint.dataTuple(),
         self.EntitiesLink.dataTuple(),
+        self.getTriangle(),
         self.InputsWidget.currentPath()
     )

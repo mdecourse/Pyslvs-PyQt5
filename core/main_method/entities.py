@@ -20,6 +20,7 @@ from core.entities import (
     EditPointDialog,
     EditLinkDialog,
 )
+from core.libs import expr_solving
 from core.graphics import edges_view
 from core.io import (
     AddTable,
@@ -315,17 +316,19 @@ def clonePoint(self):
     self.CommandStack.endMacro()
 
 
-def setFreemoved(self,
-    coords: Tuple[Tuple[int, Tuple[float, float]]]
+def setFreemove(self,
+    coords: Tuple[Tuple[int, Tuple[float, float, float]]]
 ):
     """Free move function."""
     self.CommandStack.beginMacro("Moved {{{}}}".format(", ".join(
         "Point{}".format(c[0]) for c in coords
     )))
-    for row, (x, y) in coords:
+    for row, (x, y, angle) in coords:
         args = self.EntitiesPoint.rowTexts(row)
         args[3] = x
         args[4] = y
+        if args[1] != 'R':
+            args[1] = "{}:{:.02f}".format(args[1].split(':')[0], angle)
         self.CommandStack.push(EditPointTable(
             row,
             self.EntitiesPoint,
@@ -333,6 +336,45 @@ def setFreemoved(self,
             args
         ))
     self.CommandStack.endMacro()
+
+
+def adjustLink(self, value: int):
+    """Preview the free move result."""
+    vpoints = self.EntitiesPoint.dataTuple()
+    mapping = {n: 'P{}'.format(n) for n in range(len(vpoints))}
+    mapping[self.link_freemode_linkname.text()] = float(value)
+    try:
+        result = expr_solving(
+            self.getTriangle(),
+            mapping,
+            vpoints,
+            tuple(v[-1] for v in self.InputsWidget.inputPair())
+        )
+    except Exception:
+        pass
+    else:
+        self.MainCanvas.adjustLink(result)
+        if not self.link_freemode_slider.isSliderDown():
+            self.MainCanvas.emit_freemove_all()
+
+
+def setLinkFreemove(self, enable: bool):
+    """Free move function for link length."""
+    self.link_freemode_widget.setEnabled(enable)
+    self.link_freemode_linkname.clear()
+    if not enable:
+        return
+    item = self.EntitiesExpr.currentItem()
+    if not item:
+        return
+    name, value = item.text().split(':')
+    self.link_freemode_linkname.setText(name)
+    try:
+        self.link_freemode_slider.valueChanged.disconnect(self.adjustLink)
+    except TypeError:
+        pass
+    self.link_freemode_slider.setValue(float(value))
+    self.link_freemode_slider.valueChanged.connect(self.adjustLink)
 
 
 def on_action_New_Link_triggered(self):
@@ -477,7 +519,8 @@ def on_action_Delete_Link_triggered(self):
 
 def setCoordsAsCurrent(self):
     """Update points position as current coordinate."""
-    self.setFreemoved(tuple(
-        (row, self.EntitiesPoint.currentPosition(row)[0])
-        for row in range(self.EntitiesPoint.rowCount())
+    vpoints = self.EntitiesPoint.dataTuple()
+    self.setFreemove(tuple(
+        (row, (vpoint.cx, vpoint.cy, vpoint.angle))
+        for row, vpoint in enumerate(vpoints)
     ))

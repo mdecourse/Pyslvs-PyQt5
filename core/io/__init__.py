@@ -7,11 +7,11 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from .script import ScriptDialog, slvsProcessScript
+from .script import ScriptDialog, slvs_process_script
 from .images import QTIMAGES
-from .slvs import SlvsParser, SlvsOutputDialog
-from .dxf import dxfSketch
+from .slvs import SlvsParser
 from .loggingHandler import XStream
+from .output_option import SlvsOutputDialog, DxfOutputDialog
 from .peewee import FileWidget
 from .undo_redo import (
     AddTable, DeleteTable,
@@ -25,7 +25,7 @@ from .undo_redo import (
 
 __all__ = [
     'ScriptDialog',
-    'slvsProcessScript',
+    'slvs_process_script',
     'AddTable',
     'DeleteTable',
     'FixSequenceNumber',
@@ -42,7 +42,7 @@ __all__ = [
     'QTIMAGES',
     'SlvsParser',
     'SlvsOutputDialog',
-    'dxfSketch',
+    'DxfOutputDialog',
     'XStream',
     'FileWidget',
     'strbetween',

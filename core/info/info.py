@@ -37,15 +37,15 @@ INFO = (
     "PyQt Version: {}".format(_PyQt_Version)
 )
 
-_POWERBY = (
+_POWEREDBY = (
     "Python IDE Eric 6",
     "PyQt 5",
-    "dxfwrite",
+    "ezdxf",
     "Cython",
     "openpyxl",
     "psutil",
     "peewee",
-    "Lark-_parser",
+    "Lark-parser",
     "NetworkX",
     "Pydot",
     "Pygments",
@@ -55,7 +55,7 @@ _POWERBY = (
 _parser = argparse.ArgumentParser(
     description = ("Pyslvs - Open Source Planar Linkage Mechanism Simulation" +
         "and Mechanical Synthesis System."),
-    epilog = "Power by {}.".format(", ".join(_POWERBY))
+    epilog = "Powered by {}.".format(", ".join(_POWEREDBY))
 )
 _parser.add_argument(
     '-v',
@@ -79,11 +79,6 @@ _parser.add_argument(
     nargs = '?',
     type = str,
     help = "start Pyslvs in the specified path"
-)
-_parser.add_argument(
-    '-w',
-    action = 'store_true',
-    help = "show rebuild warning of canvas"
 )
 _parser.add_argument(
     '-f',

@@ -12,6 +12,7 @@ from typing import (
     List,
     Tuple,
     Dict,
+    Union,
 )
 from core.QtModules import (
     pyqtSignal,
@@ -23,6 +24,7 @@ from core.QtModules import (
     QSizeF,
     QCursor,
     QToolTip,
+    QWidget,
 )
 from core.graphics import BaseCanvas
 from core.libs import VPoint, VLink
@@ -50,33 +52,35 @@ class DynamicCanvas(BaseCanvas):
     doubleclick_edit = pyqtSignal(int)
     zoom_changed = pyqtSignal(int)
     
-    def __init__(self, parent):
+    def __init__(self, parent: QWidget):
         super(DynamicCanvas, self).__init__(parent)
         self.setMouseTracking(True)
         self.setStatusTip("Use mouse wheel or middle button to look around.")
-        #Functions from the main window.
-        self.getTriangle = parent.getTriangle
-        self.rightInput = parent.rightInput
-        self.pathInterval = parent.pathInterval
         #The current mouse coordinates.
         self.selector = Selector()
         #Entities.
-        self.Points = tuple()
-        self.Links = tuple()
+        self.vpoints = ()
+        self.vlinks = ()
+        self.vangles = ()
+        #Solution.
+        self.exprs = []
         #Select function.
-        self.selectionMode = 0
+        self.select_mode = 0
         self.sr = 10
         self.selections = []
-        #Linkage transparency.
+        #Link transparency.
         self.transparency = 1.
         #Path solving range.
         self.ranges = {}
-        #Set showDimension to False.
-        self.showDimension = False
+        #Set show_dimension to False.
+        self.show_dimension = False
         #Free move mode.
         self.freemove = FreeMode.NoFreeMove
-        #Auto preview function.
-        self.autoPathShow = True
+        #Path preview.
+        self.pathpreview = []
+        self.previewpath = parent.previewpath
+        #Path record.
+        self.path_record = []
         #Zooming center.
         """
         0: By cursor.
@@ -85,8 +89,6 @@ class DynamicCanvas(BaseCanvas):
         self.zoomby = 0
         #Mouse snapping value.
         self.snap = 5
-        #Virtual model.
-        self.virtualmodel = 0
         #Dependent functions to set zoom bar.
         self.__setZoom = parent.ZoomBar.setValue
         self.__zoom = parent.ZoomBar.value
@@ -95,44 +97,51 @@ class DynamicCanvas(BaseCanvas):
         self.__setSelectionMode = parent.EntitiesTab.setCurrentIndex
         self.__selectionMode = parent.EntitiesTab.currentIndex
         #Default margin factor.
-        self.marginFactor = 0.95
+        self.margin_factor = 0.95
         #Widget size.
         self.width_old = None
         self.height_old = None
     
     def updateFigure(self,
-        Points: Tuple[VPoint],
-        Links: Tuple[VLink],
+        vpoints: Tuple[VPoint],
+        vlinks: Tuple[VLink],
+        exprs: List[Tuple[str]],
         path: List[Tuple[float, float]]
     ):
         """Update with Point and Links data."""
-        self.Points = Points
-        self.Links = Links
+        self.vpoints = vpoints
+        self.vlinks = vlinks
+        self.vangles = tuple(vpoint.angle for vpoint in self.vpoints)
+        self.exprs = exprs
         self.Path.path = path
         self.update()
     
+    def updatePreviewPath(self):
+        """Update preview path."""
+        self.previewpath(self.pathpreview, self.vpoints)
+    
     @pyqtSlot(int)
-    def setLinkWidth(self, linkWidth: int):
-        """Update width of linkages."""
-        self.linkWidth = linkWidth
+    def setLinkWidth(self, link_width: int):
+        """Update width of links."""
+        self.link_width = link_width
         self.update()
     
     @pyqtSlot(int)
-    def setPathWidth(self, pathWidth: int):
-        """Update width of linkages."""
-        self.pathWidth = pathWidth
+    def setPathWidth(self, path_width: int):
+        """Update width of links."""
+        self.path_width = path_width
         self.update()
     
     @pyqtSlot(bool)
-    def setPointMark(self, showPointMark: bool):
+    def setPointMark(self, show_point_mark: bool):
         """Update show point mark or not."""
-        self.showPointMark = showPointMark
+        self.show_point_mark = show_point_mark
         self.update()
     
     @pyqtSlot(bool)
-    def setShowDimension(self, showDimension: bool):
+    def setShowDimension(self, show_dimension: bool):
         """Update show dimension or not."""
-        self.showDimension = showDimension
+        self.show_dimension = show_dimension
         self.update()
     
     @pyqtSlot(bool)
@@ -142,9 +151,9 @@ class DynamicCanvas(BaseCanvas):
         self.update()
     
     @pyqtSlot(int)
-    def setFontSize(self, fontSize: int):
+    def setFontSize(self, font_size: int):
         """Update font size."""
-        self.fontSize = fontSize
+        self.font_size = font_size
         self.update()
     
     @pyqtSlot(int)
@@ -161,9 +170,9 @@ class DynamicCanvas(BaseCanvas):
         self.oy += (pos.y() - self.oy) / self.zoom * dz
         self.update()
     
-    def setShowTargetPath(self, showTargetPath: bool):
+    def setShowTargetPath(self, show_target_path: bool):
         """Update show target path or not."""
-        self.showTargetPath = showTargetPath
+        self.show_target_path = show_target_path
         self.update()
     
     def setFreeMove(self, freemove: int):
@@ -186,15 +195,15 @@ class DynamicCanvas(BaseCanvas):
         self.update()
     
     @pyqtSlot(int)
-    def setMarginFactor(self, marginFactor: int):
+    def setMarginFactor(self, margin_factor: int):
         """Update margin factor when zoom to fit."""
-        self.marginFactor = 1 - marginFactor / 100
+        self.margin_factor = 1 - margin_factor / 100
         self.update()
     
     @pyqtSlot(int)
-    def setJointSize(self, jointsize: int):
+    def setJointSize(self, joint_size: int):
         """Update size for each joint."""
-        self.jointsize = jointsize
+        self.joint_size = joint_size
         self.update()
     
     @pyqtSlot(int)
@@ -208,14 +217,9 @@ class DynamicCanvas(BaseCanvas):
         self.snap = snap
     
     @pyqtSlot(int)
-    def setVirtualmodel(self, virtualmodel: int):
-        self.virtualmodel = virtualmodel
-        self.update()
-    
-    @pyqtSlot(int)
-    def setSelectionMode(self, selectionMode: int):
+    def setSelectionMode(self, select_mode: int):
         """Update the selection."""
-        self.selectionMode = selectionMode
+        self.select_mode = select_mode
         self.update()
     
     @pyqtSlot(list)
@@ -225,10 +229,10 @@ class DynamicCanvas(BaseCanvas):
         self.update()
     
     def setSolvingPath(self,
-        targetPath: Dict[str, Tuple[Tuple[float, float]]]
+        target_path: Dict[str, Tuple[Tuple[float, float]]]
     ):
         """Update target path."""
-        self.targetPath = targetPath
+        self.target_path = target_path
         self.update()
     
     def setPathShow(self, p: int):
@@ -239,11 +243,6 @@ class DynamicCanvas(BaseCanvas):
         i: Show path i.
         """
         self.Path.show = p
-        self.update()
-    
-    def setAutoPath(self, autoPathShow: bool):
-        """Enable auto preview function."""
-        self.autoPathShow = autoPathShow
         self.update()
     
     def updateRanges(self, ranges: Dict[str, Tuple[float, float, float]]):
@@ -257,31 +256,56 @@ class DynamicCanvas(BaseCanvas):
     
     def recordStart(self, limit: int):
         """Start a limit from main window."""
-        self.path_record = [deque([], limit) for i in range(len(self.Points))]
+        self.path_record = [deque([], limit) for i in range(len(self.vpoints))]
     
     def recordPath(self):
         """Recording path."""
-        for i, vpoint in enumerate(self.Points):
+        for i, vpoint in enumerate(self.vpoints):
             self.path_record[i].append((vpoint.cx, vpoint.cy))
     
     def getRecordPath(self) -> Tuple[Tuple[Tuple[float, float]]]:
-        return _method.getRecordPath(self)
+        """Return paths."""
+        path = tuple(
+            tuple(path) if (len(set(path)) > 1) else ()
+            for path in self.path_record
+        )
+        self.path_record.clear()
+        return path
+    
+    def adjustLink(self,
+        coords: Tuple[Union[Tuple[Tuple[float, float], Tuple[float, float]]]]
+    ):
+        """Change points coordinates."""
+        for i, c in enumerate(coords):
+            vpoint = self.vpoints[i]
+            if type(c[0]) == float:
+                vpoint.move(c)
+            else:
+                vpoint.move(*c)
+        self.update()
+    
+    def emit_freemove_all(self):
+        _method.emit_freemove_all(self)
     
     def paintEvent(self, event):
         _method.paintEvent(self, event)
     
     def wheelEvent(self, event):
-        """Set zoom bar value by mouse wheel."""
+        """Switch function by mouse wheel.
+        
+        + Set zoom bar value.
+        + Set select mode.
+        """
         value = event.angleDelta().y()
         if QApplication.keyboardModifiers() == Qt.ControlModifier:
             self.__setSelectionMode(self.__selectionMode() + (-1 if (value > 0) else 1))
             i = self.__selectionMode()
             QToolTip.showText(
                 event.globalPos(),
-                "<p style=\"background-color: #77abff\">{}</p>".format(''.join(
+                "<p style=\"background-color: #77abff\">" + ''.join(
                     "<img width=\"{}\" src=\":icons/{}.png\"/>".format(70 if (i == j) else 40, icon)
                     for j, icon in enumerate(('bearing', 'link', 'triangular-iteration'))
-                )),
+                ) + "</p>",
                 self
             )
         else:

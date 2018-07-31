@@ -14,14 +14,15 @@ from typing import (
     Any,
 )
 from core.QtModules import (
+    pyqtSlot,
+    Qt,
     QTimer,
     QPen,
     QColor,
-    Qt,
     QPointF,
     QFont,
-    pyqtSlot,
     QDialog,
+    QWidget,
 )
 from core.graphics import (
     BaseCanvas,
@@ -38,9 +39,9 @@ class _DynamicCanvas(BaseCanvas):
     def __init__(self,
         mechanism: Dict[str, Any],
         path: Tuple[Tuple[Tuple[float, float]]],
-        parent
+        parent: QWidget
     ):
-        """Input linkage and path data."""
+        """Input link and path data."""
         super(_DynamicCanvas, self).__init__(parent)
         self.mechanism = mechanism
         self.Path.path = path
@@ -49,12 +50,12 @@ class _DynamicCanvas(BaseCanvas):
             l = len(path)
             if l > self.length:
                 self.length = l
-        self.targetPath = self.mechanism['Target']
+        self.target_path = self.mechanism['Target']
         self.index = 0
         #exp_symbol = ('A', 'B', 'C', 'D', 'E')
         self.exp_symbol = set()
         self.links = []
-        for exp in self.mechanism['Link_Expression'].split(';'):
+        for exp in self.mechanism['Link_expr'].split(';'):
             names = strbetween(exp, '[', ']').split(',')
             self.links.append(tuple(names))
             for name in names:
@@ -103,7 +104,7 @@ class _DynamicCanvas(BaseCanvas):
                 if y > y_top:
                     y_top = y
         #Solving paths
-        for path in self.targetPath.values():
+        for path in self.target_path.values():
             for x, y in path:
                 if x < x_right:
                     x_right = x
@@ -122,8 +123,8 @@ class _DynamicCanvas(BaseCanvas):
         x_right, x_left, y_top, y_bottom = self.__zoomToFitLimit()
         x_diff = x_left - x_right
         y_diff = y_top - y_bottom
-        x_diff = x_diff if (x_diff != 0) else 1
-        y_diff = y_diff if (y_diff != 0) else 1
+        x_diff = x_diff if x_diff else 1
+        y_diff = y_diff if y_diff else 1
         if width / x_diff < height / y_diff:
             factor = width / x_diff
         else:
@@ -157,7 +158,7 @@ class _DynamicCanvas(BaseCanvas):
         #Draw path.
         self._drawPath()
         #Draw solving path.
-        self._BaseCanvas__drawTargetPath()
+        self.drawTargetPath()
         #Draw points.
         for i, name in enumerate(self.exp_symbol):
             if not self.Point[i]:
@@ -173,7 +174,7 @@ class _DynamicCanvas(BaseCanvas):
             elif name in self.mechanism['Follower']:
                 color = colorQt('Blue')
                 fixed = True
-            self._BaseCanvas__drawPoint(i, x, y, fixed, color)
+            self.drawPoint(i, x, y, fixed, color)
         self.painter.end()
         if self.ERROR:
             self.ERROR = False
@@ -185,13 +186,13 @@ class _DynamicCanvas(BaseCanvas):
         name: str,
         points: Tuple[int]
     ):
-        """Draw linkage function.
+        """Draw link function.
         
         The link color will be the default color.
         """
         color = colorQt('Blue')
         pen = QPen(color)
-        pen.setWidth(self.linkWidth)
+        pen.setWidth(self.link_width)
         self.painter.setPen(pen)
         brush = QColor(226, 219, 190)
         brush.setAlphaF(0.70)
@@ -203,10 +204,10 @@ class _DynamicCanvas(BaseCanvas):
         if len(qpoints)==len(points):
             self.painter.drawPolygon(*qpoints)
         self.painter.setBrush(Qt.NoBrush)
-        if self.showPointMark and name!='ground' and qpoints:
+        if self.show_point_mark and name!='ground' and qpoints:
             pen.setColor(Qt.darkGray)
             self.painter.setPen(pen)
-            self.painter.setFont(QFont('Arial', self.fontSize))
+            self.painter.setFont(QFont('Arial', self.font_size))
             text = "[{}]".format(name)
             cenX = sum(
                 self.Point[i][0]
@@ -232,9 +233,9 @@ class _DynamicCanvas(BaseCanvas):
             if self.exp_symbol[i] in self.mechanism['Target']:
                 color = colorQt('Dark-Orange')
             pen.setColor(color)
-            pen.setWidth(self.pathWidth)
+            pen.setWidth(self.path_width)
             self.painter.setPen(pen)
-            self._BaseCanvas__drawCurve(path)
+            self.drawCurve(path)
     
     @pyqtSlot()
     def change_index(self):
@@ -254,7 +255,7 @@ class PreviewDialog(QDialog, Ui_Dialog):
     def __init__(self,
         mechanism: Dict[str, Any],
         path: Tuple[Tuple[Tuple[float, float]]],
-        parent
+        parent: QWidget
     ):
         """Show the informations of results, and setup the preview canvas."""
         super(PreviewDialog, self).__init__(parent)

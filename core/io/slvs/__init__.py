@@ -8,9 +8,12 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from .read import SlvsParser
-from .output_option import SlvsOutputDialog
+from .frame import slvs_frame
+from .part import slvs_part, boundaryloop
 
 __all__ = [
     'SlvsParser',
-    'SlvsOutputDialog',
+    'slvs_frame',
+    'slvs_part',
+    'boundaryloop',
 ]

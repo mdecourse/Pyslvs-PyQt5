@@ -27,7 +27,7 @@ from core.QtModules import (
 from core.info import __version__
 from core.io import FileWidget
 from core.synthesis import (
-    NumberAndTypeSynthesis,
+    StructureSynthesis,
     Collections,
     DimensionalSynthesis,
 )
@@ -103,7 +103,40 @@ def _appearance(self):
     )
     self.EntitiesLink_layout.addWidget(self.EntitiesLink)
     self.EntitiesExpr = ExprTableWidget(self.EntitiesExpr_widget)
-    self.EntitiesExpr_layout.addWidget(self.EntitiesExpr)
+    self.EntitiesExpr.reset.connect(self.link_freemode_widget.setEnabled)
+    self.EntitiesExpr.freemove_request.connect(self.setLinkFreemove)
+    self.EntitiesExpr_layout.insertWidget(0, self.EntitiesExpr)
+    
+    #Link free mode slide bar.
+    self.link_freemode_slider.valueChanged.connect(
+        self.link_freemode_spinbox.setValue
+    )
+    self.link_freemode_spinbox.valueChanged.connect(
+        self.link_freemode_slider.setValue
+    )
+    self.link_freemode_slider.rangeChanged.connect(
+        self.link_freemode_spinbox.setRange
+    )
+    
+    #Select all button on the Point and Link tab as corner widget.
+    select_all_button = QPushButton()
+    select_all_button.setIcon(QIcon(QPixmap(":/icons/select_all.png")))
+    select_all_button.setToolTip("Select all")
+    select_all_button.setStatusTip("Select all item of point table.")
+    
+    @pyqtSlot()
+    def table_select_all():
+        """Distinguish table by tab index."""
+        tables = (self.EntitiesPoint, self.EntitiesLink, self.EntitiesExpr)
+        tables[self.EntitiesTab.currentIndex()].selectAll()
+    
+    select_all_button.clicked.connect(table_select_all)
+    self.EntitiesTab.setCornerWidget(select_all_button)
+    select_all_action = QAction("Select all point", self)
+    select_all_action.triggered.connect(table_select_all)
+    select_all_action.setShortcut("Ctrl+A")
+    select_all_action.setShortcutContext(Qt.WindowShortcut)
+    self.addAction(select_all_action)
     
     #Selection label on status bar right side.
     selectionLabel = SelectionLabel(self)
@@ -119,11 +152,8 @@ def _appearance(self):
     @pyqtSlot(tuple, bool)
     def table_set_selection(selections: Tuple[int], keyDetect: bool):
         """Distinguish table by tab index."""
-        index = self.EntitiesTab.currentIndex()
-        if index == 0:
-            self.EntitiesPoint.setSelections(selections, keyDetect)
-        elif index == 1:
-            self.EntitiesLink.setSelections(selections, keyDetect)
+        tables = (self.EntitiesPoint, self.EntitiesLink, self.EntitiesExpr)
+        tables[self.EntitiesTab.currentIndex()].setSelections(selections, keyDetect)
     
     self.MainCanvas.selected.connect(table_set_selection)
     self.EntitiesPoint.rowSelectionChanged.connect(self.MainCanvas.setSelection)
@@ -131,13 +161,8 @@ def _appearance(self):
     @pyqtSlot()
     def table_clear_selection():
         """Distinguish table by tab index."""
-        index = self.EntitiesTab.currentIndex()
-        if index == 0:
-            self.EntitiesPoint.clearSelection()
-        elif index == 1:
-            self.EntitiesLink.clearSelection()
-        elif index == 2:
-            self.EntitiesExpr.clearSelection()
+        tables = (self.EntitiesPoint, self.EntitiesLink, self.EntitiesExpr)
+        tables[self.EntitiesTab.currentIndex()].clearSelection()
     
     self.MainCanvas.noselected.connect(table_clear_selection)
     
@@ -147,7 +172,7 @@ def _appearance(self):
     clean_selection_action.setShortcutContext(Qt.WindowShortcut)
     self.addAction(clean_selection_action)
     
-    self.MainCanvas.freemoved.connect(self.setFreemoved)
+    self.MainCanvas.freemoved.connect(self.setFreemove)
     self.MainCanvas.alt_add.connect(self.qAddNormalPoint)
     self.MainCanvas.doubleclick_edit.connect(self.on_action_Edit_Point_triggered)
     self.MainCanvas.zoom_changed.connect(self.ZoomBar.setValue)
@@ -182,10 +207,10 @@ def _appearance(self):
     self.MainCanvas.noselected.connect(self.InputsWidget.clearSelection)
     
     #Number and type synthesis.
-    self.NumberAndTypeSynthesis = NumberAndTypeSynthesis(self)
+    self.StructureSynthesis = StructureSynthesis(self)
     self.SynthesisTab.addTab(
-        self.NumberAndTypeSynthesis,
-        self.NumberAndTypeSynthesis.windowIcon(),
+        self.StructureSynthesis,
+        self.StructureSynthesis.windowIcon(),
         "Structural"
     )
     
@@ -196,7 +221,7 @@ def _appearance(self):
         self.CollectionTabPage.windowIcon(),
         "Collections"
     )
-    self.NumberAndTypeSynthesis.addCollection = (
+    self.StructureSynthesis.addCollection = (
         self.CollectionTabPage.StructureWidget.addCollection
     )
     self.FileWidget.CollectDataFunc = (
@@ -207,7 +232,7 @@ def _appearance(self):
     ) #Call to get triangle data.
     self.FileWidget.InputsDataFunc = (lambda: tuple(
         variable[:-1]
-        for variable in self.InputsWidget.getInputsVariables()
+        for variable in self.InputsWidget.inputPair()
     )) #Call to get inputs variables data.
     self.FileWidget.loadCollectFunc = (
         self.CollectionTabPage.StructureWidget.addCollections
@@ -246,31 +271,6 @@ def _appearance(self):
     self.disconnectConsoleButton.setEnabled(not self.args.debug_mode)
     self.connectConsoleButton.setEnabled(self.args.debug_mode)
     
-    #Select all button on the Point and Link tab as corner widget.
-    select_all_button = QPushButton()
-    select_all_button.setIcon(QIcon(QPixmap(":/icons/select_all.png")))
-    select_all_button.setToolTip("Select all")
-    select_all_button.setStatusTip("Select all item of point table.")
-    
-    @pyqtSlot()
-    def table_select_all():
-        """Distinguish table by tab index."""
-        index = self.EntitiesTab.currentIndex()
-        if index == 0:
-            self.EntitiesPoint.selectAll()
-        elif index == 1:
-            self.EntitiesLink.selectAll()
-        elif index == 2:
-            self.EntitiesExpr.selectAll()
-    
-    select_all_button.clicked.connect(table_select_all)
-    self.EntitiesTab.setCornerWidget(select_all_button)
-    select_all_action = QAction("Select all point", self)
-    select_all_action.triggered.connect(table_select_all)
-    select_all_action.setShortcut("Ctrl+A")
-    select_all_action.setShortcutContext(Qt.WindowShortcut)
-    self.addAction(select_all_action)
-    
     #Splitter stretch factor.
     self.MainSplitter.setStretchFactor(0, 4)
     self.MainSplitter.setStretchFactor(1, 15)
@@ -279,6 +279,14 @@ def _appearance(self):
     
     #Enable mechanism menu actions when shows.
     self.menu_Mechanism.aboutToShow.connect(self.enableMechanismActions)
+    
+    #Start new window.
+    @pyqtSlot()
+    def newMainWindow():
+        run = self.__class__(self.args)
+        run.show()
+    
+    self.action_New_window.triggered.connect(newMainWindow)
 
 
 def _freemove(self):
@@ -313,7 +321,14 @@ def _freemove(self):
         ])
         action.setShortcutContext(Qt.WindowShortcut)
         free_move_mode_menu.addAction(action)
+        if i == 0:
+            self.freemode_disable = action
     self.freemode_button.setMenu(free_move_mode_menu)
+    
+    #Link free move by expression table.
+    self.link_freemode_slider.sliderReleased.connect(
+        self.MainCanvas.emit_freemove_all
+    )
 
 
 def _options(self):
@@ -347,7 +362,12 @@ def _options(self):
     self.jointsize_option.valueChanged.connect(self.MainCanvas.setJointSize)
     self.zoomby_option.currentIndexChanged.connect(self.MainCanvas.setZoomBy)
     self.snap_option.valueChanged.connect(self.MainCanvas.setSnap)
-    self.virtualmodel_option.valueChanged.connect(self.MainCanvas.setVirtualmodel)
+    #Resolve after change current kernel.
+    kernel_list = ("Pyslvs", "Python-Solvespace", "Sketch Solve")
+    self.planarsolver_option.addItems(kernel_list)
+    self.pathpreview_option.addItems(kernel_list)
+    self.planarsolver_option.currentIndexChanged.connect(self.solve)
+    self.pathpreview_option.currentIndexChanged.connect(self.solve)
     self.settings_reset.clicked.connect(self.resetOptions)
 
 
@@ -393,7 +413,7 @@ def _point_context_menu(self):
     
     + Add
     ///////
-    + New Linkage
+    + New Link
     + Edit
     + Grounded
     + Multiple joint
@@ -451,7 +471,7 @@ def _link_context_menu(self):
     
     + Add
     + Edit
-    + Merge linkage
+    + Merge links
         - Link0
         - Link1
         - ...
@@ -476,7 +496,7 @@ def _link_context_menu(self):
     )
     self.popMenu_link.addAction(self.action_link_context_edit)
     self.popMenu_link_merge = QMenu(self)
-    self.popMenu_link_merge.setTitle("Merge linkage")
+    self.popMenu_link_merge.setTitle("Merge links")
     self.popMenu_link.addMenu(self.popMenu_link_merge)
     self.action_link_context_copydata = QAction("&Copy table data", self)
     self.action_link_context_copydata.triggered.connect(self.copyLinksTable)
@@ -509,7 +529,7 @@ def _canvas_context_menu(self):
     
     + Add
     ///////
-    + New Linkage
+    + New Link
     + Add [fixed]
     + Add [target path]
     ///////
@@ -557,7 +577,7 @@ def _canvas_context_menu(self):
     + Add [target path]
     ///////
     + Edit
-    + Merge linkage
+    + Merge links
         - Link0
         - Link1
         - ...

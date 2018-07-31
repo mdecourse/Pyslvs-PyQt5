@@ -222,6 +222,51 @@
                         <property name="bottomMargin">
                          <number>0</number>
                         </property>
+                        <item>
+                         <widget class="QWidget" name="link_freemode_widget" native="true">
+                          <property name="enabled">
+                           <bool>false</bool>
+                          </property>
+                          <layout class="QHBoxLayout" name="horizontalLayout_3">
+                           <item>
+                            <widget class="QLineEdit" name="link_freemode_linkname">
+                             <property name="sizePolicy">
+                              <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                               <horstretch>0</horstretch>
+                               <verstretch>0</verstretch>
+                              </sizepolicy>
+                             </property>
+                             <property name="maximumSize">
+                              <size>
+                               <width>30</width>
+                               <height>16777215</height>
+                              </size>
+                             </property>
+                             <property name="readOnly">
+                              <bool>true</bool>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QSlider" name="link_freemode_slider">
+                             <property name="maximum">
+                              <number>10000</number>
+                             </property>
+                             <property name="orientation">
+                              <enum>Qt::Horizontal</enum>
+                             </property>
+                            </widget>
+                           </item>
+                           <item>
+                            <widget class="QDoubleSpinBox" name="link_freemode_spinbox">
+                             <property name="maximum">
+                              <double>10000.000000000000000</double>
+                             </property>
+                            </widget>
+                           </item>
+                          </layout>
+                         </widget>
+                        </item>
                        </layout>
                       </widget>
                      </item>
@@ -497,8 +542,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>450</width>
-                  <height>745</height>
+                  <width>276</width>
+                  <height>562</height>
                  </rect>
                 </property>
                 <layout class="QVBoxLayout" name="verticalLayout_3">
@@ -544,7 +589,7 @@
                        <number>30</number>
                       </property>
                       <property name="singleStep">
-                       <number>5</number>
+                       <number>2</number>
                       </property>
                      </widget>
                     </item>
@@ -603,9 +648,9 @@
                      </widget>
                     </item>
                     <item row="6" column="0">
-                     <widget class="QLabel" name="linkagetransparency_label">
+                     <widget class="QLabel" name="linktransparency_label">
                       <property name="text">
-                       <string>Linkage transparency</string>
+                       <string>Link transparency</string>
                       </property>
                      </widget>
                     </item>
@@ -694,20 +739,6 @@
                       </property>
                      </widget>
                     </item>
-                    <item row="11" column="0">
-                     <widget class="QLabel" name="virtualmodel_label">
-                      <property name="text">
-                       <string>Show virtual modeling</string>
-                      </property>
-                     </widget>
-                    </item>
-                    <item row="11" column="1">
-                     <widget class="QSpinBox" name="virtualmodel_option">
-                      <property name="singleStep">
-                       <number>10</number>
-                      </property>
-                     </widget>
-                    </item>
                    </layout>
                   </widget>
                  </item>
@@ -751,18 +782,17 @@
                      </widget>
                     </item>
                     <item row="0" column="1">
-                     <widget class="QComboBox" name="planarsolver_option">
-                      <item>
-                       <property name="text">
-                        <string>Pyslvs</string>
-                       </property>
-                      </item>
-                      <item>
-                       <property name="text">
-                        <string>Python-Solvespace</string>
-                       </property>
-                      </item>
+                     <widget class="QComboBox" name="planarsolver_option"/>
+                    </item>
+                    <item row="1" column="0">
+                     <widget class="QLabel" name="label">
+                      <property name="text">
+                       <string>Path preview:</string>
+                      </property>
                      </widget>
+                    </item>
+                    <item row="1" column="1">
+                     <widget class="QComboBox" name="pathpreview_option"/>
                     </item>
                    </layout>
                   </widget>
@@ -783,7 +813,7 @@
                     <item>
                      <widget class="QCheckBox" name="consoleerror_option">
                       <property name="text">
-                       <string>Show the Solvespace error in the console.</string>
+                       <string>Show error messages in the console.</string>
                       </property>
                      </widget>
                     </item>
@@ -1162,21 +1192,9 @@
                   <property name="statusTip">
                    <string>Clear GUI console.</string>
                   </property>
-                  <property name="text">
-                   <string>Clear</string>
-                  </property>
-                 </widget>
-                </item>
-                <item>
-                 <widget class="QPushButton" name="closeConsoleButton">
-                  <property name="maximumSize">
-                   <size>
-                    <width>25</width>
-                    <height>16777215</height>
-                   </size>
-                  </property>
-                  <property name="text">
-                   <string>X</string>
+                  <property name="icon">
+                   <iconset resource="../icons.qrc">
+                    <normaloff>:/icons/clean.png</normaloff>:/icons/clean.png</iconset>
                   </property>
                  </widget>
                 </item>
@@ -1203,7 +1221,7 @@
      <x>0</x>
      <y>0</y>
      <width>989</width>
-     <height>22</height>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
@@ -1251,6 +1269,7 @@
     <addaction name="menuExport"/>
     <addaction name="separator"/>
     <addaction name="action_Full_Screen"/>
+    <addaction name="action_New_window"/>
     <addaction name="action_Exit"/>
    </widget>
    <widget class="QMenu" name="menu_Mechanism">
@@ -1277,7 +1296,7 @@
     <addaction name="action_Display_Dimensions"/>
     <addaction name="action_Path_style"/>
     <addaction name="separator"/>
-    <addaction name="action_See_Expression"/>
+    <addaction name="action_See_expr"/>
     <addaction name="action_See_Python_Scripts"/>
    </widget>
    <widget class="QMenu" name="menu_Help">
@@ -1386,7 +1405,7 @@
      <normaloff>:/icons/github.png</normaloff>:/icons/github.png</iconset>
    </property>
    <property name="text">
-    <string>Git&amp;hub repository</string>
+    <string>Git&amp;hub Repository</string>
    </property>
    <property name="statusTip">
     <string>Goto Github storage of Pyslvs.</string>
@@ -1416,7 +1435,7 @@
      <normaloff>:/icons/fullscreen.png</normaloff>:/icons/fullscreen.png</iconset>
    </property>
    <property name="text">
-    <string>Full screen</string>
+    <string>Full Screen</string>
    </property>
    <property name="statusTip">
     <string>Let the window truns to full screen.</string>
@@ -1467,7 +1486,7 @@
      <normaloff>:/icons/script.png</normaloff>:/icons/script.png</iconset>
    </property>
    <property name="text">
-    <string>Python &amp;script</string>
+    <string>Python &amp;Script</string>
    </property>
    <property name="statusTip">
     <string>Generate a Python scripts from the workbook.</string>
@@ -1475,7 +1494,7 @@
   </action>
   <action name="action_Delete_Point">
    <property name="text">
-    <string>Delet the Point</string>
+    <string>Delete the Point</string>
    </property>
    <property name="statusTip">
     <string>Delete an existing point.</string>
@@ -1483,15 +1502,15 @@
   </action>
   <action name="action_Delete_Link">
    <property name="text">
-    <string>Delet the linkage</string>
+    <string>Delete the Link</string>
    </property>
    <property name="statusTip">
-    <string>Delete an existing linkage.</string>
+    <string>Delete an existing link.</string>
    </property>
   </action>
   <action name="action_Edit_Point">
    <property name="text">
-    <string>Edit the point</string>
+    <string>Edit the Point</string>
    </property>
    <property name="statusTip">
     <string>Edit an existing point.</string>
@@ -1499,10 +1518,10 @@
   </action>
   <action name="action_Edit_Link">
    <property name="text">
-    <string>Edit the linkage</string>
+    <string>Edit the Link</string>
    </property>
    <property name="statusTip">
-    <string>Edit an existing linkage.</string>
+    <string>Edit an existing link.</string>
    </property>
   </action>
   <action name="action_Display_Dimensions">
@@ -1510,7 +1529,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Display &amp;dimensions</string>
+    <string>Display &amp;Dimensions</string>
    </property>
    <property name="statusTip">
     <string>Display dimensions in the canvas.</string>
@@ -1527,7 +1546,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Display point &amp;mark</string>
+    <string>Display Point &amp;Mark</string>
    </property>
    <property name="statusTip">
     <string>Display point mark in canvas.</string>
@@ -1542,7 +1561,7 @@
      <normaloff>:/icons/dxf.png</normaloff>:/icons/dxf.png</iconset>
    </property>
    <property name="text">
-    <string>2D sketch</string>
+    <string>2D Sketch</string>
    </property>
    <property name="statusTip">
     <string>Output to Drawing Exchange sketch.</string>
@@ -1554,7 +1573,7 @@
      <normaloff>:/icons/savefile.png</normaloff>:/icons/savefile.png</iconset>
    </property>
    <property name="text">
-    <string>Save &amp;as...</string>
+    <string>Save &amp;as ...</string>
    </property>
    <property name="statusTip">
     <string>Save to another workbook.</string>
@@ -1569,7 +1588,7 @@
      <normaloff>:/icons/Solvespace.ico</normaloff>:/icons/Solvespace.ico</iconset>
    </property>
    <property name="text">
-    <string>&amp;2D sketch</string>
+    <string>&amp;2D Sketch</string>
    </property>
    <property name="statusTip">
     <string>Output to Solvespace 2D sketch.</string>
@@ -1605,7 +1624,7 @@
      <normaloff>:/icons/loadfile.png</normaloff>:/icons/loadfile.png</iconset>
    </property>
    <property name="text">
-    <string>From workbook</string>
+    <string>From Workbook</string>
    </property>
    <property name="statusTip">
     <string>Import from workbook.</string>
@@ -1644,13 +1663,13 @@
      <normaloff>:/icons/BrowseAim.png</normaloff>:/icons/BrowseAim.png</iconset>
    </property>
    <property name="text">
-    <string>Zoom to fit</string>
+    <string>Zoom to Fit</string>
    </property>
    <property name="statusTip">
     <string>Zoom in as mechanism size.</string>
    </property>
    <property name="shortcut">
-    <string>Space</string>
+    <string>Home</string>
    </property>
   </action>
   <action name="action_Path_style">
@@ -1661,7 +1680,7 @@
     <bool>true</bool>
    </property>
    <property name="text">
-    <string>Show in solid path style</string>
+    <string>Show in Solid Path Style</string>
    </property>
    <property name="statusTip">
     <string>Show path in solid line style, otherwise will be isolated dots.</string>
@@ -1680,12 +1699,15 @@
    </property>
   </action>
   <action name="action_Show_console">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
    <property name="icon">
     <iconset resource="../icons.qrc">
      <normaloff>:/icons/konsole.png</normaloff>:/icons/konsole.png</iconset>
    </property>
    <property name="text">
-    <string>Show GUI console</string>
+    <string>Show GUI Console</string>
    </property>
    <property name="statusTip">
     <string>Open a widget to show console output.</string>
@@ -1700,7 +1722,7 @@
      <normaloff>:/icons/PMKSLogo.png</normaloff>:/icons/PMKSLogo.png</iconset>
    </property>
    <property name="text">
-    <string>&amp;PMKS</string>
+    <string>&amp;PMKS URL</string>
    </property>
    <property name="statusTip">
     <string>Pass your mechanism to PMKS server by generate a URL.</string>
@@ -1724,7 +1746,7 @@
      <normaloff>:/icons/example.png</normaloff>:/icons/example.png</iconset>
    </property>
    <property name="text">
-    <string>Example...</string>
+    <string>Example ...</string>
    </property>
    <property name="statusTip">
     <string>Load a example.</string>
@@ -1733,13 +1755,13 @@
     <string>Ctrl+E</string>
    </property>
   </action>
-  <action name="action_See_Expression">
+  <action name="action_See_expr">
    <property name="icon">
     <iconset resource="../icons.qrc">
      <normaloff>:/icons/script.png</normaloff>:/icons/script.png</iconset>
    </property>
    <property name="text">
-    <string>Get expression</string>
+    <string>Get Expression</string>
    </property>
    <property name="statusTip">
     <string>Get the Pyslvs expression.</string>
@@ -1751,7 +1773,7 @@
      <normaloff>:/icons/git.png</normaloff>:/icons/git.png</iconset>
    </property>
    <property name="text">
-    <string>Save to new branch</string>
+    <string>Save to New Branch</string>
    </property>
    <property name="statusTip">
     <string>Creat a new branch then save the commit to this branch.</string>
@@ -1775,7 +1797,7 @@
      <normaloff>:/icons/example.png</normaloff>:/icons/example.png</iconset>
    </property>
    <property name="text">
-    <string>From example</string>
+    <string>From Example</string>
    </property>
    <property name="statusTip">
     <string>Import from example</string>
@@ -1787,7 +1809,7 @@
      <normaloff>:/icons/picture.png</normaloff>:/icons/picture.png</iconset>
    </property>
    <property name="text">
-    <string>Image to clipboard</string>
+    <string>Image with Clipboard</string>
    </property>
    <property name="statusTip">
     <string>Capture and output to clipboard.</string>
@@ -1795,10 +1817,22 @@
   </action>
   <action name="action_Check_update">
    <property name="text">
-    <string>Check for updates</string>
+    <string>Check for Updates</string>
    </property>
    <property name="statusTip">
     <string>Check the lastest version of Pyslvs from Github.</string>
+   </property>
+  </action>
+  <action name="action_New_window">
+   <property name="icon">
+    <iconset resource="../icons.qrc">
+     <normaloff>:/icons/new_window.png</normaloff>:/icons/new_window.png</iconset>
+   </property>
+   <property name="text">
+    <string>New Window</string>
+   </property>
+   <property name="statusTip">
+    <string>Open a new Pyslvs window.</string>
    </property>
   </action>
  </widget>
@@ -1824,9 +1858,9 @@
   </connection>
   <connection>
    <sender>action_Show_console</sender>
-   <signal>triggered()</signal>
+   <signal>toggled(bool)</signal>
    <receiver>ConsoleWidget</receiver>
-   <slot>show()</slot>
+   <slot>setVisible(bool)</slot>
    <hints>
     <hint type="sourcelabel">
      <x>-1</x>
@@ -1839,18 +1873,18 @@
    </hints>
   </connection>
   <connection>
-   <sender>closeConsoleButton</sender>
+   <sender>clearConsole</sender>
    <signal>clicked()</signal>
-   <receiver>ConsoleWidget</receiver>
-   <slot>hide()</slot>
+   <receiver>consoleWidgetBrowser</receiver>
+   <slot>clear()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>1000</x>
-     <y>173</y>
+     <x>959</x>
+     <y>121</y>
     </hint>
     <hint type="destinationlabel">
-     <x>822</x>
-     <y>451</y>
+     <x>762</x>
+     <y>480</y>
     </hint>
    </hints>
   </connection>

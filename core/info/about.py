@@ -12,6 +12,7 @@ from core.QtModules import (
     QDialog,
     QSplashScreen,
     QPixmap,
+    QWidget,
 )
 from .info import __version__, INFO, ARGUMENTS
 from .Ui_about import Ui_Dialog
@@ -50,7 +51,7 @@ class PyslvsAbout(QDialog, Ui_Dialog):
     
     """Pyslvs about dialog."""
     
-    def __init__(self, parent):
+    def __init__(self, parent: QWidget):
         """About descript strings."""
         super(PyslvsAbout, self).__init__(parent)
         self.setupUi(self)
@@ -70,7 +71,6 @@ class PyslvsAbout(QDialog, Ui_Dialog):
             "Startup arguments are as follows:") + _orderList(
             "The loaded file when startup: {}".format(ARGUMENTS.r),
             "Start Path: {}".format(ARGUMENTS.i),
-            "Enable solving warning: {}".format(ARGUMENTS.w),
             "Fusion style: {}".format(ARGUMENTS.fusion),
             "Debug mode: {}".format(ARGUMENTS.debug_mode)) + _content(
             "Using the \"-h\" argument to view the help."))

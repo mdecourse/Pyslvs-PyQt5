@@ -31,8 +31,8 @@ from core.QtModules import (
     QMessageBox,
     QTableWidgetItem,
 )
+from core.libs import example_list
 from .overview import WorkbookOverview
-from .example import example_list
 from .Ui_peewee import Ui_Form
 
 
@@ -116,7 +116,7 @@ class LoadCommitButton(QPushButton):
     
     loaded = pyqtSignal(int)
     
-    def __init__(self, id, parent):
+    def __init__(self, id: int, parent: QWidget):
         super(LoadCommitButton, self).__init__(
             QIcon(QPixmap(":icons/dataupdate.png")),
             " #{}".format(id),
@@ -143,7 +143,7 @@ class FileWidget(QWidget, Ui_Form):
     
     load_id = pyqtSignal(int)
     
-    def __init__(self, parent):
+    def __init__(self, parent: QWidget):
         """Set attributes.
         
         + UI part
@@ -188,6 +188,7 @@ class FileWidget(QWidget, Ui_Form):
         + Call to load storages.
         + Call after loaded paths.
         """
+        self.checkFileChanged = parent.checkFileChanged
         self.isSavedFunc = parent.workbookSaved
         self.linkGroupFunc = parent.addEmptyLinkGroup
         self.parseFunc = parent.parseExpression
@@ -495,7 +496,7 @@ class FileWidget(QWidget, Ui_Form):
     
     def __loadCommit(self, commit: CommitModel, *, showdlg: bool = True):
         """Load the commit pointer."""
-        if not self.__checkSaved():
+        if self.checkFileChanged():
             return
         #Reset the main window status.
         self.clearFunc()
@@ -523,7 +524,7 @@ class FileWidget(QWidget, Ui_Form):
         self.isSavedFunc()
         print("The specified phase has been loaded.")
         #Show overview dialog.
-        dlg = WorkbookOverview(self, commit, _decompress)
+        dlg = WorkbookOverview(commit, _decompress, self)
         dlg.show()
         dlg.exec_()
     
@@ -539,7 +540,7 @@ class FileWidget(QWidget, Ui_Form):
     
     def loadExample(self, isImport: bool = False) -> bool:
         """Load example to new workbook."""
-        if not self.__checkSaved():
+        if self.checkFileChanged():
             return False
         #load example by expression.
         example_name, ok = QInputDialog.getItem(self,
@@ -561,16 +562,6 @@ class FileWidget(QWidget, Ui_Form):
         self.isSavedFunc()
         print("Example \"{}\" has been loaded.".format(example_name))
         return True
-    
-    def __checkSaved(self) -> bool:
-        """Check and warn if user is not saved yet."""
-        if not self.changed:
-            return True
-        reply = QMessageBox.question(self,
-            "Message",
-            "Are you sure to load?\nAny changes won't be saved."
-        )
-        return reply == QMessageBox.Yes
     
     @pyqtSlot(str)
     def on_commit_search_text_textEdited(self, text: str):

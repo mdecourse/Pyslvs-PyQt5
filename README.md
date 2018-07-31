@@ -1,8 +1,8 @@
-[![Version](https://img.shields.io/badge/version-18.05.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
-[![Build Status](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5.svg)](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5)
-[![PYTHON](https://img.shields.io/badge/python-3.5%20↑-blue.svg)](https://www.python.org/)
-[![PYQT](https://img.shields.io/badge/pyqt-5.10%20↑-orange.svg)](https://riverbankcomputing.com/software/pyqt/intro)
-[![OS](https://img.shields.io/badge/os-Ubuntu%2C%20Windows%20(x64)-blue.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
+[![Version](https://img.shields.io/badge/version-18.07.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases/latest)
+[![Build Status](https://img.shields.io/travis/KmolYuan/Pyslvs-PyQt5.svg?logo=travis)](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5)
+[![Python](https://img.shields.io/badge/python-3.5%20↑-blue.svg)](https://www.python.org/)
+[![PyQt](https://img.shields.io/badge/pyqt-5.10%20↑-orange.svg)](https://riverbankcomputing.com/software/pyqt/intro)
+[![os](https://img.shields.io/badge/os-Ubuntu%2C%20Windows%20(x64)-blue.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
 [![Downloads](https://img.shields.io/github/downloads/KmolYuan/Pyslvs-PyQt5/total.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
 [![GitHub license](https://img.shields.io/badge/license-AGPLv3-blue.svg)](https://raw.githubusercontent.com/KmolYuan/Pyslvs-PyQt5/master/LICENSE)
 
@@ -29,18 +29,21 @@ Pyslvs on [Sourceforge](https://sourceforge.net/projects/pyslvs/).
 
 1. [Kernels Requirement](#kernels-requirement)
 
-    + [Cython Kernel](#cython-kernel)
+    + [Pyslvs Kernel](#pyslvs-kernel)
     + [Python-Solvespace Kernel](#python-solvespace-kernel)
 
 1. [Stand-alone Executable File](#stand-alone-executable-file)
 
-1. [Power By](#power-by)
+1. [Powered By](#powered-by)
 
 # Introduction
 
 A GUI-based tool use to solving 2D linkage subject.
 
-+ **Planar Linkages Simulation**: Kernel from [Solvespace] with Python bundle (SWIG).
++ **Planar Linkages Simulation**:
+
+    - [Python-Solvespace]: Kernel from [Solvespace] with Python bundle (SWIG).
+    - [Pyslvs]: Kernel from [Sketch Solve] with Cython.
 
 + **Mechanical Synthesis**:
 
@@ -57,7 +60,7 @@ Previews in KDE Plasma desktop:
 
 ![main](images/main_plasma.png)
 
-Previews in Windows 8.1 theme:
+Previews in Windows 10 theme:
 
 ![main](images/main_win.png)
 
@@ -66,16 +69,19 @@ Previews in Windows 8.1 theme:
 Here's some command line options for Pyslvs.
 
 ```bash
+#Download / update submodule:
+git submodule update --init --recursive
+
 #After following compile steps:
 make build-kernel
 
-# Open GUI by Python:
+#Open GUI by Python:
 python launch_pyslvs.py
 
-# Or see the help:
+#Or see the help:
 python launch_pyslvs.py --help
 
-# Run the unit test:
+#Run the unit test:
 python test_pyslvs.py
 ```
 
@@ -118,11 +124,17 @@ The grammar is defined with Extended Backus–Naur Form (EBNF), you can checkout
 
 ## Kinematics Simulation
 
-Pyslvs has a simple simulation function for revolute joints.
+Pyslvs has a simple simulation function driving with revolute joints.
 
 ![PMKS example](images/Kinemetic.png)
 
-Choose a base link and a drive link for the joint, then add the dependent into variables list.
+There is a planar constraint solving mechanism done with three CAD kernels:
+
++ Pyslvs and Sketch Solve.
++ Python-Solvespace.
++ Sketch Solve.
+
+Choose a base point and a driver point for the shaft, then add this dependent into variables list.
 
 Using QDial widget (it just like a turntable) to adjust the angle value of variable.
 
@@ -178,7 +190,7 @@ Generate a mechanism with path requirement by random variables.
 
 Contains three algorithms:
 
-+ Real Genetic Algorithm
++ Real-coded Genetic Algorithm
 + Firefly Algorithm
 + Differential Evolution
 
@@ -211,7 +223,7 @@ Pyslvs can support for following format.
 + Expression (just a string).
 + Solvespace format (*.slvs, only supports very few of constraints).
 
-The workbook mechanism will generate the sketch frame as *.slvs format like follow:
+The workbook mechanism will generate the sketch frame as \*.slvs format like follow:
 
 ![](images/IO_slvs_origin.png)
 
@@ -314,25 +326,9 @@ make build-kernel
 
 This project including two kernels should build, please following the steps if you are first time to use.
 
-## Cython Kernel
+## Pyslvs Kernel
 
-Cython libraries of Pyslvs, including:
-
-1. Solver:
-    + parser
-    + tinycadlib
-    + triangulation
-1. Dimensional synthesis:
-    + planarlinkage
-    + rga
-    + firefly
-    + de
-1. Number synthesis:
-    + number
-1. Topologic synthesis:
-    + topologic
-
-This module only require "[Lark-parser]" module (and [Pygments] provide highlighting optionaly), so it can works independently without to startup GUI.
+[Pyslvs]\: Core libraries of this project.
 
 Make command:
 
@@ -359,6 +355,8 @@ There's two options to choose SDK:
 When using MinGW, you can refer the steps of this article: <https://stackoverflow.com/questions/34135280/valueerror-unknown-ms-compiler-version-1900>
 
 ## Python-Solvespace Kernel
+
+[Python-Solvespace]\: Python boundle of [Solvespace] library.
 
 Make command:
 
@@ -470,17 +468,17 @@ Make command:
 > make
 ```
 
-# Power By
+# Powered By
 
 Made by [Qt5] and Python IDE [Eric 6].
 
-If there is no special reason, please to use the new version of the kits.
+If there is no special reason, please install the new version of the kits.
 
 Including Python modules:
 
 * [SIP] (GPLv2, GPLv3)
 * [PyQt5], [PyQtChart] (GPLv3)
-* [dxfwrite] (MIT)
+* [ezdxf] (MIT)
 * [numpy] (BSD 3-Clause)
 * [Cython] (Apache 2.0)
 * [openpyxl] (MIT)
@@ -493,11 +491,10 @@ Including Python modules:
 
 Pyslvs is under [GNU Affero General Public License v3].
 
-Here is the **origin kernel** repository:
+Kernel repository:
 
+* [Pyslvs]
 * [Python-solvespace]
-* [Dimensional Synthesis of Planar Four-bar Linkages]
-* [Triangle solver]
 
 [Solvespace]: http://solvespace.com
 [PyQt5]: https://www.riverbankcomputing.com/software/pyqt/download5
@@ -511,7 +508,7 @@ Here is the **origin kernel** repository:
 [Eric 6]: http://eric-ide.python-projects.org/
 
 [numpy]: http://www.numpy.org/
-[dxfwrite]: https://pypi.python.org/pypi/dxfwrite/
+[ezdxf]: https://ezdxf.readthedocs.io/en/latest/index.html
 [Cython]: http://cython.org/
 [openpyxl]: http://openpyxl.readthedocs.io/
 [psutil]: https://github.com/giampaolo/psutil
@@ -521,8 +518,8 @@ Here is the **origin kernel** repository:
 [Pydot]: https://github.com/erocarrera/pydot
 [Pygments]: http://pygments.org/
 
-[Python-solvespace]: https://github.com/KmolYuan/python-solvespace
-[Dimensional Synthesis of Planar Four-bar Linkages]: https://github.com/kmollee/algorithm
-[Triangle solver]: https://gist.github.com/KmolYuan/c5a94b769bc410524bba66acc5204a8f
+[Python-Solvespace]: https://github.com/KmolYuan/python-solvespace
+[Pyslvs]: https://github.com/KmolYuan/pyslvs
+[Sketch Solve]: https://code.google.com/archive/p/sketchsolve/
 
 [GNU Affero General Public License v3]: https://github.com/KmolYuan/Pyslvs-PyQt5/blob/master/LICENSE

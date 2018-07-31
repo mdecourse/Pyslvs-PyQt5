@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric project file for project Pyslvs-PyQt5 -->
-<!-- Saved: 2018-05-31, 21:01:39 -->
+<!-- Saved: 2018-07-29, 20:39:28 -->
 <!-- Copyright (C) 2018 KmolYuan, pyslvs@gmail.com -->
 <Project version="5.1">
   <Language></Language>
@@ -9,7 +9,7 @@
   <ProgLanguage mixed="0">Python3</ProgLanguage>
   <ProjectType>PyQt5</ProjectType>
   <Description>Open Source Planar Linkage Mechanism Simulation and Mechanical Synthesis System.</Description>
-  <Version>0.9.0</Version>
+  <Version>18.07.0</Version>
   <Author>KmolYuan</Author>
   <Email>pyslvs@gmail.com</Email>
   <Eol index="0"/>
@@ -31,42 +31,54 @@
     <Source>core/info/__init__.py</Source>
     <Source>core/info/about.py</Source>
     <Source>core/info/info.py</Source>
+    <Source>core/io/Ui_output_option.py</Source>
     <Source>core/io/Ui_overview.py</Source>
     <Source>core/io/Ui_peewee.py</Source>
     <Source>core/io/Ui_script.py</Source>
     <Source>core/io/__init__.py</Source>
     <Source>core/io/dxf.py</Source>
-    <Source>core/io/example.py</Source>
     <Source>core/io/images.py</Source>
     <Source>core/io/loggingHandler.py</Source>
+    <Source>core/io/output_option.py</Source>
     <Source>core/io/overview.py</Source>
     <Source>core/io/peewee.py</Source>
     <Source>core/io/script.py</Source>
-    <Source>core/io/slvs/Ui_output_option.py</Source>
     <Source>core/io/slvs/__init__.py</Source>
     <Source>core/io/slvs/frame.py</Source>
-    <Source>core/io/slvs/output_option.py</Source>
     <Source>core/io/slvs/part.py</Source>
     <Source>core/io/slvs/read.py</Source>
     <Source>core/io/slvs/write.py</Source>
     <Source>core/io/undo_redo.py</Source>
     <Source>core/libs/__init__.py</Source>
+    <Source>core/libs/pyslvs/Adesign/setup.py</Source>
+    <Source>core/libs/pyslvs/Adesign/src/de.pyx</Source>
+    <Source>core/libs/pyslvs/Adesign/src/firefly.pyx</Source>
+    <Source>core/libs/pyslvs/Adesign/src/rga.pyx</Source>
+    <Source>core/libs/pyslvs/Adesign/src/verify.pxd</Source>
+    <Source>core/libs/pyslvs/Adesign/src/verify.pyx</Source>
     <Source>core/libs/pyslvs/__init__.py</Source>
-    <Source>core/libs/pyslvs/de.pyx</Source>
-    <Source>core/libs/pyslvs/firefly.pyx</Source>
-    <Source>core/libs/pyslvs/number.pyx</Source>
-    <Source>core/libs/pyslvs/parser.py</Source>
-    <Source>core/libs/pyslvs/planarlinkage.pxd</Source>
-    <Source>core/libs/pyslvs/planarlinkage.pyx</Source>
-    <Source>core/libs/pyslvs/rga.pyx</Source>
+    <Source>core/libs/pyslvs/_parser.py</Source>
+    <Source>core/libs/pyslvs/examples.py</Source>
     <Source>core/libs/pyslvs/setup.py</Source>
-    <Source>core/libs/pyslvs/tinycadlib.pxd</Source>
-    <Source>core/libs/pyslvs/tinycadlib.pyx</Source>
-    <Source>core/libs/pyslvs/topologic.pyx</Source>
-    <Source>core/libs/pyslvs/triangulation.pyx</Source>
+    <Source>core/libs/pyslvs/src/bfgs.pxd</Source>
+    <Source>core/libs/pyslvs/src/bfgs.pyx</Source>
+    <Source>core/libs/pyslvs/src/number.pyx</Source>
+    <Source>core/libs/pyslvs/src/planarlinkage.pyx</Source>
+    <Source>core/libs/pyslvs/src/pmks.pxd</Source>
+    <Source>core/libs/pyslvs/src/pmks.pyx</Source>
+    <Source>core/libs/pyslvs/src/sketch_solve.pxd</Source>
+    <Source>core/libs/pyslvs/src/tinycadlib.pxd</Source>
+    <Source>core/libs/pyslvs/src/tinycadlib.pyx</Source>
+    <Source>core/libs/pyslvs/src/topologic.pyx</Source>
+    <Source>core/libs/pyslvs/src/triangulation.pyx</Source>
+    <Source>core/libs/pyslvs/test_pyslvs.py</Source>
     <Source>core/libs/python_solvespace/__init__.py</Source>
-    <Source>core/libs/python_solvespace/cad.py</Source>
-    <Source>core/libs/python_solvespace/planarSolving.py</Source>
+    <Source>core/libs/python_solvespace/example/PyDemo.py</Source>
+    <Source>core/libs/python_solvespace/example/example_crank_rocker.py</Source>
+    <Source>core/libs/python_solvespace/example/example_crank_rocker_draw.py</Source>
+    <Source>core/libs/python_solvespace/example/example_involute_draw_matplotlib.py</Source>
+    <Source>core/libs/python_solvespace/example/example_multi_link_draw_matplotlib.py</Source>
+    <Source>core/libs/python_solvespace/example/example_nutcracker.py</Source>
     <Source>core/main.py</Source>
     <Source>core/main_method/__init__.py</Source>
     <Source>core/main_method/actions.py</Source>
@@ -105,9 +117,9 @@
     <Source>core/synthesis/DimensionalSynthesis/DimensionalSynthesis_dialog/thread.py</Source>
     <Source>core/synthesis/DimensionalSynthesis/Ui_Algorithm.py</Source>
     <Source>core/synthesis/DimensionalSynthesis/__init__.py</Source>
-    <Source>core/synthesis/NumberAndTypeSynthesis/Permutations.py</Source>
-    <Source>core/synthesis/NumberAndTypeSynthesis/Ui_Permutations.py</Source>
-    <Source>core/synthesis/NumberAndTypeSynthesis/__init__.py</Source>
+    <Source>core/synthesis/StructureSynthesis/Permutations.py</Source>
+    <Source>core/synthesis/StructureSynthesis/Ui_Permutations.py</Source>
+    <Source>core/synthesis/StructureSynthesis/__init__.py</Source>
     <Source>core/synthesis/__init__.py</Source>
     <Source>core/widgets/Ui_inputs.py</Source>
     <Source>core/widgets/__init__.py</Source>
@@ -120,16 +132,15 @@
     <Source>icons_rc.py</Source>
     <Source>launch_pyslvs.py</Source>
     <Source>preview_rc.py</Source>
-    <Source>test_pyslvs.py</Source>
   </Sources>
   <Forms>
     <Form>core/entities/edit_link.ui</Form>
     <Form>core/entities/edit_point.ui</Form>
     <Form>core/info/about.ui</Form>
+    <Form>core/io/output_option.ui</Form>
     <Form>core/io/overview.ui</Form>
     <Form>core/io/peewee.ui</Form>
     <Form>core/io/script.ui</Form>
-    <Form>core/io/slvs/output_option.ui</Form>
     <Form>core/main.ui</Form>
     <Form>core/synthesis/Collections/Structure.ui</Form>
     <Form>core/synthesis/Collections/TriangularIteration.ui</Form>
@@ -143,7 +154,7 @@
     <Form>core/synthesis/DimensionalSynthesis/DimensionalSynthesis_dialog/path_adjust.ui</Form>
     <Form>core/synthesis/DimensionalSynthesis/DimensionalSynthesis_dialog/preview.ui</Form>
     <Form>core/synthesis/DimensionalSynthesis/DimensionalSynthesis_dialog/progress.ui</Form>
-    <Form>core/synthesis/NumberAndTypeSynthesis/Permutations.ui</Form>
+    <Form>core/synthesis/StructureSynthesis/Permutations.ui</Form>
     <Form>core/widgets/inputs.ui</Form>
   </Forms>
   <Resources>
@@ -155,8 +166,12 @@
     <Other>Makefile</Other>
     <Other>README.md</Other>
     <Other>appimage_recipe.sh</Other>
-    <Other>changelog</Other>
+    <Other>changelog.md</Other>
+    <Other>core/libs/pyslvs/Adesign/Makefile</Other>
     <Other>core/libs/pyslvs/Makefile</Other>
+    <Other>core/libs/pyslvs/README.md</Other>
+    <Other>core/libs/pyslvs/changelog.md</Other>
+    <Other>core/libs/pyslvs/requirements.txt</Other>
     <Other>core/libs/python_solvespace/Makefile</Other>
     <Other>requirements.txt</Other>
   </Others>

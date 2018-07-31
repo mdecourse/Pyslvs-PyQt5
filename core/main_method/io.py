@@ -39,19 +39,19 @@ from core.info import (
 )
 from core.io import (
     ScriptDialog,
-    slvsProcessScript,
+    slvs_process_script,
     AddTable,
     EditPointTable,
     SlvsParser,
     SlvsOutputDialog,
-    dxfSketch,
+    DxfOutputDialog,
     QTIMAGES,
     strbetween,
 )
 from core.libs import parse_params, PMKSLexer
 
 
-def _openURL(url: str):
+def _open_url(url: str):
     """Use to open link."""
     QDesktopServices.openUrl(QUrl(url))
 
@@ -114,7 +114,7 @@ def _settings(self) -> Tuple[Tuple[QWidget, Union[int, float, bool]]]:
     """Give the settings of all option widgets."""
     return (
         (self.linewidth_option, 3),
-        (self.fontsize_option, 15),
+        (self.fontsize_option, 14),
         (self.pathwidth_option, 3),
         (self.scalefactor_option, 10),
         (self.selectionradius_option, 10),
@@ -123,9 +123,9 @@ def _settings(self) -> Tuple[Tuple[QWidget, Union[int, float, bool]]]:
         (self.jointsize_option, 5),
         (self.zoomby_option, 0),
         (self.snap_option, 1.),
-        (self.virtualmodel_option, 0),
         (self.undolimit_option, 32),
         (self.planarsolver_option, 0),
+        (self.pathpreview_option, 0),
         (self.titlefullpath_option, False),
         (self.consoleerror_option, False),
         #Do not save settings.
@@ -183,17 +183,17 @@ def on_windowTitle_fullpath_clicked(self):
 
 def on_action_Get_Help_triggered(self):
     """Open website: mde.tw"""
-    _openURL("http://mde.tw")
+    _open_url("http://mde.tw")
 
 
 def on_action_Pyslvs_com_triggered(self):
     """Open website: pyslvs.com"""
-    _openURL("http://www.pyslvs.com/blog/index.html")
+    _open_url("http://www.pyslvs.com/blog/index.html")
 
 
 def on_action_github_repository_triggered(self):
     """Open website: Github repository."""
-    _openURL("https://github.com/KmolYuan/Pyslvs-PyQt5")
+    _open_url("https://github.com/KmolYuan/Pyslvs-PyQt5")
 
 
 def on_action_About_Pyslvs_triggered(self):
@@ -214,7 +214,7 @@ def on_action_Example_triggered(self):
     Return true if successed.
     """
     if self.FileWidget.loadExample():
-        self.on_action_See_Expression_triggered()
+        self.on_action_See_expr_triggered()
         self.MainCanvas.zoomToFit()
 
 
@@ -234,16 +234,17 @@ def on_action_New_Workbook_triggered(self):
 
 def clear(self):
     """Clear to create commit stage."""
+    self.freemode_disable.trigger()
     self.mechanism_storage_name_tag.clear()
     self.mechanism_storage.clear()
     self.CollectionTabPage.clear()
-    self.NumberAndTypeSynthesis.clear()
+    self.StructureSynthesis.clear()
     self.InputsWidget.clear()
     self.DimensionalSynthesis.clear()
     self.EntitiesPoint.clear()
     self.EntitiesLink.clear()
     self.EntitiesExpr.clear()
-    self.resolve()
+    self.solve()
 
 
 def on_action_Import_PMKS_server_triggered(self):
@@ -363,7 +364,7 @@ def on_action_Import_Workbook_triggered(self):
 def on_action_Save_triggered(self, isBranch: bool):
     """Save action."""
     file_name = self.FileWidget.file_name.absoluteFilePath()
-    if self.FileWidget.file_name.suffix()=='pyslvs':
+    if self.FileWidget.file_name.suffix() == 'pyslvs':
         self.FileWidget.save(file_name, isBranch)
     else:
         self.on_action_Save_as_triggered(isBranch)
@@ -402,18 +403,20 @@ def on_action_Output_to_Solvespace_triggered(self):
 
 def on_action_Output_to_DXF_triggered(self):
     """DXF 2d save function."""
-    file_name = self.outputTo(
-        "Drawing Exchange Format",
-        ["Drawing Exchange Format (*.dxf)"]
-    )
-    if not file_name:
-        return
-    dxfSketch(
+    dlg = DxfOutputDialog(
+        self.env,
+        self.FileWidget.file_name.baseName(),
         self.EntitiesPoint.dataTuple(),
         _v_to_slvs(self),
-        file_name
+        self
     )
-    self.saveReplyBox("Drawing Exchange Format", file_name)
+    dlg.show()
+    if dlg.exec_():
+        path = dlg.path_edit.text()
+        if not path:
+            path = dlg.path_edit.placeholderText()
+        self.setLocate(path)
+        self.saveReplyBox("Drawing Exchange Format", path)
 
 
 def on_action_Output_to_Picture_triggered(self):
@@ -514,7 +517,7 @@ def on_action_Output_to_PMKS_triggered(self):
         QMessageBox.Save
     )
     if reply == QMessageBox.Open:
-        _openURL(url)
+        _open_url(url)
     elif reply == QMessageBox.Save:
         QApplication.clipboard().setText(url)
 
@@ -528,11 +531,12 @@ def on_action_Output_to_Picture_clipboard_triggered(self):
     )
 
 
-def on_action_See_Expression_triggered(self):
+def on_action_See_expr_triggered(self):
     """Output as expression."""
     context = ",\n".join(" " * 4 + vpoint.expr for vpoint in self.EntitiesPoint.data())
     dlg = ScriptDialog(
         "#Generate by Pyslvs v{}.{}.{} ({})\n".format(*__version__) +
+        "#Project \"{}\"\n".format(self.FileWidget.file_name.baseName()) +
         ("M[\n{}\n]".format(context) if context else "M[]"),
         PMKSLexer(),
         "Pyslvs expression",
@@ -547,7 +551,11 @@ def on_action_See_Python_Scripts_triggered(self):
     """Output to Python script for Jupyter notebook."""
     dlg = ScriptDialog(
         "#Generate by Pyslvs v{}.{}.{} ({})\n".format(*__version__) +
-        slvsProcessScript(self.EntitiesPoint.data(), self.EntitiesLink.data()),
+        "#Project \"{}\"\n".format(self.FileWidget.file_name.baseName()) +
+        slvs_process_script(
+            tuple(vpoint.expr for vpoint in self.EntitiesPoint.data()),
+            tuple((b, d) for b, d, a in self.InputsWidget.inputPair())
+        ),
         Python3Lexer(),
         "Python script",
         ["Python3 Script (*.py)"],
@@ -580,7 +588,7 @@ def on_action_Check_update_triggered(self):
         QMessageBox.Ok
     )
     if reply == QMessageBox.Ok:
-        _openURL(url)
+        _open_url(url)
 
 
 def checkFileChanged(self) -> bool:

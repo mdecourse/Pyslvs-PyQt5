@@ -26,7 +26,6 @@ from core.QtModules import (
     QPen,
     QColor,
     QToolTip,
-    QBoaderPolygonF,
 )
 from core.graphics import (
     convex_hull,
@@ -34,11 +33,7 @@ from core.graphics import (
     colorQt,
     colorNum,
 )
-from core.libs import (
-    expr_path,
-    VPoint,
-    VLink,
-)
+from core.libs import VPoint, VLink
 
 
 class Selector:
@@ -140,7 +135,7 @@ def _drawFrame(self):
 
 def _drawPoint(self, i: int, vpoint: VPoint):
     """Draw a point."""
-    if vpoint.type==1 or vpoint.type==2:
+    if vpoint.type in (1, 2):
         #Draw slider
         silder_points = vpoint.c
         for j, (cx, cy) in enumerate(silder_points):
@@ -150,37 +145,25 @@ def _drawPoint(self, i: int, vpoint: VPoint):
                 grounded = vpoint.links[j] == 'ground'
             if vpoint.type == 1:
                 if j == 0:
-                    self._BaseCanvas__drawPoint(
-                        i, cx, cy,
-                        grounded,
-                        vpoint.color
-                    )
+                    self.drawPoint(i, cx, cy, grounded, vpoint.color)
                 else:
                     pen = QPen(vpoint.color)
                     pen.setWidth(2)
                     self.painter.setPen(pen)
                     r = 5
                     self.painter.drawRect(QRectF(
-                        QPointF(cx*self.zoom + r, cy*-self.zoom + r),
-                        QPointF(cx*self.zoom - r, cy*-self.zoom - r)
+                        QPointF(cx * self.zoom + r, cy * -self.zoom + r),
+                        QPointF(cx * self.zoom - r, cy * -self.zoom - r)
                     ))
             elif vpoint.type == 2:
                 if j == 0:
-                    self._BaseCanvas__drawPoint(
-                        i, cx, cy,
-                        grounded,
-                        vpoint.color
-                    )
+                    self.drawPoint(i, cx, cy, grounded, vpoint.color)
                 else:
                     #Turn off point mark.
-                    showPointMark = self.showPointMark
-                    self.showPointMark = False
-                    self._BaseCanvas__drawPoint(
-                        i, cx, cy,
-                        grounded,
-                        vpoint.color
-                    )
-                    self.showPointMark = showPointMark
+                    show_point_mark = self.show_point_mark
+                    self.show_point_mark = False
+                    self.drawPoint(i, cx, cy, grounded, vpoint.color)
+                    self.show_point_mark = show_point_mark
         pen = QPen(vpoint.color.darker())
         pen.setWidth(2)
         self.painter.setPen(pen)
@@ -197,13 +180,9 @@ def _drawPoint(self, i: int, vpoint: VPoint):
                 QPointF(p_right[0] * self.zoom, p_right[1] * -self.zoom)
             )
     else:
-        self._BaseCanvas__drawPoint(
-            i, vpoint.cx, vpoint.cy,
-            vpoint.grounded(),
-            vpoint.color
-        )
+        self.drawPoint(i, vpoint.cx, vpoint.cy, vpoint.grounded(), vpoint.color)
     #For selects function.
-    if (self.selectionMode == 0) and (i in self.selections):
+    if (self.select_mode == 0) and (i in self.selections):
         pen = QPen(QColor(161, 16, 239))
         pen.setWidth(3)
         self.painter.setPen(pen)
@@ -218,7 +197,7 @@ def _pointsPos(self, vlink: VLink) -> List[Tuple[float, float]]:
     """Get geometry of the vlink."""
     points = []
     for i in vlink.points:
-        vpoint = self.Points[i]
+        vpoint = self.vpoints[i]
         if vpoint.type == 0:
             x = vpoint.cx * self.zoom
             y = vpoint.cy * -self.zoom
@@ -239,27 +218,24 @@ def _drawLink(self, vlink: VLink):
     points = _pointsPos(self, vlink)
     pen = QPen()
     #Rearrange: Put the nearest point to the next position.
-    qpoints = convex_hull(points, as_qpoint=True)
+    qpoints = convex_hull(points, as_qpoint = True)
     if (
-        (self.selectionMode == 1) and
-        (self.Links.index(vlink) in self.selections)
+        (self.select_mode == 1) and
+        (self.vlinks.index(vlink) in self.selections)
     ):
-        pen.setWidth(self.linkWidth + 6)
+        pen.setWidth(self.link_width + 6)
         pen.setColor(QColor(161, 16, 239))
         self.painter.setPen(pen)
         self.painter.drawPolygon(*qpoints)
-    pen.setWidth(self.linkWidth)
+    pen.setWidth(self.link_width)
     pen.setColor(vlink.color)
     self.painter.setPen(pen)
     brush = QColor(226, 219, 190)
     brush.setAlphaF(self.transparency)
     self.painter.setBrush(brush)
-    if self.virtualmodel:
-        self.painter.drawPath(QBoaderPolygonF(qpoints, self.virtualmodel))
-    else:
-        self.painter.drawPolygon(*qpoints)
+    self.painter.drawPolygon(*qpoints)
     self.painter.setBrush(Qt.NoBrush)
-    if not self.showPointMark:
+    if not self.show_point_mark:
         return
     pen.setColor(Qt.darkGray)
     self.painter.setPen(pen)
@@ -267,7 +243,7 @@ def _drawLink(self, vlink: VLink):
     cen_x = sum(p[0] for p in points) / p_count
     cen_y = sum(p[1] for p in points) / p_count
     self.painter.drawText(
-        QRectF(cen_x-50, cen_y-50, 100, 100),
+        QRectF(cen_x - 50, cen_y - 50, 100, 100),
         Qt.AlignCenter,
         '[{}]'.format(vlink.name)
     )
@@ -276,54 +252,28 @@ def _drawLink(self, vlink: VLink):
 def _drawPath(self):
     """Draw paths. Recording first."""
     pen = QPen()
-    if self.autoPathShow and self.rightInput():
-        """Replace to auto preview path."""
-        exprs = self.getTriangle(self.Points)
-        self.Path.path = expr_path(
-            exprs,
-            {n: 'P{}'.format(n) for n in range(len(self.Points))},
-            self.Points,
-            self.pathInterval()
-        )
-        if self.selectionMode == 2:
-            for expr in exprs:
-                self._BaseCanvas__drawSolution(
-                    expr[0],
-                    expr[1:-1],
-                    expr[-1],
-                    self.Points
-                )
-    if hasattr(self, 'path_record'):
-        paths = self.path_record
-    else:
-        paths = self.Path.path
-    for i, path in enumerate(paths):
-        if (
-            (self.Path.show != i) and
-            (self.Path.show != -1) or
-            (len(path) <= 1)
-        ):
+    for i, path in enumerate(self.path_record or self.Path.path or self.pathpreview):
+        if (self.Path.show != i) and (self.Path.show != -1):
             continue
-        try:
-            color = self.Points[i].color
-        except:
+        if self.vpoints[i].color:
+            color = self.vpoints[i].color
+        else:
             color = colorQt('Green')
         pen.setColor(color)
-        pen.setWidth(self.pathWidth)
+        pen.setWidth(self.path_width)
         self.painter.setPen(pen)
         if self.Path.curve:
-            self._BaseCanvas__drawCurve(path)
+            self.drawCurve(path)
         else:
-            self._BaseCanvas__drawDot(path)
+            self.drawDot(path)
 
 
 def _drawSlvsRanges(self):
     """Draw solving range."""
     pen = QPen()
-    self.painter.setFont(QFont("Arial", self.fontSize + 5))
     pen.setWidth(5)
     for i, (tag, rect) in enumerate(self.ranges.items()):
-        range_color = QColor(colorNum(i+1))
+        range_color = QColor(colorNum(i + 1))
         range_color.setAlpha(30)
         self.painter.setBrush(range_color)
         range_color.setAlpha(255)
@@ -347,10 +297,19 @@ def _drawSlvsRanges(self):
         self.painter.setBrush(Qt.NoBrush)
 
 
+def _emit_freemove(self, targets: List[int]):
+    """Emit free move targets to edit."""
+    self.freemoved.emit(tuple((num, (
+        self.vpoints[num].cx,
+        self.vpoints[num].cy,
+        self.vpoints[num].angle,
+    )) for num in targets))
+
+
 def _select_func(self, *, rect: bool = False):
     """Select function."""
     self.selector.selection_rect.clear()
-    if self.selectionMode == 0:
+    if self.select_mode == 0:
         
         def catch(x: float, y: float) -> bool:
             """Detection function for points."""
@@ -359,11 +318,12 @@ def _select_func(self, *, rect: bool = False):
             else:
                 return self.selector.isClose(x, y, self.sr)
         
-        for i, vpoint in enumerate(self.Points):
+        for i, vpoint in enumerate(self.vpoints):
             if catch(vpoint.cx * self.zoom, vpoint.cy * -self.zoom):
                 if i not in self.selector.selection_rect:
                     self.selector.selection_rect.append(i)
-    elif self.selectionMode == 1:
+        
+    elif self.select_mode == 1:
         
         def catch(vlink: VLink) -> bool:
             """Detection function for links.
@@ -375,25 +335,54 @@ def _select_func(self, *, rect: bool = False):
             if len(points) > 2:
                 polygon = QPolygonF(convex_hull(points, as_qpoint=True))
             else:
-                points_up = [(x + self.sr, y + self.sr) for x, y in points]
-                points_down = [(x - self.sr, y - self.sr) for x, y in points]
-                polygon = QPolygonF(convex_hull(points_up + points_down, as_qpoint=True))
+                polygon = QPolygonF(convex_hull(
+                    [(x + self.sr, y + self.sr) for x, y in points] +
+                    [(x - self.sr, y - self.sr) for x, y in points],
+                    as_qpoint=True
+                ))
             if rect:
                 return polygon.intersects(QPolygonF(self.selector.toQRect()))
             else:
-                return polygon.containsPoint(QPointF(self.selector.x, self.selector.y), Qt.WindingFill)
+                return polygon.containsPoint(
+                    QPointF(self.selector.x, self.selector.y),
+                    Qt.WindingFill
+                )
         
-        for i, vlink in enumerate(self.Links):
+        for i, vlink in enumerate(self.vlinks):
             if i == 0:
                 continue
             if catch(vlink):
                 if i not in self.selector.selection_rect:
                     self.selector.selection_rect.append(i)
+        
+    elif self.select_mode == 2:
+        
+        def catch(expr: str) -> bool:
+            """Detection function for solution polygons."""
+            points, _ = self.solutionPolygon(
+                expr[0],
+                expr[1:-1],
+                expr[-1],
+                self.vpoints
+            )
+            polygon = QPolygonF([QPointF(x, -y) * self.zoom for x, y in points])
+            if rect:
+                return polygon.intersects(QPolygonF(self.selector.toQRect()))
+            else:
+                return polygon.containsPoint(
+                    QPointF(self.selector.x, self.selector.y),
+                    Qt.WindingFill
+                )
+        
+        for i, expr in enumerate(self.exprs):
+            if catch(expr):
+                if i not in self.selector.selection_rect:
+                    self.selector.selection_rect.append(i)
 
 
-def _snap(self, num: float, isZoom: bool = True) -> float:
+def _snap(self, num: float, *, is_zoom: bool = True) -> float:
     """Close to a multiple of coefficient."""
-    snap_val = self.snap * self.zoom if isZoom else self.snap
+    snap_val = self.snap * self.zoom if is_zoom else self.snap
     if not snap_val:
         return num
     times = num // snap_val
@@ -412,10 +401,9 @@ def _zoomToFitLimit(self) -> Tuple[float, float, float, float]:
     y_top = -inf
     y_bottom = inf
     #Paths
-    has_path = bool(self.Path.path and (self.Path.show != -2))
-    if has_path:
-        for i, path in enumerate(self.Path.path):
-            if self.Path.show != -1 and self.Path.show != i:
+    if self.Path.show != -2:
+        for i, path in enumerate(self.path_record or self.Path.path or self.pathpreview):
+            if (self.Path.show != -1) and (self.Path.show != i):
                 continue
             for x, y in path:
                 if x < x_right:
@@ -427,9 +415,7 @@ def _zoomToFitLimit(self) -> Tuple[float, float, float, float]:
                 if y > y_top:
                     y_top = y
     #Points
-    for vpoint in self.Points:
-        if has_path and (not vpoint.grounded()):
-            continue
+    for vpoint in self.vpoints:
         if vpoint.cx < x_right:
             x_right = vpoint.cx
         if vpoint.cx > x_left:
@@ -439,8 +425,8 @@ def _zoomToFitLimit(self) -> Tuple[float, float, float, float]:
         if vpoint.cy > y_top:
             y_top = vpoint.cy
     #Solving paths
-    if self.showTargetPath:
-        for path in self.targetPath.values():
+    if self.show_target_path:
+        for path in self.target_path.values():
             for x, y in path:
                 if x < x_right:
                     x_right = x
@@ -467,6 +453,11 @@ def _zoomToFitLimit(self) -> Tuple[float, float, float, float]:
     return x_right, x_left, y_top, y_bottom
 
 
+def emit_freemove_all(self):
+    """Edit all points to edit."""
+    _emit_freemove(self, list(range(len(self.vpoints))))
+
+
 def paintEvent(self, event):
     """Drawing functions."""
     width = self.width()
@@ -479,25 +470,45 @@ def paintEvent(self, event):
         self.oy += (height - self.height_old) / 2
     #'self' is the instance of 'DynamicCanvas'.
     BaseCanvas.paintEvent(self, event)
-    self.painter.setFont(QFont('Arial', self.fontSize))
     #Draw links except ground.
-    for vlink in self.Links[1:]:
+    for vlink in self.vlinks[1:]:
         _drawLink(self, vlink)
     #Draw path.
     if self.Path.show != -2:
         _drawPath(self)
     #Draw solving path.
-    if self.showTargetPath:
+    if self.show_target_path:
+        self.painter.setFont(QFont("Arial", self.font_size + 5))
         _drawSlvsRanges(self)
-        self._BaseCanvas__drawTargetPath()
+        self.drawTargetPath()
+        self.painter.setFont(QFont("Arial", self.font_size))
     #Draw points.
-    for i, vpoint in enumerate(self.Points):
+    for i, vpoint in enumerate(self.vpoints):
         _drawPoint(self, i, vpoint)
+    #Draw solutions.
+    if self.select_mode == 2:
+        for i, expr in enumerate(self.exprs):
+            args = [
+                expr[0],
+                expr[1:-1],
+                expr[-1],
+                self.vpoints
+            ]
+            self.drawSolution(*args)
+            if i in self.selections:
+                pos, _ = self.solutionPolygon(*args)
+                pen = QPen()
+                pen.setWidth(self.link_width + 3)
+                pen.setColor(QColor(161, 16, 239))
+                self.painter.setPen(pen)
+                self.painter.drawPolygon(*[
+                    QPointF(x, -y) * self.zoom for x, y in pos
+                ])
     #Draw a colored frame for free move mode.
     if self.freemove != FreeMode.NoFreeMove:
         pen = QPen()
         if self.freemove == FreeMode.Translate:
-            pen.setColor(QColor(161, 105, 229))
+            pen.setColor(QColor(161, 16, 229))
         elif self.freemove == FreeMode.Rotate:
             pen.setColor(QColor(219, 162, 6))
         elif self.freemove == FreeMode.Reflect:
@@ -515,16 +526,6 @@ def paintEvent(self, event):
     #Record the widget size.
     self.width_old = width
     self.height_old = height
-
-
-def getRecordPath(self) -> Tuple[Tuple[Tuple[float, float]]]:
-    """Return paths."""
-    path = tuple(
-        tuple(path) if (len(set(path)) > 1) else ()
-        for path in self.path_record
-    )
-    del self.path_record
-    return path
 
 
 def mousePressEvent(self, event):
@@ -591,11 +592,8 @@ def mouseReleaseEvent(self, event):
             ):
                 self.noselected.emit()
         #Edit point coordinates.
-        elif (self.selectionMode == 0) and (self.freemove != FreeMode.NoFreeMove):
-            self.freemoved.emit(tuple((row, (
-                self.Points[row].cx,
-                self.Points[row].cy,
-            )) for row in self.selections))
+        elif (self.select_mode == 0) and (self.freemove != FreeMode.NoFreeMove):
+            _emit_freemove(self, self.selections)
     self.selector.release()
     self.update()
     event.accept()
@@ -633,26 +631,31 @@ def mouseMoveEvent(self, event):
                     self.selector.sx / self.zoom,
                     self.selector.sy / -self.zoom,
                     len(selection),
-                    'link' if self.selectionMode == 1 else 'point'
+                    'point' if self.select_mode == 0 else
+                    'link' if self.select_mode == 1 else
+                    'solution'
                 ),
                 self
             )
-        elif self.selectionMode == 0:
+        elif self.select_mode == 0:
             if self.freemove == FreeMode.Translate:
                 #Free move translate function.
-                mouse_x = _snap(self, x - self.selector.x / self.zoom, False)
-                mouse_y = _snap(self, y - self.selector.y / -self.zoom, False)
+                mouse_x = _snap(self,
+                    x - self.selector.x / self.zoom,
+                    is_zoom=False
+                )
+                mouse_y = _snap(self,
+                    y - self.selector.y / -self.zoom,
+                    is_zoom=False
+                )
                 QToolTip.showText(
                     event.globalPos(),
                     "{:+.02f}, {:+.02f}".format(mouse_x, mouse_y),
                     self
                 )
-                for row in self.selections:
-                    vpoint = self.Points[row]
-                    vpoint.move((
-                        mouse_x + vpoint.x,
-                        mouse_y + vpoint.y
-                    ))
+                for num in self.selections:
+                    vpoint = self.vpoints[num]
+                    vpoint.move((mouse_x + vpoint.x, mouse_y + vpoint.y))
             elif self.freemove == FreeMode.Rotate:
                 #Free move rotate function.
                 alpha = atan2(y, x) - atan2(
@@ -663,14 +666,13 @@ def mouseMoveEvent(self, event):
                     "{:+.02f}°".format(degrees(alpha)),
                     self
                 )
-                for row in self.selections:
-                    vpoint = self.Points[row]
+                for num in self.selections:
+                    vpoint = self.vpoints[num]
                     r = hypot(vpoint.x, vpoint.y)
                     beta = atan2(vpoint.y, vpoint.x)
-                    vpoint.move((
-                        r * cos(alpha + beta),
-                        r * sin(alpha + beta)
-                    ))
+                    vpoint.move((r * cos(beta + alpha), r * sin(beta + alpha)))
+                    if vpoint.type != 0:
+                        vpoint.rotate(self.vangles[num] + degrees(beta + alpha))
             elif self.freemove == FreeMode.Reflect:
                 #Free move reflect function.
                 fx = 1 if (x > 0) else -1
@@ -680,15 +682,16 @@ def mouseMoveEvent(self, event):
                     "{:+d}, {:+d}".format(fx, fy),
                     self
                 )
-                for row in self.selections:
-                    vpoint = self.Points[row]
+                for num in self.selections:
+                    vpoint = self.vpoints[num]
                     if vpoint.type == 0:
                         vpoint.move((vpoint.x * fx, vpoint.y * fy))
                     else:
-                        vpoint.move(
-                            (vpoint.x * fx, vpoint.y * fy),
-                            (vpoint.x * fx, vpoint.y * fy)
-                        )
+                        vpoint.move((vpoint.x * fx, vpoint.y * fy))
+                        if (x > 0) != (y > 0):
+                            vpoint.rotate(180 - self.vangles[num])
+            if self.freemove != FreeMode.NoFreeMove:
+                self.previewpath(self.pathpreview, self.vpoints)
         self.update()
     self.tracking.emit(x, y)
     event.accept()
@@ -698,25 +701,25 @@ def zoomToFit(self):
     """Zoom to fit function."""
     width = self.width()
     height = self.height()
-    width = width if not (width == 0) else 1
-    height = height if not (height == 0) else 1
+    width = width if width else 1
+    height = height if height else 1
     x_right, x_left, y_top, y_bottom = _zoomToFitLimit(self)
     inf = float('inf')
     if (inf in (x_right, y_bottom)) or (-inf in (x_left, y_top)):
         self.zoom_changed.emit(200)
-        self.ox = width/2
-        self.oy = height/2
+        self.ox = width / 2
+        self.oy = height / 2
         self.update()
         return
     x_diff = x_left - x_right
     y_diff = y_top - y_bottom
-    x_diff = x_diff if (x_diff != 0) else 1
-    y_diff = y_diff if (y_diff != 0) else 1
+    x_diff = x_diff if x_diff else 1
+    y_diff = y_diff if y_diff else 1
     if (width / x_diff) < (height / y_diff):
         factor = width / x_diff
     else:
         factor = height / y_diff
-    self.zoom_changed.emit(int(factor * self.marginFactor * 50))
-    self.ox = width / 2 - (x_left + x_right) / 2 *self.zoom
-    self.oy = height / 2 + (y_top + y_bottom) / 2 *self.zoom
+    self.zoom_changed.emit(int(factor * self.margin_factor * 50))
+    self.ox = (width - (x_left + x_right) * self.zoom) / 2
+    self.oy = (height + (y_top + y_bottom) * self.zoom) / 2
     self.update()
