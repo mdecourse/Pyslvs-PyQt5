@@ -24,15 +24,13 @@ from core.libs import parse_params
 
 
 def _clearStorage(self):
-    """After saved storage,
-    clean all the item of two table widgets.
-    """
+    """After saved storage, clean all the item of two table widgets."""
     self.EntitiesPoint.clear()
     self.EntitiesLink.clear()
     self.InputsWidget.variableExcluding()
 
 
-def _addStorage(self, name, expr):
+def _addStorage(self, name: str, expr: str):
     """Add storage data function."""
     self.CommandStack.beginMacro("Add {{Mechanism: {}}}".format(name))
     self.CommandStack.push(AddStorage(
@@ -53,16 +51,15 @@ def _addStorage(self, name, expr):
 
 
 def on_mechanism_storage_add_clicked(self):
-    name = self.mechanism_storage_name_tag.text()
-    if not name:
-        name = self.mechanism_storage_name_tag.placeholderText()
+    name = (
+        self.mechanism_storage_name_tag.text() or
+        self.mechanism_storage_name_tag.placeholderText()
+    )
     self.CommandStack.beginMacro("Add {{Mechanism: {}}}".format(name))
     _addStorage(self, name, "M[{}]".format(", ".join(
         vpoint.expr for vpoint in self.EntitiesPoint.data()
     )))
-    self.CommandStack.push(ClearStorageName(
-        self.mechanism_storage_name_tag
-    ))
+    self.CommandStack.push(ClearStorageName(self.mechanism_storage_name_tag))
     self.CommandStack.endMacro()
 
 
@@ -153,6 +150,14 @@ def on_mechanism_storage_restore_clicked(self, item: QListWidgetItem = None):
         self.mechanism_storage_name_tag
     ))
     self.CommandStack.endMacro()
+
+
+def getStorage(self) -> Tuple[Tuple[str, str]]:
+    """Get storage data."""
+    return tuple((
+        self.mechanism_storage.item(row).text(),
+        self.mechanism_storage.item(row).expr
+    ) for row in range(self.mechanism_storage.count()))
 
 
 def loadStorage(self, exprs: Tuple[Tuple[str, str]]):

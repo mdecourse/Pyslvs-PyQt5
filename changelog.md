@@ -1,6 +1,23 @@
 Change Log
 ===
 
+Version 18.08
+===
+
+Features
+---
+
++ Important: File format was changed.
++ Add new examples:
+    + "Stephenson I"
+    + "Watt I"
+    + "Watt II"
+
+Development
+---
+
++ Database module "peewee" rename to "database".
+
 Version 18.07
 ===
 
