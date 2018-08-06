@@ -9,6 +9,7 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from abc import abstractmethod
 from typing import (
     Tuple,
     List,
@@ -77,6 +78,11 @@ class _BaseTableWidget(QTableWidget):
             else:
                 texts.append(item.text())
         return texts
+    
+    @abstractmethod
+    def data(self):
+        """Return table data in subclass."""
+        ...
     
     def dataTuple(self) -> Tuple[Union[VPoint, VLink]]:
         """Return data set as a container."""
@@ -176,7 +182,7 @@ class PointTableWidget(_BaseTableWidget):
     def data(self) -> Iterator[VPoint]:
         """Yield the digitization of all table data."""
         for row in range(self.rowCount()):
-            Links = self.item(row, 1).text()
+            links = self.item(row, 1).text()
             color = self.item(row, 3).text()
             x = float(self.item(row, 4).text())
             y = float(self.item(row, 5).text())
@@ -188,9 +194,13 @@ class PointTableWidget(_BaseTableWidget):
             elif (p_type[0] == 'P') or (p_type[0] == 'RP'):
                 angle = float(p_type[1])
                 type = 1 if p_type[0] == 'P' else 2
-            vpoint = VPoint(Links, type, angle, color, x, y, colorQt)
+            vpoint = VPoint(links, type, angle, color, x, y, colorQt)
             vpoint.move(*self.currentPosition(row))
             yield vpoint
+    
+    def expression(self) -> str:
+        """Return expression string."""
+        return "M[{}]".format(", ".join(vpoint.expr for vpoint in self.data()))
     
     def editArgs(self,
         row: int,
@@ -225,7 +235,7 @@ class PointTableWidget(_BaseTableWidget):
         """Get the current coordinate from a point."""
         type_str = self.item(row, 2).text().split(':')
         coords = eval("[{}]".format(self.item(row, 6).text().replace(';', ',')))
-        if (len(coords) < 2) and ((type_str[0] == 'P') or (type_str[0] == 'RP')):
+        if (type_str[0] in ('P', 'RP')) and (len(coords) == 1):
             self.item(row, 6).setText("({0}, {1}); ({0}, {1})".format(*coords[0]))
             coords.append(coords[0])
         return coords
@@ -300,6 +310,10 @@ class LinkTableWidget(_BaseTableWidget):
                     continue
                 points.append(int(p.replace('Point', '')))
             yield VLink(name, color, tuple(points), colorQt)
+    
+    def dataDict(self) -> Dict[str, str]:
+        """Return name and color as a dict."""
+        return {vlink.name: vlink.colorSTR for vlink in self.data()}
     
     def editArgs(self,
         row: int,

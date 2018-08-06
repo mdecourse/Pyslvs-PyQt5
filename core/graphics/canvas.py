@@ -7,6 +7,7 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from time import time
 from math import (
     radians,
     sin,
@@ -30,6 +31,8 @@ from core.QtModules import (
     pyqtSlot,
     Qt,
     QPointF,
+    QRectF,
+    QSizeF,
     QWidget,
     QSizePolicy,
     QPainter,
@@ -37,7 +40,9 @@ from core.QtModules import (
     QPen,
     QColor,
     QFont,
+    QTimer,
     QPainterPath,
+    QImage,
 )
 from core import io
 from core.libs import VPoint
@@ -166,9 +171,11 @@ class BaseCanvas(QWidget):
             QSizePolicy.Expanding,
             QSizePolicy.Expanding
         ))
+        self.setFocusPolicy(Qt.StrongFocus)
+        
         #Origin coordinate.
-        self.ox = self.width()/2
-        self.oy = self.height()/2
+        self.ox = self.width() / 2
+        self.oy = self.height() / 2
         #Canvas zoom rate.
         self.rate = 2
         self.zoom = 2 * self.rate
@@ -187,6 +194,16 @@ class BaseCanvas(QWidget):
         #Path solving.
         self.target_path = {}
         self.show_target_path = False
+        #Background
+        self.background = QImage()
+        self.background_scale = 1
+        self.background_offset = QPointF(0, 0)
+        #Frame
+        self.show_fps = True
+        self.__t0 = time()
+        self.__frame_timer = QTimer(self)
+        self.__frame_timer.timeout.connect(self.update)
+        self.__frame_timer.start(1000)
     
     def paintEvent(self, event):
         """Using a QPainter under 'self',
@@ -195,16 +212,37 @@ class BaseCanvas(QWidget):
         self.painter = QPainter()
         self.painter.begin(self)
         self.painter.fillRect(event.rect(), QBrush(Qt.white))
+        #Translation
         self.painter.translate(self.ox, self.oy)
-        self.painter.setFont(QFont("Arial", self.font_size))
-        #Draw origin lines.
-        pen = QPen(Qt.gray)
+        #Background
+        if not self.background.isNull():
+            rect = self.background.rect()
+            self.painter.drawImage(
+                QRectF(self.background_offset, QSizeF(
+                    rect.width() * self.background_scale * self.zoom,
+                    rect.height() * self.background_scale * self.zoom
+                )),
+                self.background,
+                QRectF(rect)
+            )
+        #Show frame.
+        pen = QPen(Qt.blue)
         pen.setWidth(1)
         self.painter.setPen(pen)
+        self.painter.setFont(QFont("Arial", self.font_size))
+        if self.show_fps:
+            self.painter.drawText(
+                QPointF(-self.ox, -self.oy + 20),
+                "FPS: {:6.02f}".format(1 / (time() - self.__t0))
+            )
+            self.__t0 = time()
+        #Draw origin lines.
+        pen.setColor(Qt.gray)
+        self.painter.setPen(pen)
         x_l = -self.ox
-        x_r = self.width()-self.ox
+        x_r = self.width() - self.ox
         self.painter.drawLine(QPointF(x_l, 0), QPointF(x_r, 0))
-        y_t = self.height()-self.oy
+        y_t = self.height() - self.oy
         y_b = -self.oy
         self.painter.drawLine(QPointF(0, y_b), QPointF(0, y_t))
         
@@ -212,15 +250,15 @@ class BaseCanvas(QWidget):
             """Draw tick."""
             return int(v / self.zoom - v / self.zoom % 5)
         
-        for x in range(indexing(x_l), indexing(x_r)+1, 5):
+        for x in range(indexing(x_l), indexing(x_r) + 1, 5):
             self.painter.drawLine(
-                QPointF(x*self.zoom, 0),
-                QPointF(x*self.zoom, -10 if (x % 10 == 0) else -5)
+                QPointF(x * self.zoom, 0),
+                QPointF(x * self.zoom, -10 if (x % 10 == 0) else -5)
             )
         for y in range(indexing(y_b), indexing(y_t) + 1, 5):
             self.painter.drawLine(
-                QPointF(0, y*self.zoom),
-                QPointF(10 if (y % 10 == 0) else 5, y*self.zoom)
+                QPointF(0, y * self.zoom),
+                QPointF(10 if (y % 10 == 0) else 5, y * self.zoom)
             )
         #Please to call the "end" method when ending paint event.
         #self.painter.end()
@@ -277,10 +315,10 @@ class BaseCanvas(QWidget):
                     y *= -self.zoom
                     self.painter.drawEllipse(QPointF(x, y), RADIUS, RADIUS)
                     if j == 0:
-                        self.painter.drawText(QPointF(x+6, y-6), name)
+                        self.painter.drawText(QPointF(x + 6, y - 6), name)
                         pointPath.moveTo(x, y)
                     else:
-                        x2, y2 = path[j-1]
+                        x2, y2 = path[j - 1]
                         self.drawArrow(x, y, x2 * self.zoom, y2 * -self.zoom)
                         pointPath.lineTo(QPointF(x, y))
                 self.painter.drawPath(pointPath)
@@ -288,12 +326,12 @@ class BaseCanvas(QWidget):
                     pen.setColor(Dot)
                     self.painter.setPen(pen)
                     self.painter.drawEllipse(
-                        QPointF(x, -y)*self.zoom, RADIUS, RADIUS
+                        QPointF(x, -y) * self.zoom, RADIUS, RADIUS
                     )
             elif len(path) == 1:
                 x = path[0][0] * self.zoom
                 y = path[0][1] * -self.zoom
-                self.painter.drawText(QPointF(x+6, y-6), name)
+                self.painter.drawText(QPointF(x + 6, y - 6), name)
                 pen.setColor(Dot)
                 self.painter.setPen(pen)
                 self.painter.drawEllipse(QPointF(x, y), RADIUS, RADIUS)
@@ -309,17 +347,17 @@ class BaseCanvas(QWidget):
     ):
         """Front point -> Back point"""
         a = atan2(y2 - y1, x2 - x1)
-        x1 = (x1 + x2) / 2 - 7.5*cos(a)
-        y1 = (y1 + y2) / 2 - 7.5*sin(a)
+        x1 = (x1 + x2) / 2 - 7.5 * cos(a)
+        y1 = (y1 + y2) / 2 - 7.5 * sin(a)
         first_point = QPointF(x1, y1)
-        self.painter.drawLine(
-            first_point,
-            QPointF(x1 + 15*cos(a + radians(20)), y1 + 15*sin(a + radians(20)))
-        )
-        self.painter.drawLine(
-            first_point,
-            QPointF(x1 + 15*cos(a - radians(20)), y1 + 15*sin(a - radians(20)))
-        )
+        self.painter.drawLine(first_point, QPointF(
+            x1 + 15 * cos(a + radians(20)),
+            y1 + 15 * sin(a + radians(20))
+        ))
+        self.painter.drawLine(first_point, QPointF(
+            x1 + 15 * cos(a - radians(20)),
+            y1 + 15 * sin(a - radians(20))
+        ))
         if not text:
             return
         #Font

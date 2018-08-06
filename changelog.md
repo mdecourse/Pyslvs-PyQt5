@@ -12,11 +12,20 @@ Features
     + "Stephenson I"
     + "Watt I"
     + "Watt II"
+    + "Lift Tailgate"
+    + "Crank lifter"
++ Selection label function improvement.
++ UI and selection mode improvements.
++ Add FPS counter.
++ Add background settings.
++ Add limitation of input mechanism in UI.
 
 Development
 ---
 
 + Database module "peewee" rename to "database".
++ Database function improvements.
++ All PyQt slots renaming to short names.
 
 Version 18.07
 ===

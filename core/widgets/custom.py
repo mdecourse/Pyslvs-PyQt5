@@ -87,20 +87,12 @@ def _appearance(self):
     #Entities tables.
     self.EntitiesTab.tabBar().setStatusTip("Switch the tabs to change to another view mode.")
     self.EntitiesPoint = PointTableWidget(self.EntitiesPoint_widget)
-    self.EntitiesPoint.cellDoubleClicked.connect(
-        self.on_action_Edit_Point_triggered
-    )
-    self.EntitiesPoint.deleteRequest.connect(
-        self.on_action_Delete_Point_triggered
-    )
+    self.EntitiesPoint.cellDoubleClicked.connect(self.editPoint)
+    self.EntitiesPoint.deleteRequest.connect(self.deletePoint)
     self.EntitiesPoint_layout.addWidget(self.EntitiesPoint)
     self.EntitiesLink = LinkTableWidget(self.EntitiesLink_widget)
-    self.EntitiesLink.cellDoubleClicked.connect(
-        self.on_action_Edit_Link_triggered
-    )
-    self.EntitiesLink.deleteRequest.connect(
-        self.on_action_Delete_Link_triggered
-    )
+    self.EntitiesLink.cellDoubleClicked.connect(self.editLink)
+    self.EntitiesLink.deleteRequest.connect(self.deleteLink)
     self.EntitiesLink_layout.addWidget(self.EntitiesLink)
     self.EntitiesExpr = ExprTableWidget(self.EntitiesExpr_widget)
     self.EntitiesExpr.reset.connect(self.link_freemode_widget.setEnabled)
@@ -174,21 +166,12 @@ def _appearance(self):
     
     self.MainCanvas.freemoved.connect(self.setFreemove)
     self.MainCanvas.alt_add.connect(self.qAddNormalPoint)
-    self.MainCanvas.doubleclick_edit.connect(self.on_action_Edit_Point_triggered)
+    self.MainCanvas.doubleclick_edit.connect(self.editPoint)
     self.MainCanvas.zoom_changed.connect(self.ZoomBar.setValue)
     self.MainCanvas.tracking.connect(self.setMousePos)
     self.MainCanvas.browse_tracking.connect(selectionLabel.updateMousePosition)
     self.canvasSplitter.insertWidget(0, self.MainCanvas)
     self.canvasSplitter.setSizes([600, 10, 30])
-    
-    #File table settings.
-    self.FileWidget = FileWidget(self)
-    self.SCMLayout.addWidget(self.FileWidget)
-    self.FileWidget.commit_add.clicked.connect(self.on_action_Save_triggered)
-    self.FileWidget.branch_add.clicked.connect(
-        self.on_action_Save_branch_triggered
-    )
-    self.action_Stash.triggered.connect(self.FileWidget.on_commit_stash_clicked)
     
     #Inputs widget.
     self.InputsWidget = InputsWidget(self)
@@ -224,52 +207,28 @@ def _appearance(self):
     self.StructureSynthesis.addCollection = (
         self.CollectionTabPage.StructureWidget.addCollection
     )
-    self.FileWidget.CollectDataFunc = (
-        self.CollectionTabPage.CollectDataFunc
-    ) #Call to get collections data.
-    self.FileWidget.TriangleDataFunc = (
-        self.CollectionTabPage.TriangleDataFunc
-    ) #Call to get triangle data.
-    self.FileWidget.InputsDataFunc = (lambda: tuple(
-        variable[:-1]
-        for variable in self.InputsWidget.inputPair()
-    )) #Call to get inputs variables data.
-    self.FileWidget.loadCollectFunc = (
-        self.CollectionTabPage.StructureWidget.addCollections
-    ) #Call to load collections data.
-    self.FileWidget.loadTriangleFunc = (
-        self.CollectionTabPage.TriangularIterationWidget.addCollections
-    ) #Call to load triangle data.
-    self.FileWidget.loadInputsFunc = (
-        self.InputsWidget.addInputsVariables
-    ) #Call to load inputs variables data.
-    self.FileWidget.loadPathFunc = (
-        self.InputsWidget.loadPaths
-    ) #Call after loaded paths.
-    self.FileWidget.pathDataFunc = (
-        lambda: self.InputsWidget.pathData
-    ) #Call to get path data.
     
     #Dimensional synthesis
     self.DimensionalSynthesis = DimensionalSynthesis(self)
-    self.FileWidget.AlgorithmDataFunc = (
-        lambda: self.DimensionalSynthesis.mechanism_data
-    ) #Call to get algorithm data.
-    self.FileWidget.loadAlgorithmFunc = (
-        self.DimensionalSynthesis.loadResults
-    ) #Call after loaded algorithm results.
     self.SynthesisTab.addTab(
         self.DimensionalSynthesis,
         self.DimensionalSynthesis.windowIcon(),
         "Dimensional"
     )
     
+    #File table settings.
+    self.FileWidget = FileWidget(self)
+    self.SCMLayout.addWidget(self.FileWidget)
+    self.FileWidget.commit_add.clicked.connect(self.save)
+    self.FileWidget.branch_add.clicked.connect(self.saveBranch)
+    self.action_Stash.triggered.connect(self.FileWidget.stash)
+    
     #Console dock will hide when startup.
     self.ConsoleWidget.hide()
     
     #Connect to GUI button switching.
-    self.disconnectConsoleButton.setEnabled(not self.args.debug_mode)
-    self.connectConsoleButton.setEnabled(self.args.debug_mode)
+    self.console_disconnect_button.setEnabled(not self.args.debug_mode)
+    self.console_connect_button.setEnabled(self.args.debug_mode)
     
     #Splitter stretch factor.
     self.MainSplitter.setStretchFactor(0, 4)
@@ -344,24 +303,19 @@ def _options(self):
     self.linewidth_option.valueChanged.connect(self.MainCanvas.setLinkWidth)
     self.pathwidth_option.valueChanged.connect(self.MainCanvas.setPathWidth)
     self.fontsize_option.valueChanged.connect(self.MainCanvas.setFontSize)
-    self.action_Display_Point_Mark.toggled.connect(
-        self.MainCanvas.setPointMark
-    )
-    self.action_Display_Dimensions.toggled.connect(
-        self.MainCanvas.setShowDimension
-    )
-    self.selectionradius_option.valueChanged.connect(
-        self.MainCanvas.setSelectionRadius
-    )
-    self.linktrans_option.valueChanged.connect(
-        self.MainCanvas.setTransparency
-    )
-    self.marginfactor_option.valueChanged.connect(
-        self.MainCanvas.setMarginFactor
-    )
+    self.action_Display_Point_Mark.toggled.connect(self.MainCanvas.setPointMark)
+    self.action_Display_Dimensions.toggled.connect(self.MainCanvas.setShowDimension)
+    self.selectionradius_option.valueChanged.connect(self.MainCanvas.setSelectionRadius)
+    self.linktrans_option.valueChanged.connect(self.MainCanvas.setTransparency)
+    self.marginfactor_option.valueChanged.connect(self.MainCanvas.setMarginFactor)
     self.jointsize_option.valueChanged.connect(self.MainCanvas.setJointSize)
     self.zoomby_option.currentIndexChanged.connect(self.MainCanvas.setZoomBy)
     self.snap_option.valueChanged.connect(self.MainCanvas.setSnap)
+    self.showfps_option.toggled.connect(self.MainCanvas.setShowFPS)
+    self.background_option.textChanged.connect(self.MainCanvas.setBackground)
+    self.background_scale_option.valueChanged.connect(self.MainCanvas.setBackgroundScale)
+    self.background_offset_x_option.valueChanged.connect(self.MainCanvas.setBackgroundOffsetX)
+    self.background_offset_y_option.valueChanged.connect(self.MainCanvas.setBackgroundOffsetY)
     #Resolve after change current kernel.
     kernel_list = ("Pyslvs", "Python-Solvespace", "Sketch Solve")
     self.planarsolver_option.addItems(kernel_list)
@@ -426,21 +380,17 @@ def _point_context_menu(self):
     + Delete
     """
     self.EntitiesPoint_widget.customContextMenuRequested.connect(
-        self.on_point_context_menu
+        self.point_context_menu
     )
     self.popMenu_point = QMenu(self)
     self.popMenu_point.setSeparatorsCollapsible(True)
     self.action_point_context_add = QAction("&Add", self)
-    self.action_point_context_add.triggered.connect(
-        self.on_action_New_Point_triggered
-    )
+    self.action_point_context_add.triggered.connect(self.newPoint)
     self.popMenu_point.addAction(self.action_point_context_add)
     #New Link
     self.popMenu_point.addAction(self.action_New_Link)
     self.action_point_context_edit = QAction("&Edit", self)
-    self.action_point_context_edit.triggered.connect(
-        self.on_action_Edit_Point_triggered
-    )
+    self.action_point_context_edit.triggered.connect(self.editPoint)
     self.popMenu_point.addAction(self.action_point_context_edit)
     self.action_point_context_lock = QAction("&Grounded", self)
     self.action_point_context_lock.setCheckable(True)
@@ -460,9 +410,7 @@ def _point_context_menu(self):
     self.popMenu_point.addAction(self.action_point_context_copyPoint)
     self.popMenu_point.addSeparator()
     self.action_point_context_delete = QAction("&Delete", self)
-    self.action_point_context_delete.triggered.connect(
-        self.on_action_Delete_Point_triggered
-    )
+    self.action_point_context_delete.triggered.connect(self.deletePoint)
     self.popMenu_point.addAction(self.action_point_context_delete)
 
 
@@ -481,19 +429,15 @@ def _link_context_menu(self):
     + Delete
     """
     self.EntitiesLink_widget.customContextMenuRequested.connect(
-        self.on_link_context_menu
+        self.link_context_menu
     )
     self.popMenu_link = QMenu(self)
     self.popMenu_link.setSeparatorsCollapsible(True)
     self.action_link_context_add = QAction("&Add", self)
-    self.action_link_context_add.triggered.connect(
-        self.on_action_New_Link_triggered
-    )
+    self.action_link_context_add.triggered.connect(self.newLink)
     self.popMenu_link.addAction(self.action_link_context_add)
     self.action_link_context_edit = QAction("&Edit", self)
-    self.action_link_context_edit.triggered.connect(
-        self.on_action_Edit_Link_triggered
-    )
+    self.action_link_context_edit.triggered.connect(self.editLink)
     self.popMenu_link.addAction(self.action_link_context_edit)
     self.popMenu_link_merge = QMenu(self)
     self.popMenu_link_merge.setTitle("Merge links")
@@ -509,9 +453,7 @@ def _link_context_menu(self):
     self.popMenu_link.addAction(self.action_link_context_constrain)
     self.popMenu_link.addSeparator()
     self.action_link_context_delete = QAction("&Delete", self)
-    self.action_link_context_delete.triggered.connect(
-        self.on_action_Delete_Link_triggered
-    )
+    self.action_link_context_delete.triggered.connect(self.deleteLink)
     self.popMenu_link.addAction(self.action_link_context_delete)
 
 
@@ -523,7 +465,7 @@ def _canvas_context_menu(self):
     + Actions set of links.
     """
     self.MainCanvas.setContextMenuPolicy(Qt.CustomContextMenu)
-    self.MainCanvas.customContextMenuRequested.connect(self.on_canvas_context_menu)
+    self.MainCanvas.customContextMenuRequested.connect(self.canvas_context_menu)
     """
     Actions set of points:
     

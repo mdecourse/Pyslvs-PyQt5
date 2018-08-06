@@ -82,10 +82,8 @@ class DynamicCanvas(BaseCanvas):
         #Path record.
         self.path_record = []
         #Zooming center.
-        """
-        0: By cursor.
-        1: By canvas center.
-        """
+        # 0: By cursor.
+        # 1: By canvas center.
         self.zoomby = 0
         #Mouse snapping value.
         self.snap = 5
@@ -187,10 +185,7 @@ class DynamicCanvas(BaseCanvas):
     
     @pyqtSlot(int)
     def setTransparency(self, transparency: int):
-        """Update transparency.
-        
-        0%: opaque.
-        """
+        """Update transparency. (0%: opaque)"""
         self.transparency = (100 - transparency) / 100
         self.update()
     
@@ -215,6 +210,36 @@ class DynamicCanvas(BaseCanvas):
     def setSnap(self, snap: float):
         """Update mouse capture value."""
         self.snap = snap
+    
+    @pyqtSlot(bool)
+    def setShowFPS(self, show_fps: bool):
+        """Set FPS display option."""
+        self.show_fps = show_fps
+        self.update()
+    
+    @pyqtSlot(str)
+    def setBackground(self, path: str):
+        """Set background from file path."""
+        if self.background.load(path):
+            self.update()
+    
+    @pyqtSlot(float)
+    def setBackgroundScale(self, scale: float):
+        """Set scale value of background."""
+        self.background_scale = scale
+        self.update()
+    
+    @pyqtSlot(float)
+    def setBackgroundOffsetX(self, x: float):
+        """Set offset x value of background."""
+        self.background_offset.setX(x)
+        self.update()
+    
+    @pyqtSlot(float)
+    def setBackgroundOffsetY(self, y: float):
+        """Set offset y value of background."""
+        self.background_offset.setY(-y)
+        self.update()
     
     @pyqtSlot(int)
     def setSelectionMode(self, select_mode: int):

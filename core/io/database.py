@@ -7,7 +7,8 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-import os
+from os import remove as os_remove
+from os.path import isfile
 import datetime
 from zlib import compress, decompress
 from peewee import (
@@ -141,9 +142,7 @@ class LoadCommitButton(QPushButton):
 
 class FileWidget(QWidget, Ui_Form):
     
-    """The table that stored workbook data,
-    including IO functions.
-    """
+    """The table that stored workbook data and changes."""
     
     load_id = pyqtSignal(int)
     
@@ -177,8 +176,8 @@ class FileWidget(QWidget, Ui_Form):
         + Get current point data.
         + Get current link data.
         """
-        self.pointDataFunc = parent.EntitiesPoint.data
-        self.linkDataFunc = parent.EntitiesLink.data
+        self.pointExprFunc = parent.EntitiesPoint.expression
+        self.linkExprFunc = parent.EntitiesLink.dataDict
         self.storageDataFunc = parent.getStorage
         """Functions to get and set data.
         
@@ -191,28 +190,36 @@ class FileWidget(QWidget, Ui_Form):
         """
         self.checkFileChanged = parent.checkFileChanged
         self.isSavedFunc = parent.workbookSaved
-        self.linkGroupFunc = parent.addEmptyLinkGroup
+        self.addLinksFunc = parent.addEmptyLinks
         self.parseFunc = parent.parseExpression
         self.clearFunc = parent.clear
-        self.loadStorageFunc = parent.loadStorage
-        """Mentioned in 'core.widgets.custom',
-        because DimensionalSynthesis created after FileWidget.
+        self.addStoragesFunc = parent.addStorages
         
-        self.CollectDataFunc #Call to get collections data.
-        self.TriangleDataFunc #Call to get triangle data.
-        self.InputsDataFunc #Call to get inputs variables data.
-        self.AlgorithmDataFunc #Call to get algorithm data.
-        self.pathDataFunc #Call to get path data.
-        self.loadCollectFunc #Call to load collections data.
-        self.loadTriangleFunc #Call to load triangle data.
-        self.loadInputsFunc #Call to load inputs variables data.
-        self.loadAlgorithmFunc #Call after loaded algorithm results.
-        self.loadPathFunc #Call after loaded paths.
-        """
+        #Call to get collections data.
+        self.CollectDataFunc = parent.CollectionTabPage.CollectDataFunc
+        #Call to get triangle data.
+        self.TriangleDataFunc = parent.CollectionTabPage.TriangleDataFunc
+        #Call to get inputs variables data.
+        self.InputsDataFunc = parent.InputsWidget.inputPair
+        #Call to get algorithm data.
+        self.AlgorithmDataFunc = parent.DimensionalSynthesis.mechanismData
+        #Call to get path data.
+        self.pathDataFunc = parent.InputsWidget.pathData
+        #Call to load collections data.
+        self.loadCollectFunc = parent.CollectionTabPage.StructureWidget.addCollections
+        #Call to load triangle data.
+        self.loadTriangleFunc = parent.CollectionTabPage.TriangularIterationWidget.addCollections
+        #Call to load inputs variables data.
+        self.loadInputsFunc = parent.InputsWidget.addInputsVariables
+        #Call after loaded algorithm results.
+        self.loadAlgorithmFunc = parent.DimensionalSynthesis.loadResults
+        #Call after loaded paths.
+        self.loadPathFunc = parent.InputsWidget.loadPaths
+        
         #Close database when destroyed.
         self.destroyed.connect(self.__closeDatabase)
         #Undo Stack
-        self.CommandStack = parent.CommandStack
+        self.commandClear = parent.CommandStack.clear
         #Reset
         self.reset()
     
@@ -225,7 +232,7 @@ class FileWidget(QWidget, Ui_Form):
         self.lastTime = datetime.datetime.now()
         self.changed = False
         self.Stack = 0
-        self.CommandStack.clear()
+        self.commandClear()
         for row in range(self.CommitTable.rowCount()):
             self.CommitTable.removeRow(0)
         self.BranchList.clear()
@@ -249,11 +256,8 @@ class FileWidget(QWidget, Ui_Form):
         if not _db.deferred:
             _db.close()
     
-    def save(self, file_name: str, isBranch=False):
-        """Save database.
-        
-        + Append to new branch function.
-        """
+    def save(self, file_name: str, isBranch: bool = False):
+        """Save database, append commit to new branch function."""
         author_name = self.FileAuthor.text() or self.FileAuthor.placeholderText()
         branch_name = '' if isBranch else self.branch_current.text()
         commit_text = self.FileDescription.text()
@@ -284,59 +288,44 @@ class FileWidget(QWidget, Ui_Form):
             )
             if not ok:
                 return
-        if (
-            (file_name != self.file_name.absoluteFilePath()) and
-            os.path.isfile(file_name)
-        ):
-            os.remove(file_name)
+        if (file_name != self.file_name.absoluteFilePath()) and isfile(file_name):
+            os_remove(file_name)
             print("The original file has been overwritten.")
         self.__connectDatabase(file_name)
         isError = False
         with _db.atomic():
             if author_name in (user.name for user in UserModel.select()):
-                author_model = (
-                    UserModel
+                author_model = (UserModel
                     .select()
-                    .where(UserModel.name==author_name)
-                    .get()
-                )
+                    .where(UserModel.name == author_name)
+                    .get())
             else:
                 author_model = UserModel(name=author_name)
             if branch_name in (branch.name for branch in BranchModel.select()):
-                branch_model = (
-                    BranchModel
+                branch_model = (BranchModel
                     .select()
                     .where(BranchModel.name == branch_name)
-                    .get()
-                )
+                    .get())
             else:
                 branch_model = BranchModel(name=branch_name)
-            pointData = self.pointDataFunc()
-            linkcolor = {
-                vlink.name: vlink.colorSTR for vlink in self.linkDataFunc()
-            }
             args = {
-                'author':author_model,
-                'description':commit_text,
-                'mechanism':_compress("M[{}]".format(", ".join(
-                    vpoint.expr for vpoint in pointData
-                ))),
-                'linkcolor': _compress(linkcolor),
+                'author': author_model,
+                'description': commit_text,
+                'mechanism': _compress(self.pointExprFunc()),
+                'linkcolor': _compress(self.linkExprFunc()),
                 'storage': _compress(self.storageDataFunc()),
                 'pathdata': _compress(self.pathDataFunc()),
                 'collectiondata': _compress(self.CollectDataFunc()),
                 'triangledata': _compress(self.TriangleDataFunc()),
-                'inputsdata': _compress(self.InputsDataFunc()),
+                'inputsdata': _compress(tuple(self.InputsDataFunc(has_angles=False))),
                 'algorithmdata': _compress(self.AlgorithmDataFunc()),
-                'branch': branch_model
+                'branch': branch_model,
             }
             try:
-                args['previous'] = (
-                    CommitModel
+                args['previous'] = (CommitModel
                     .select()
                     .where(CommitModel.id == self.commit_current_id.value())
-                    .get()
-                )
+                    .get())
             except CommitModel.DoesNotExist:
                 args['previous'] = None
             new_commit = CommitModel(**args)
@@ -351,15 +340,15 @@ class FileWidget(QWidget, Ui_Form):
             else:
                 self.history_commit = CommitModel.select().order_by(CommitModel.id)
         if isError:
-            os.remove(file_name)
+            os_remove(file_name)
             print("The file was removed.")
             return
         self.read(file_name, showdlg = False)
         print("Saving \"{}\" successful.".format(file_name))
         size = QFileInfo(file_name).size()
         print("Size: {}".format(
-            "{} MB".format(round(size/1024/1024, 2))
-            if size / 1024 // 1024 else "{} KB".format(round(size/1024, 2))
+            "{} MB".format(round(size / 1024 / 1024, 2))
+            if size / 1024 // 1024 else "{} KB".format(round(size / 1024, 2))
         ))
     
     def read(self, file_name: str, *, showdlg: bool = True):
@@ -391,7 +380,7 @@ class FileWidget(QWidget, Ui_Form):
         self.__connectDatabase(file_name)
         commit_all = CommitModel.select().join(BranchModel)
         branch_all = BranchModel.select().order_by(BranchModel.name)
-        if self.history_commit != None:
+        if self.history_commit:
             self.__connectDatabase(self.file_name.absoluteFilePath())
         else:
             self.__closeDatabase()
@@ -405,12 +394,10 @@ class FileWidget(QWidget, Ui_Form):
         if not ok:
             return
         try:
-            commit = (
-                commit_all
+            commit = (commit_all
                 .where(BranchModel.name==branch_name)
                 .order_by(CommitModel.date)
-                .get()
-            )
+                .get())
         except CommitModel.DoesNotExist:
             QMessageBox.warning(self,
                 "Warning",
@@ -439,48 +426,39 @@ class FileWidget(QWidget, Ui_Form):
         self.load_id.connect(button.isLoaded)
         self.CommitTable.setCellWidget(row, 0, button)
         
-        date = "{t.year:02d}-{t.month:02d}-{t.day:02d} " \
-            "{t.hour:02d}:{t.minute:02d}:{t.second:02d}".format(t=commit.date)
-        
         self.CommitTable.setItem(row, 2, QTableWidgetItem(commit.description))
         
         author_name = commit.author.name
-        all_authors = [
-            self.AuthorList.item(row).text()
-            for row in range(self.AuthorList.count())
-        ]
-        if author_name not in all_authors:
+        for row in range(self.AuthorList.count()):
+            if author_name == self.AuthorList.item(row).text():
+                break
+        else:
             self.AuthorList.addItem(author_name)
         
-        if commit.previous:
-            previous_id = "#{}".format(commit.previous.id)
-        else:
-            previous_id = "None"
-        
         branch_name = commit.branch.name
-        all_branchs = [
-            self.BranchList.item(row).text()
-            for row in range(self.BranchList.count())
-        ]
-        if branch_name not in all_branchs:
+        for row in range(self.BranchList.count()):
+            if branch_name == self.BranchList.item(row).text():
+                break
+        else:
             self.BranchList.addItem(branch_name)
         self.branch_current.setText(branch_name)
         
-        for i, text in enumerate([
-            date,
+        for i, text in enumerate((
+            "{t.year:02d}-{t.month:02d}-{t.day:02d} "
+            "{t.hour:02d}:{t.minute:02d}:{t.second:02d}".format(t=commit.date),
             commit.description,
             author_name,
-            previous_id,
+            "#{}".format(commit.previous.id) if commit.previous else "None",
             branch_name
-        ]):
+        )):
             item = QTableWidgetItem(text)
             item.setToolTip(text)
-            self.CommitTable.setItem(row, i+1, item)
+            self.CommitTable.setItem(row, i + 1, item)
     
     def __loadCommitID(self, id: int):
         """Check the id is correct."""
         try:
-            commit = self.history_commit.where(CommitModel.id==id).get()
+            commit = self.history_commit.where(CommitModel.id == id).get()
         except CommitModel.DoesNotExist:
             QMessageBox.warning(self, "Warning", "Commit ID is not exist.")
         except AttributeError:
@@ -500,10 +478,10 @@ class FileWidget(QWidget, Ui_Form):
         self.commit_current_id.setValue(commit.id)
         self.branch_current.setText(commit.branch.name)
         #Load the expression.
-        self.linkGroupFunc(_decompress(commit.linkcolor))
+        self.addLinksFunc(_decompress(commit.linkcolor))
         self.parseFunc(_decompress(commit.mechanism))
         #Load the storages.
-        self.loadStorageFunc(_decompress(commit.storage))
+        self.addStoragesFunc(_decompress(commit.storage))
         #Load pathdata.
         self.loadPathFunc(_decompress(commit.pathdata))
         #Load collectiondata.
@@ -527,8 +505,8 @@ class FileWidget(QWidget, Ui_Form):
         self.parseFunc(_decompress(commit.mechanism))
         print("The specified phase has been merged.")
     
-    @pyqtSlot()
-    def on_commit_stash_clicked(self):
+    @pyqtSlot(name='on_commit_stash_clicked')
+    def stash(self):
         """Reload the least commit ID."""
         self.__loadCommitID(self.commit_current_id.value())
     
@@ -546,19 +524,21 @@ class FileWidget(QWidget, Ui_Form):
         )
         if not ok:
             return False
+        expr, inputs = example_list[example_name]
         if not isImport:
             self.reset()
             self.clearFunc()
-        expr, inputs = example_list[example_name]
         self.parseFunc(expr)
-        self.loadInputsFunc(inputs)
+        if not isImport:
+            #Import without input data.
+            self.loadInputsFunc(inputs)
         self.file_name = QFileInfo(example_name)
         self.isSavedFunc()
         print("Example \"{}\" has been loaded.".format(example_name))
         return True
     
-    @pyqtSlot(str)
-    def on_commit_search_text_textEdited(self, text: str):
+    @pyqtSlot(str, name='on_commit_search_text_textEdited')
+    def __setSearchText(self, text: str):
         """Commit filter (by description and another)."""
         if not text:
             for row in range(self.CommitTable.rowCount()):
@@ -570,30 +550,28 @@ class FileWidget(QWidget, Ui_Form):
                 (text in self.CommitTable.item(row, 3).text())
             ))
     
-    @pyqtSlot(str)
-    def on_AuthorList_currentTextChanged(self, text: str):
+    @pyqtSlot(str, name='on_AuthorList_currentTextChanged')
+    def __setAuthor(self, text: str):
         """Change default author's name when select another author."""
         self.FileAuthor.setPlaceholderText(text)
     
-    @pyqtSlot()
-    def on_branch_checkout_clicked(self):
+    @pyqtSlot(name='on_branch_checkout_clicked')
+    def __checkoutBranch(self):
         """Switch to the last commit of branch."""
         if not self.BranchList.currentRow() > -1:
             return
         branch_name = self.BranchList.currentItem().text()
         if branch_name == self.branch_current.text():
             return
-        leastCommit = (
-            self.history_commit
+        leastCommit = (self.history_commit
             .join(BranchModel)
             .where(BranchModel.name == branch_name)
             .order_by(-CommitModel.date)
-            .get()
-        )
+            .get())
         self.__loadCommit(leastCommit)
     
-    @pyqtSlot()
-    def on_branch_delete_clicked(self):
+    @pyqtSlot(name='on_branch_delete_clicked')
+    def __deleteBranch(self):
         """Delete all commits in the branch."""
         if not self.BranchList.currentRow() > -1:
             return
@@ -607,23 +585,19 @@ class FileWidget(QWidget, Ui_Form):
         file_name = self.file_name.absoluteFilePath()
         #Connect on database to remove all the commit in this branch.
         with _db.atomic():
-            branch_quary = (
-                BranchModel
-                .select()
-                .where(BranchModel.name == branch_name)
-            )
-            (
-                CommitModel
+            (CommitModel
                 .delete()
-                .where(CommitModel.branch.in_(branch_quary))
-                .execute()
-            )
-            (
-                BranchModel
+                .where(
+                    CommitModel.branch.in_(BranchModel
+                        .select()
+                        .where(BranchModel.name == branch_name)
+                    )
+                )
+                .execute())
+            (BranchModel
                 .delete()
                 .where(BranchModel.name == branch_name)
-                .execute()
-            )
+                .execute())
         _db.close()
         print("Branch {} was deleted.".format(branch_name))
         #Reload database.
