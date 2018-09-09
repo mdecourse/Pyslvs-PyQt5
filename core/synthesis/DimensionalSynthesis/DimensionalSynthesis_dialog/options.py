@@ -72,7 +72,8 @@ class AlgorithmOptionDialog(QDialog, Ui_Dialog):
     Only edit the settings after closed.
     """
     
-    def __init__(self,
+    def __init__(
+        self,
         algorithm: AlgorithmType,
         settings: Dict[str, Any],
         parent: QWidget
@@ -81,7 +82,7 @@ class AlgorithmOptionDialog(QDialog, Ui_Dialog):
         super(AlgorithmOptionDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        self.setWindowTitle("{} Options".format(algorithm.value))
+        self.setWindowTitle(f"{algorithm.value} Options")
         
         self.__algorithm = algorithm
         self.__init_alg_table()
@@ -135,7 +136,7 @@ class AlgorithmOptionDialog(QDialog, Ui_Dialog):
                     ("Minimum Beta value", 'betaMin',
                         html("The minimal attraction, must not less than this.")),
                     ("Gamma value", 'gamma',
-                        html("Beta will multiplied by exponential power value " +
+                        html("Beta will multiplied by exponential power value "
                             "with this weight factor.")),
                     ("Beta0 value", 'beta0',
                         html("The attraction of two firefly in 0 distance."))
@@ -149,7 +150,7 @@ class AlgorithmOptionDialog(QDialog, Ui_Dialog):
                 ],
                 floats=[
                     ("Weight factor", 'F',
-                        html("Weight factor is usually between 0.5 and 1" +
+                        html("Weight factor is usually between 0.5 and 1"
                             "(in rare cases > 1).")),
                     ("Recombination factor", 'CR',
                         html("The chance of crossover possible."))
@@ -165,7 +166,7 @@ class AlgorithmOptionDialog(QDialog, Ui_Dialog):
             self.minFit.setValue(settings['minFit'])
         elif 'maxTime' in settings:
             self.maxTime_option.setChecked(True)
-            #In second (int).
+            # In second (int).
             maxTime = settings['maxTime']
             self.maxTime_h.setValue(maxTime // 3600)
             self.maxTime_m.setValue((maxTime % 3600) // 60)
@@ -187,7 +188,7 @@ class AlgorithmOptionDialog(QDialog, Ui_Dialog):
     @pyqtSlot(name='on_reset_button_clicked')
     def __reset(self):
         """Reset the settings to default."""
-        #Differential Evolution (Default)
+        # Differential Evolution (Default)
         d = defaultSettings.copy()
         if self.__algorithm == AlgorithmType.RGA:
             d.update(GeneticPrams)

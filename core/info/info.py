@@ -12,32 +12,31 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from sys import version_info
+from sys import version_info as _vi
 import platform
-import argparse
-from typing import Tuple
+from argparse import ArgumentParser
+from typing import Union
 import requests
 from core.QtModules import (
+    QCoreApplication,
     QProgressDialog,
     qVersion,
     PYQT_VERSION_STR,
 )
 from core.libs import __version__
+_major, _minor, _build, _label = __version__
 
-
-_Qt_Version = qVersion().strip()
-_PyQt_Version = PYQT_VERSION_STR.strip()
 
 INFO = (
-    "Pyslvs {}.{}.{}({})".format(*__version__),
-    "OS Type: {} {} [{}]".format(platform.system(), platform.release(), platform.machine()),
-    "Python Version: {v.major}.{v.minor}.{v.micro}({v.releaselevel})".format(v=version_info),
-    "Python Compiler: {}".format(platform.python_compiler()),
-    "Qt Version: {}".format(_Qt_Version),
-    "PyQt Version: {}".format(_PyQt_Version)
+    f"Pyslvs {_major}.{_minor}.{_build}({_label})",
+    f"OS Type: {platform.system()} {platform.release()} [{platform.machine()}]",
+    f"Python Version: {_vi.major}.{_vi.minor}.{_vi.micro}({_vi.releaselevel})",
+    f"Python Compiler: {platform.python_compiler()}",
+    f"Qt Version: {qVersion().strip()}",
+    f"PyQt Version: {PYQT_VERSION_STR.strip()}",
 )
 
-_POWEREDBY = (
+_POWEREDBY = ", ".join((
     "Python IDE Eric 6",
     "PyQt 5",
     "ezdxf",
@@ -49,39 +48,36 @@ _POWEREDBY = (
     "NetworkX",
     "Pydot",
     "Pygments",
-)
+))
 
-#--help arguments
-_parser = argparse.ArgumentParser(
-    description = ("Pyslvs - Open Source Planar Linkage Mechanism Simulation" +
-        "and Mechanical Synthesis System."),
-    epilog = "Powered by {}.".format(", ".join(_POWEREDBY))
+_parser = ArgumentParser(
+    description = "Pyslvs - Open Source Planar Linkage Mechanism Simulation"
+        "and Mechanical Synthesis System.",
+    epilog = f"Powered by {_POWEREDBY}."
 )
 _parser.add_argument(
     '-v',
     '--version',
     action = 'version',
-    help = "show version infomations and exit",
     version = INFO[0]
 )
 _parser.add_argument(
-    'r',
+    'file',
     metavar = "file path",
-    default = False,
+    default = None,
     nargs = '?',
     type = str,
     help = "read workbook from the file path"
 )
 _parser.add_argument(
-    '-i',
+    '-c',
     metavar = "start path",
-    default = False,
+    default = None,
     nargs = '?',
     type = str,
-    help = "start Pyslvs in the specified path"
+    help = "change to specified path when startup Pyslvs"
 )
 _parser.add_argument(
-    '-f',
     '--fusion',
     action = 'store_true',
     help = "run Pyslvs in Fusion style"
@@ -98,26 +94,35 @@ _parser.add_argument(
     help = "do not connect to GUI console when opening"
 )
 _parser.add_argument(
-    '-t',
     '--test',
     action = 'store_true',
     help = "just test module states and exit"
 )
+_parser.add_argument(
+    '--kernel',
+    metavar = "kernel name",
+    default = None,
+    nargs = '?',
+    type = str,
+    choices = ['pyslvs', 'python_solvespace', 'sketch_solve'],
+    help = "startup Pyslvs with specified solver, "
+        "default is depending on local setting"
+)
+
 ARGUMENTS = _parser.parse_args()
 
 
-def check_update(progdlg: QProgressDialog) -> Tuple[str, bool]:
+def check_update(progdlg: QProgressDialog) -> Union[str, bool]:
     """Check for update."""
     m = progdlg.maximum()
-    from core.QtModules import QCoreApplication
     for i in range(m):
         QCoreApplication.processEvents()
         if progdlg.wasCanceled():
             return
         next_ver = list(__version__[:m])
         next_ver[i] += 1
-        url = ("https://github.com/KmolYuan/Pyslvs-PyQt5/releases/tag/" +
-            "v{}.{:02}.{}".format(*next_ver))
+        url = ("https://github.com/KmolYuan/Pyslvs-PyQt5/releases/tag/"
+            f"v{next_ver[0]}.{next_ver[1]:02}.{next_ver[2]}")
         request = requests.get(url)
         progdlg.setValue(i + 1)
         if request.status_code == 200:

@@ -1,8 +1,6 @@
-[![Version](https://img.shields.io/badge/version-18.08.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases/latest)
+[![Version](https://img.shields.io/badge/version-18.09.0-yellow.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases/latest)
 [![Build Status](https://img.shields.io/travis/KmolYuan/Pyslvs-PyQt5.svg?logo=travis)](https://travis-ci.org/KmolYuan/Pyslvs-PyQt5)
-[![Python](https://img.shields.io/badge/python-3.5%20↑-blue.svg)](https://www.python.org/)
 [![PyQt](https://img.shields.io/badge/pyqt-5.10%20↑-orange.svg)](https://riverbankcomputing.com/software/pyqt/intro)
-[![os](https://img.shields.io/badge/os-Ubuntu%2C%20Windows%20(x64)-blue.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
 [![Downloads](https://img.shields.io/github/downloads/KmolYuan/Pyslvs-PyQt5/total.svg)](https://github.com/KmolYuan/Pyslvs-PyQt5/releases)
 [![GitHub license](https://img.shields.io/badge/license-AGPLv3-blue.svg)](https://raw.githubusercontent.com/KmolYuan/Pyslvs-PyQt5/master/LICENSE)
 
@@ -14,7 +12,8 @@ Pyslvs on [Sourceforge](https://sourceforge.net/projects/pyslvs/).
 
 1. [Introduction](#introduction)
 
-    + [How to startup](#how-to-startup)
+    + [Design Method](#design-method)
+    + [How to Startup](#how-to-startup)
     + [Symbolic](#symbolic)
     + [Kinematics Simulation](#kinematics-simulation)
     + [Number and Type Synthesis](#number-and-type-synthesis)
@@ -38,7 +37,7 @@ Pyslvs on [Sourceforge](https://sourceforge.net/projects/pyslvs/).
 
 # Introduction
 
-A GUI-based tool use to solving 2D linkage subject.
+A GUI-based tool use to design 2D linkage mechanism.
 
 + **Planar Linkages Simulation**:
 
@@ -50,12 +49,6 @@ A GUI-based tool use to solving 2D linkage subject.
     - **Number and Type Synthesis**: Cython algorithm use to find out structure possibilities of the mechanism.
     - **Dimensional Synthesis**: Kernel from three Cython algorithm API (rewrite).
 
-Compatible with Python 3.5, PyQt 5.10 (same as PyQtChart) and above.
-
-Cross-platform Development: Ubuntu and Windows (64-bit).
-
-**Please note that the other platforms may be available but I have not tested before.**
-
 Previews in KDE Plasma desktop:
 
 ![main](images/main_plasma.png)
@@ -64,25 +57,42 @@ Previews in Windows 10 theme:
 
 ![main](images/main_win.png)
 
-## How to startup
+## Design Method
+
+![computer_aid_design_method]
+
+Three-steps design flow:
+
++ Structure Synthesis
++ Dimensional Synthesis
++ Kinematic Simulation
+
+Including sequential processes and inverse analysis.
+
+[computer_aid_design_method]: images/computer_aid_design_method_watermark.png
+
+## How to Startup
 
 Here's some command line options for Pyslvs.
 
 ```bash
-#Download / update submodule:
+# Download / update submodule:
 git submodule update --init --recursive
 
-#After following compile steps:
+# After following compile steps:
 make build-kernel
 
-#Open GUI by Python:
+# Open GUI by Python:
 python launch_pyslvs.py
 
-#Or see the help:
+# Or see the help:
 python launch_pyslvs.py --help
 
-#Run the unit test:
+# Run the unit test:
 python test_pyslvs.py
+
+# Pack into stand-alone executable file:
+make
 ```
 
 ## Symbolic
@@ -107,8 +117,8 @@ The "ground" label is a default name, this link will be the absolute coordinate 
 
 Pyslvs was translate the PMKS expression as a string, likes below:
 
-```python
-#Single line annotation.
+```pmks
+# Single line annotation.
 M[
     J[R, color[Green], P[0.0, 0.0], L[ground, link_0]],
     J[R, color[Green], P[12.92, 32.53], L[link_0, link_1]],
@@ -239,9 +249,14 @@ For the IO method of Solvespace format, you can also refer to two Python scripts
 
 # Modules Requirement
 
-You should install some python module and SDK first.
+Actual testing platforms:
 
-The Makefile is included at compile steps, so some environment setting also should be set.
++ ![w3.6](https://img.shields.io/badge/Windows%20x64-Python%203.6-blue.svg)
++ ![w3.7](https://img.shields.io/badge/Windows%20x64-Python%203.7-blue.svg) (currently not support PyInstaller)
++ ![u3.6](https://img.shields.io/badge/Ubuntu%20x64-Python%203.6-orange.svg)
++ ![u3.6](https://img.shields.io/badge/Ubuntu%20x64-Python%203.7-orange.svg)
+
+**Please note that the other platforms may be available but I have not tested before.**
 
 **Ubuntu**:
 
@@ -277,40 +292,17 @@ If you are not willing to install Graphviz, you can just using built-in layout f
 
 ## PyQt Stuff (Development)
 
-PyQt5 and QtChart are now pack into the wheel file that Windows and Ubuntu can use them.
+PyQt5 and QtChart are now pack into the wheel file that Windows and Ubuntu can install them directly.
 
-When the installation is complete by pip, some stuff need to remind you.
-
-Qt tools can use to design the user interface, they are not the requirement if you just want to run Pyslvs.
+Qt tools can use to design the *.ui files, they are not the requirement if you just want to run Pyslvs.
 
 **Ubuntu**:
 
-Download [Qt5] and install it, then we will get the tools.
-
-If your desktop is made by earlier Qt version, you should install in another place.
-
-Download and install / upgrade [SIP].
-
-```python
->>> import sip
->>> print(sip, sip.SIP_VERSION_STR)
-```
-
-Then remove SIP from the location:
-
-```bash
-$ sudo rm -fr /usr/local/libs/python3.5/dist-packages/sip*
-```
-
-Or maybe directly:
-
-```bash
-$ sudo pip3 install sip -U
-```
+Download and install [Qt5] to get the tools.
 
 **Windows**:
 
-Windows user can get Qt tools by pip, and don't need to install Qt package.
+Windows user can get Qt tools by pip (maybe not newest version), without to install Qt package.
 
 ```bash
 > pip install pyqt5-tools
@@ -318,13 +310,15 @@ Windows user can get Qt tools by pip, and don't need to install Qt package.
 
 # Kernels Requirement
 
+About the development tools, please see [Modules Requirement](#modules-requirement).
+
 Make command:
 
 ```bash
 make build-kernel
 ```
 
-This project including two kernels should build, please following the steps if you are first time to use.
+This project including two kernels should build.
 
 ## Pyslvs Kernel
 
@@ -361,14 +355,12 @@ When using MinGW, you can refer the steps of this article: <https://stackoverflo
 Make command:
 
 ```bash
-make -C core/libs/python_solvespace
+make build-solvespace
 ```
 
 **Ubuntu**:
 
-First, install SWIG. This tool kit can make a Python bundle with C/C++ library.
-
-If your not, install python development kit.
+Install SWIG and Python development kit. This tool kit can make a Python bundle with C/C++ library.
 
 ```bash
 sudo apt install swig python3-dev
@@ -377,66 +369,6 @@ sudo apt install swig python3-dev
 **Windows**:
 
 Download and install [SWIG](http://www.swig.org/download.html).
-
-If your Python doesn't have development library, like `libpython35.a`, using `gendef` to generate it.
-
-**In Python 3.6 and above versions, you do not have to get lib file.**
-
-First copy `python3x.dll` to `where_your_python\libs` folder.
-
-Then using this command:
-
-```bash
-gendef python3x.dll
-dlltool --dllname python3x.dll --def python3x.def --output-lib libpython3x.a
-```
-
-You need to modify a few of Python files to avoid these conflicts before compile the library. But you can be assured that the changes won't cause any negative impact.
-
-Find this code in `where_your_python\Lib\distutils\cygwinccompiler.py`:
-
-```python
-# no additional libraries needed
-self.dll_libraries=[]
-
-# Include the appropriate MSVC runtime library if Python was built
-# with MSVC 7.0 or later.
-self.dll_libraries = get_msvcr()
-```
-
-Note out `self.dll_libraries = get_msvcr()`.
-
-And then adjust source code about Virtual Studio. Find this code in `where_your_python\include\pyconfig.h`.
-
-```c
-#ifdef _WIN64
-#define MS_WIN64
-#endif
-```
-
-Cut them and paste **Above** this:
-
-```c
-#ifdef _MSC_VER
-```
-
-You also will get warning with `_hypot` in `pyconfig.h`, and you should do this step.
-
-In `where_your_python\include\pyconfig.h`, find this:
-
-```c
-#define COMPILER "[gcc]"
-#define hypot _hypot
-```
-
-Edit it to this:
-
-```c
-#define COMPILER "[gcc]"
-#ifndef _MATH_H_
-#define hypot _hypot
-#endif
-```
 
 # Stand-alone Executable File
 

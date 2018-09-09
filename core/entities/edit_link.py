@@ -8,7 +8,7 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from re import match
-from typing import List, Union, Optional
+from typing import List, Union
 from core.QtModules import (
     pyqtSlot,
     Qt,
@@ -36,7 +36,8 @@ class EditLinkDialog(QDialog, Ui_Dialog):
     Only edit the target path after closed.
     """
     
-    def __init__(self,
+    def __init__(
+        self,
         vpoints: List[VPoint],
         vlinks: List[VLink],
         row: Union[int, bool],
@@ -58,21 +59,21 @@ class EditLinkDialog(QDialog, Ui_Dialog):
             self.color_box.insertItem(i, colorIcon(e), e)
         for i in range(len(self.vpoints)):
             self.noSelected.addItem(
-                QListWidgetItem(self.PointIcon, 'Point{}'.format(i))
+                QListWidgetItem(self.PointIcon, f'Point{i}')
             )
         if row is False:
             self.name_box.addItem(icon, "New link")
             self.name_box.setEnabled(False)
             self.color_box.setCurrentIndex(self.color_box.findText('Blue'))
         else:
-            for vlink in self.vlinks:
+            for i, vlink in enumerate(self.vlinks):
                 self.name_box.insertItem(i, icon, vlink.name)
             self.name_box.setCurrentIndex(row)
         self.name_edit.textChanged.connect(self.__isOk)
         self.__isOk()
     
-    @pyqtSlot(str)
-    def __isOk(self, p0: Optional[str] = None):
+    @pyqtSlot()
+    def __isOk(self):
         """Set button box enable if options are ok."""
         self.buttonBox.button(QDialogButtonBox.Ok).setEnabled(
             self.__legalName(self.name_edit.text())
@@ -95,31 +96,31 @@ class EditLinkDialog(QDialog, Ui_Dialog):
         if len(self.vlinks) > index:
             vlink = self.vlinks[index]
             self.name_edit.setText(vlink.name)
-            colorText = vlink.colorSTR
-            colorIndex = self.color_box.findText(colorText)
-            if colorIndex > -1:
-                self.color_box.setCurrentIndex(colorIndex)
+            color_text = vlink.colorSTR
+            color_index = self.color_box.findText(color_text)
+            if color_index > -1:
+                self.color_box.setCurrentIndex(color_index)
             else:
-                self.color_box.addItem(colorIcon(colorText), colorText)
+                self.color_box.addItem(colorIcon(color_text), color_text)
                 self.color_box.setCurrentIndex(self.color_box.count() - 1)
             self.noSelected.clear()
             self.selected.clear()
-            for point in vlink.points:
+            for p in vlink.points:
                 self.selected.addItem(
-                    QListWidgetItem(self.PointIcon, 'Point{}'.format(point))
+                    QListWidgetItem(self.PointIcon, f'Point{p}')
                 )
-            for point in range(len(self.vpoints)):
-                if point in vlink.points:
+            for p in range(len(self.vpoints)):
+                if p in vlink.points:
                     continue
                 self.noSelected.addItem(
-                    QListWidgetItem(self.PointIcon, 'Point{}'.format(point))
+                    QListWidgetItem(self.PointIcon, f'Point{p}')
                 )
         not_ground = index > 0
         for widget in (self.name_edit, self.color_box, self.colorpick_button):
             widget.setEnabled(not_ground)
     
-    @pyqtSlot(int, name='on_color_box_currentIndexChanged')
-    def __setColor(self, index: int):
+    @pyqtSlot(name='on_color_box_currentIndexChanged')
+    def __setColor(self):
         """Change the color icon of pick button."""
         self.colorpick_button.setIcon(self.color_box.itemIcon(
             self.color_box.currentIndex()

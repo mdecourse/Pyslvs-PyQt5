@@ -33,19 +33,19 @@ def colorIcon(name: str, size: int = 20) -> QIcon:
     return QIcon(colorBlock)
 
 
-#Target path color: (Pen, Dot, Brush)
+# Target path color: (road, dot, brush)
 _path_color = (
-    #Blue - Green
+    # Blue - Green
     (QColor(69, 247, 232), QColor(3, 163, 120), QColor(74, 178, 176, 30)),
-    #Yellow - Green
+    # Yellow - Green
     (QColor(187, 221, 75), QColor(103, 124, 12), QColor(242, 242, 4, 30)),
-    #Red - Yellow
+    # Red - Yellow
     (QColor(252, 110, 27), QColor(237, 129, 66), QColor(242, 158, 109, 30)),
-    #Purple - Blue
+    # Purple - Blue
     (QColor(115, 0, 145), QColor(220, 104, 249), QColor(198, 137, 214, 30))
 )
 
 
-def colorPath(colorIndex: int) -> QColor:
+def traget_path_style(colorIndex: int) -> QColor:
     """Get path colors."""
     return _path_color[colorIndex % len(_path_color)]

@@ -1,6 +1,22 @@
 Change Log
 ===
 
+Version 18.09
+===
+
+Features
+---
+
++ Appearance adjustments of main canvas.
++ Add new examples:
+    + "Crank slider (Three bar)"
+
+Development
+---
+
++ Using abstract class to implement partial methods.
++ Redefine solver function of Python-Solvespace.
+
 Version 18.08
 ===
 
@@ -14,11 +30,15 @@ Features
     + "Watt II"
     + "Lift Tailgate"
     + "Crank lifter"
+    + "Inverted slider"
+    + "Ten Fold's levers"
 + Selection label function improvement.
 + UI and selection mode improvements.
 + Add FPS counter.
 + Add background settings.
 + Add limitation of input mechanism in UI.
++ Add command line option to choose specified solver when startup.
++ Adjust interface of about dialog.
 
 Development
 ---
@@ -26,6 +46,7 @@ Development
 + Database module "peewee" rename to "database".
 + Database function improvements.
 + All PyQt slots renaming to short names.
++ Python version should upgrade to 3.6 or above to support formatted string.
 
 Version 18.07
 ===

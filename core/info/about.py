@@ -15,27 +15,27 @@ from core.QtModules import (
     QWidget,
 )
 from .info import __version__, INFO, ARGUMENTS
+_major, _minor, _build, _label = __version__
 from .Ui_about import Ui_Dialog
 
 
 def html(s: str) -> str:
     """Turn simple string to html format."""
-    return "<html><head/><body>{}</body></html>".format(s.replace('\n', '<br/>'))
+    s = s.replace('\n', '<br/>')
+    return f"<html><head/><body>{s}</body></html>"
 
 def _title(name: str, *s: str) -> str:
     """Wrap title."""
-    return (
-        '<h2>{}</h2>'.format(name) +
-        ('<h3>{}</h3>'.format('</h3><h3>'.join(s)) if s else '')
-    )
+    s = f'<h3>{"</h3><h3>".join(s)}</h3>' if s else ''
+    return f'<h2>{name}</h2>{s}'
 
 def _content(*s: str) -> str:
     """Wrap as paragraph."""
-    return '<p>{}</p>'.format('</p><p>'.join(s))
+    return f'<p>{"</p><p>".join(s)}</p>'
 
 def _orderList(*s: str) -> str:
     """Wrap as list."""
-    return '<ul><li>{}</li></ul>'.format('</li><li>'.join(s))
+    return f'<ul><li>{"</li><li>".join(s)}</li></ul>'
 
 
 class PyslvsSplash(QSplashScreen):
@@ -44,7 +44,10 @@ class PyslvsSplash(QSplashScreen):
     
     def __init__(self):
         super(PyslvsSplash, self).__init__(None, QPixmap(":/icons/Splash.png"))
-        self.showMessage("Version {}.{}.{}({})".format(*__version__), (Qt.AlignBottom|Qt.AlignRight))
+        self.showMessage(
+            f"Version {_major}.{_minor}.{_build}({_label})",
+            Qt.AlignBottom | Qt.AlignRight
+        )
 
 
 class PyslvsAbout(QDialog, Ui_Dialog):
@@ -56,22 +59,20 @@ class PyslvsAbout(QDialog, Ui_Dialog):
         super(PyslvsAbout, self).__init__(parent)
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
-        self.Title.setText(html(
-            _title("Pyslvs") +
-            _content("Version {}.{}.{}({}) 2016-2018".format(*__version__))
-        ))
-        self.Content.setText(html(_content(
+        self.Title.setText(html(_title("Pyslvs") + _content(
+            f"Version {_major}.{_minor}.{_build}({_label}) 2016-2018"
+        )))
+        self.description_text.setText(html(_content(
             "A GUI-based tool use to solving 2D linkage subject.",
-            "Author: {}".format(__author__),
-            "Email: {}".format(__email__),
-            "If you want to know more, go to see to our website or contact the email."))
-        )
-        self.Versions.setText(html(_orderList(*INFO)))
-        self.Arguments.setText(html(_content(
-            "Startup arguments are as follows:") + _orderList(
-            "The loaded file when startup: {}".format(ARGUMENTS.r),
-            "Start Path: {}".format(ARGUMENTS.i),
-            "Fusion style: {}".format(ARGUMENTS.fusion),
-            "Debug mode: {}".format(ARGUMENTS.debug_mode)) + _content(
-            "Using the \"-h\" argument to view the help."))
-        )
+            f"Author: {__author__}",
+            f"Email: {__email__}",
+            "If you want to know more, see to our website or contact the email.",
+        )))
+        self.ver_text.setText(html(_orderList(*INFO)))
+        self.args_text.setText(html(_content("Startup arguments are as follows:") + _orderList(
+            f"Open with: {ARGUMENTS.file}",
+            f"Start Path: {ARGUMENTS.c}",
+            f"Fusion style: {ARGUMENTS.fusion}",
+            f"Debug mode: {ARGUMENTS.debug_mode}",
+            f"Specified kernel: {ARGUMENTS.kernel}",
+        ) + _content("Use \"-h\" or \"--help\" argument to view the help.")))

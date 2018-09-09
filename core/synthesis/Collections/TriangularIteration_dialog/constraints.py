@@ -66,17 +66,17 @@ def _four_bar_loops(G: Graph) -> Iterator[Tuple[int, int, int, int]]:
         if node in result:
             continue
         nb1s = G.neighbors(node)
-        #node not in nb1s
+        # node not in nb1s
         for nb1 in nb1s:
             if nb1 in result:
                 continue
             nb2s = G.neighbors(nb1)
-            #node can not in nb2s
+            # node can not in nb2s
             for nb2 in nb2s:
                 if (nb2 == node) or (nb2 in result):
                     continue
                 nb3s = G.neighbors(nb2)
-                #node can not in nb3s
+                # node can not in nb3s
                 for nb3 in nb3s:
                     if (nb3 in (node, nb1)) or (nb3 in result):
                         continue
@@ -99,16 +99,15 @@ class ConstraintsDialog(QDialog, Ui_Dialog):
         self.setupUi(self)
         self.setWindowFlags(self.windowFlags() & ~Qt.WindowContextHelpButtonHint)
         
-        cl = {
-            set(_get_list(item))
-            for item in list_items(parent.constraint_list)
-        }
+        cl = tuple(
+            set(_get_list(item)) for item in list_items(parent.constraint_list)
+        )
         for chain in _four_bar_loops(parent.PreviewWindow.G):
             chain = sorted(chain)
             for i, n in enumerate(chain):
                 if n in parent.PreviewWindow.same:
                     n = parent.PreviewWindow.same[n]
-                chain[i] = 'P{}'.format(n)
+                chain[i] = f'P{n}'
             if set(chain) not in cl:
                 self.loops_list.addItem(", ".join(chain))
         for item in list_items(parent.constraint_list):

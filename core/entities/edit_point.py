@@ -34,7 +34,8 @@ class EditPointDialog(QDialog, Ui_Dialog):
     Only edit the target path after closed.
     """
     
-    def __init__(self,
+    def __init__(
+        self,
         vpoints: List[VPoint],
         vlinks: List[VLink],
         pos: bool,
@@ -58,12 +59,12 @@ class EditPointDialog(QDialog, Ui_Dialog):
         for vlink in vlinks:
             self.noSelected.addItem(QListWidgetItem(self.LinkIcon, vlink.name))
         if pos is False:
-            self.name_box.addItem(icon, 'Point{}'.format(vpoints_count))
+            self.name_box.addItem(icon, f'Point{vpoints_count}')
             self.name_box.setEnabled(False)
             self.color_box.setCurrentIndex(self.color_box.findText('Green'))
         else:
             for i in range(vpoints_count):
-                self.name_box.insertItem(i, icon, 'Point{}'.format(i))
+                self.name_box.insertItem(i, icon, f'Point{i}')
             self.name_box.setCurrentIndex(pos)
     
     @pyqtSlot(int, name='on_name_box_currentIndexChanged')
@@ -74,12 +75,12 @@ class EditPointDialog(QDialog, Ui_Dialog):
         vpoint = self.vpoints[index]
         self.x_box.setValue(vpoint.x)
         self.y_box.setValue(vpoint.y)
-        colorText = vpoint.colorSTR
-        colorIndex = self.color_box.findText(colorText)
-        if colorIndex > -1:
-            self.color_box.setCurrentIndex(colorIndex)
+        color_text = vpoint.colorSTR
+        color_index = self.color_box.findText(color_text)
+        if color_index > -1:
+            self.color_box.setCurrentIndex(color_index)
         else:
-            self.color_box.addItem(colorIcon(colorText), colorText)
+            self.color_box.addItem(colorIcon(color_text), color_text)
             self.color_box.setCurrentIndex(self.color_box.count() - 1)
         self.type_box.setCurrentIndex(vpoint.type)
         self.angle_box.setValue(vpoint.angle)
@@ -92,8 +93,8 @@ class EditPointDialog(QDialog, Ui_Dialog):
                 continue
             self.noSelected.addItem(QListWidgetItem(self.LinkIcon, vlink.name))
     
-    @pyqtSlot(int, name='on_color_box_currentIndexChanged')
-    def __setColor(self, index: int):
+    @pyqtSlot(name='on_color_box_currentIndexChanged')
+    def __setColor(self):
         """Change the color icon of pick button."""
         self.colorpick_button.setIcon(self.color_box.itemIcon(
             self.color_box.currentIndex()

@@ -27,7 +27,8 @@ class ProgressDialog(QDialog, Ui_Dialog):
     + Interrupt function.
     """
     
-    def __init__(self,
+    def __init__(
+        self,
         type_num: AlgorithmType,
         mech_params: Dict[str, Any],
         setting: Dict[str, Any],
@@ -41,35 +42,35 @@ class ProgressDialog(QDialog, Ui_Dialog):
         
         self.mechanisms = []
         
-        #Batch label.
+        # Batch label.
         if 'maxGen' in setting:
             self.limit = setting['maxGen']
             if self.limit > 0:
-                self.batch_label.setText("{} generation(s)".format(self.limit))
+                self.batch_label.setText(f"{self.limit} generation(s)")
             else:
                 self.batch_label.setText('∞')
             self.limit_mode = 'maxGen'
         elif 'minFit' in setting:
             self.limit = setting['minFit']
-            self.batch_label.setText("fitness less then {}".format(self.limit))
+            self.batch_label.setText(f"fitness less then {self.limit}")
             self.limit_mode = 'minFit'
         elif 'maxTime' in setting:
             self.limit = setting['maxTime']
-            self.batch_label.setText("{:02d}:{:02d}:{:02d}".format(
-                self.limit // 3600,
-                (self.limit % 3600) // 60,
-                self.limit % 3600 % 60
-            ))
+            self.batch_label.setText(
+                f"{self.limit // 3600:02d}:"
+                f"{self.limit % 3600 // 60:02d}:"
+                f"{self.limit % 3600 % 60:02d}"
+            )
             self.limit_mode = 'maxTime'
         self.loopTime.setEnabled(self.limit > 0)
         
-        #Timer.
+        # Timer.
         self.time = 0
         self.timer = QTimer(self)
         self.timer.setInterval(1000)
         self.timer.timeout.connect(self.__setTime)
         
-        #Worker thread.
+        # Worker thread.
         self.work = WorkerThread(type_num, mech_params, setting)
         self.work.progress_update.connect(self.__setProgress)
         self.work.result.connect(self.__getResult)
@@ -88,19 +89,19 @@ class ProgressDialog(QDialog, Ui_Dialog):
     def __setTime(self):
         """Set time label."""
         self.time += 1
-        self.time_label.setText("{:02d}:{:02d}:{:02d}".format(
-            self.time // 3600,
-            (self.time % 3600) // 60,
-            self.time % 3600 % 60
-        ))
+        self.time_label.setText(
+            f"{self.time // 3600:02d}:"
+            f"{self.time % 3600 // 60:02d}:"
+            f"{self.time % 3600 % 60:02d}"
+        )
     
     @pyqtSlot(name='on_start_button_clicked')
     def __start(self):
         """Start the proccess."""
         loop = self.loopTime.value()
         self.progressBar.setMaximum(self.limit * loop)
-        #Progress bar will show generations instead of percent.
-        if (self.limit_mode in ('minFit', 'maxTime')) or self.limit==0:
+        # Progress bar will show generations instead of percent.
+        if (self.limit_mode in ('minFit', 'maxTime')) or (self.limit == 0):
             self.progressBar.setFormat("%v generations")
         self.work.setLoop(loop)
         self.timer.start()
@@ -110,13 +111,14 @@ class ProgressDialog(QDialog, Ui_Dialog):
         self.interrupt_button.setEnabled(True)
     
     @pyqtSlot(dict, float)
-    def __getResult(self,
+    def __getResult(
+        self,
         mechanism: Dict[str, Any],
-        time_spand: float
+        time_spend: float
     ):
         """Get the result."""
         self.mechanisms.append(mechanism)
-        self.time_spand = time_spand
+        self.time_spend = time_spend
     
     @pyqtSlot()
     def __finish(self):

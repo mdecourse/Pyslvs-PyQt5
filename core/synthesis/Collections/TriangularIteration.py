@@ -107,7 +107,8 @@ class TriangularIterationWidget(QWidget, Ui_Form):
     This interface use to modify structure profile.
     """
     
-    def __init__(self,
+    def __init__(
+        self,
         addCollection: Callable[[Tuple[Tuple[int, int]]], None],
         parent: QWidget
     ):
@@ -118,10 +119,10 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         self.getCollection = parent.getCollection
         self.addCollection = addCollection
         
-        #Iteration data.
+        # Iteration data.
         self.collections = {}
         
-        #Customized preview canvas.
+        # Customized preview canvas.
         self.PreviewWindow = _PreviewWindow(
             lambda: ';'.join(
                 self.expression_list.item(row).text()
@@ -135,7 +136,7 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         self.main_layout.insertWidget(0, self.PreviewWindow)
         self.show_solutions.clicked.connect(self.PreviewWindow.setShowSolutions)
         
-        #Signals
+        # Signals
         self.joint_name.currentIndexChanged.connect(self.__hasSolution)
         self.clear()
     
@@ -173,10 +174,11 @@ class TriangularIterationWidget(QWidget, Ui_Form):
     @pyqtSlot(name='on_clear_button_clicked')
     def __userClear(self):
         """Ask user before clear."""
-        reply = QMessageBox.question(self,
+        reply = QMessageBox.question(
+            self,
             "New profile",
-            "Triangular iteration should be added structure diagrams " +
-            "from structure collections.\n" +
+            "Triangular iteration should be added structure diagrams "
+            "from structure collections.\n"
             "Do you want to create a new profile?"
         )
         if reply == QMessageBox.Yes:
@@ -195,7 +197,8 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         self.addCollection(tuple(self.PreviewWindow.G.edges))
     
     @pyqtSlot(Graph, dict)
-    def setGraph(self,
+    def setGraph(
+        self,
         G: Graph,
         pos: Dict[int, Tuple[float, float]]
     ):
@@ -211,12 +214,11 @@ class TriangularIterationWidget(QWidget, Ui_Form):
             for node in link:
                 links[node].append(joint)
         for link in links:
-            self.grounded_list.addItem("({})".format(", ".join(
-                'P{}'.format(node) for node in link
-            )))
-        #Point name as (P1, P2, P3, ...).
+            points_text = ", ".join(f'P{node}' for node in link)
+            self.grounded_list.addItem(f"({points_text})")
+        # Point name as (P1, P2, P3, ...).
         for node in pos:
-            self.joint_name.addItem('P{}'.format(node))
+            self.joint_name.addItem(f'P{node}')
     
     @pyqtSlot(int, name='on_grounded_list_currentRowChanged')
     def __setGround(self, row: int):
@@ -263,7 +265,7 @@ class TriangularIterationWidget(QWidget, Ui_Form):
                 if node_ == node:
                     continue
                 if set(link_) & link:
-                    tmp_list.append('P{}'.format(node_))
+                    tmp_list.append(f'P{node_}')
             return tmp_list
         
         self.driver_rotator.addItems(find_friends(int(name.replace('P', ''))))
@@ -275,7 +277,7 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         d2 = self.driver_rotator.currentText()
         if not (d1 and d2):
             return
-        d1_d2 = "({}, {})".format(d1, d2)
+        d1_d2 = f"({d1}, {d2})"
         for n in list_texts(self.driver_list):
             if n == d1_d2:
                 return
@@ -296,7 +298,7 @@ class TriangularIterationWidget(QWidget, Ui_Form):
             return
         d1_d2 = self.driver_list.item(row).text()
         d1, d2 = eval(d1_d2.replace('P', ''))
-        self.__find_follower_to_add('P{}'.format(d1))
+        self.__find_follower_to_add(f'P{d1}')
         self.driver_list.takeItem(row)
         self.__setWarning(self.driver_label, not self.driver_list.count())
     
@@ -326,17 +328,12 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         if not status:
             status_str = "Not known."
         elif index in self.PreviewWindow.same:
-            status_str = "Same as P{}.".format(self.PreviewWindow.same[index])
+            status_str = f"Same as P{self.PreviewWindow.same[index]}."
         else:
             status_str = "Grounded."
             for expr in list_texts(self.expression_list):
-                if index == int(
-                    strbetween(expr, '(', ')')
-                    .replace('P', '')
-                ):
-                    status_str = "From {}.".format(
-                        strbefore(expr, '[')
-                    )
+                if index == int(strbetween(expr, '(', ')').replace('P', '')):
+                    status_str = f"From {strbefore(expr, '[')}."
         self.status_show.setText(status_str)
         self.PLAP_solution.setEnabled(not status)
         self.PLLP_solution.setEnabled(not status)
@@ -353,13 +350,13 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         """Get the current mechanism parameters."""
         self.__setParmBind()
         return {
-            #To keep the origin graph.
+            # To keep the origin graph.
             'Graph': tuple(self.PreviewWindow.G.edges),
-            #To keep the position of points.
+            # To keep the position of points.
             'pos': self.PreviewWindow.pos.copy(),
             'cus': self.PreviewWindow.cus.copy(),
             'same': self.PreviewWindow.same.copy(),
-            #Mechanism params.
+            # Mechanism params.
             'Driver': {
                 s.split(',')[0][1:]: None for s in list_texts(self.driver_list)
                 if not self.PreviewWindow.isMultiple(s.split(',')[0][1:])
@@ -373,7 +370,7 @@ class TriangularIterationWidget(QWidget, Ui_Form):
             },
             'Link_expr': self.link_expr_show.text(),
             'Expression': self.expr_show.text(),
-            'constraint': [
+            'constraints': [
                 tuple(s.split(", "))
                 for s in list_texts(self.constraint_list)
             ],
@@ -392,38 +389,35 @@ class TriangularIterationWidget(QWidget, Ui_Form):
             return
         self.profile_name = dlg.name()
         params = dlg.params()
-        #Add customize joints.
+        # Add customize joints.
         G = Graph(params['Graph'])
         self.setGraph(G, params['pos'])
         self.PreviewWindow.cus = params['cus']
         self.PreviewWindow.same = params['same']
-        #Grounded setting.
+        # Grounded setting.
         drivers = set(params['Driver'])
         followers = set(params['Follower'])
         for row, link in enumerate(G.nodes):
-            points = {
-                'P{}'.format(n)
-                for n, edge in edges_view(G) if (link in edge)
-            }
+            points = {f'P{n}' for n, edge in edges_view(G) if link in edge}
             if (drivers | followers) <= points:
                 self.__setGround(row)
                 break
-        #Driver, Follower, Target
+        # Driver, Follower, Target
         for expr in params['Expression'].split(';'):
             if strbefore(expr, '[') != 'PLAP':
                 continue
             base = strbetween(expr, '[', ']').split(',')[0]
             self.__find_follower_to_remove(base)
             rotator = strbetween(expr, '(', ')')
-            self.driver_list.addItem("({}, {})".format(base, rotator))
+            self.driver_list.addItem(f"({base}, {rotator})")
         self.__setWarning(self.driver_label, not self.driver_list.count())
         self.target_list.addItems(list(params['Target']))
         self.__setWarning(self.target_label, not self.target_list.count() > 0)
-        #Constraints
+        # Constraints
         self.constraint_list.addItems([
-            ", ".join(c) for c in params['constraint']
+            ", ".join(c) for c in params['constraints']
         ])
-        #Expression
+        # Expression
         if params['Expression']:
             for expr in params['Expression'].split(';'):
                 func = strbefore(expr, '[')
@@ -473,8 +467,8 @@ class TriangularIterationWidget(QWidget, Ui_Form):
     def __getParam(self, angle: bool =False) -> int:
         """Get the link / angle parameter number."""
         i = 0
-        p = '{}{{}}'.format('a' if angle else 'L')
-        while p.format(i) in self.__symbols():
+        p = ('a' if angle else 'L')
+        while p + str(i) in self.__symbols():
             i += 1
         return i
     
@@ -489,8 +483,8 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         self.__addSolution(
             "PLAP",
             dlg.point_A.currentText(),
-            'L{}'.format(self.__getParam()),
-            'a{}'.format(self.__getParam(angle=True)),
+            f'L{self.__getParam()}',
+            f'a{self.__getParam(angle=True)}',
             point
         )
     
@@ -506,8 +500,8 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         self.__addSolution(
             "PLLP",
             dlg.point_A.currentText(),
-            'L{}'.format(link_num),
-            'L{}'.format(link_num + 1),
+            f'L{link_num}',
+            f'L{link_num + 1}',
             dlg.point_B.currentText(),
             point
         )
@@ -516,7 +510,7 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         """Add a solution."""
         item = QListWidgetItem()
         self.expression_list.addItem(item)
-        item.setText("{}[{}]({})".format(expr[0], ','.join(expr[1:-1]), expr[-1]))
+        item.setText(f"{expr[0]}[{','.join(expr[1:-1])}]({expr[-1]})")
         self.PreviewWindow.setStatus(expr[-1], True)
         self.__setParmBind()
         self.__hasSolution()
@@ -533,17 +527,16 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         for row, gs in list_texts(self.grounded_list, True):
             try:
                 link_expr = []
-                #Links from grounded list.
+                # Links from grounded list.
                 for name in gs.replace('(', '').replace(')', '').split(", "):
                     if self.PreviewWindow.isMultiple(name):
-                        name = 'P{}'.format(
-                            self.PreviewWindow.same[int(name.replace('P', ''))]
-                        )
+                        i = self.PreviewWindow.same[int(name.replace('P', ''))]
+                        name = f'P{i}'
                     link_expr.append(name)
             except KeyError:
                 continue
             else:
-                #Customize joints.
+                # Customize joints.
                 for joint, link in self.PreviewWindow.cus.items():
                     if row == link:
                         link_expr.append(joint)
@@ -553,7 +546,7 @@ class TriangularIterationWidget(QWidget, Ui_Form):
                 else:
                     link_expr_list.append(link_expr_str)
         self.link_expr_show.setText(';'.join(
-            ('ground' if (i == 0) else '') + "[{}]".format(link)
+            ('ground' if i == 0 else '') + f"[{link}]"
             for i, link in enumerate(link_expr_list)
         ))
     
@@ -561,21 +554,20 @@ class TriangularIterationWidget(QWidget, Ui_Form):
     def __autoConfigure(self):
         """Auto configure the solutions."""
         if not self.driver_list.count():
-            QMessageBox.information(self,
+            QMessageBox.information(
+                self,
                 "Auto configure",
                 "Please setting the driver joint(s)."
             )
             return
-        reply = QMessageBox.question(self,
+        reply = QMessageBox.question(
+            self,
             "Auto configure",
-            "This function can detect the structure " +
-            "to configure the solutions.\n" +
+            "This function can detect the structure "
+            "to configure the solutions.\n"
             "The current settings will be cleared."
         )
-        if (
-            (reply != QMessageBox.Yes) or
-            (not self.__clearExpr())
-        ):
+        if (reply != QMessageBox.Yes) or (not self.__clearExpr()):
             return
         exprs = vpoints_configure(
             graph2vpoints(
@@ -616,7 +608,8 @@ class TriangularIterationWidget(QWidget, Ui_Form):
         """Clear the solutions. Return true if success."""
         if not self.expression_list.count():
             return True
-        reply = QMessageBox.question(self,
+        reply = QMessageBox.question(
+            self,
             "Clear the solutions",
             "Are you sure to clear the solutions?"
         )
@@ -635,7 +628,8 @@ class TriangularIterationWidget(QWidget, Ui_Form):
             name = self.profile_name
             ok = True
         else:
-            name, ok = QInputDialog.getText(self,
+            name, ok = QInputDialog.getText(
+                self,
                 "Profile name",
                 "Please enter the profile name:"
             )
@@ -643,7 +637,7 @@ class TriangularIterationWidget(QWidget, Ui_Form):
             return
         i = 0
         while (name not in self.collections) and (not name):
-            name = "Structure_{}".format(i)
+            name = f"Structure_{i}"
         self.collections[name] = self.__getCurrentMechanismParams()
         self.profile_name = name
         self.unsaveFunc()

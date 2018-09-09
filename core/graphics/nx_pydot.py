@@ -50,9 +50,9 @@ _graphviz_engine = (
 
 engines = []
 for engine_name in _nx_engine:
-    engines.append("NetworkX - {}".format(engine_name))
+    engines.append(f"NetworkX - {engine_name}")
 for engine_name in _graphviz_engine:
-    engines.append("Graphviz - {}".format(engine_name))
+    engines.append(f"Graphviz - {engine_name}")
 
 
 class EngineError(Exception):
@@ -158,7 +158,7 @@ def graph(
         for link in G.nodes:
             if link==except_node:
                 continue
-            #Distance sorted function from canvas
+            # Distance sorted function from canvas
             painter.drawPolygon(*convex_hull([
                 (pos[n][0], -pos[n][1])
                 for n, edge in edges_view(G) if link in edge

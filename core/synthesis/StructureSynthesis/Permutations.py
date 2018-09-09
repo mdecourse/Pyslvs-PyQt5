@@ -32,7 +32,7 @@ from core.QtModules import (
     QFileInfo,
 )
 from core.io import QTIMAGES
-from core.libs import number_synthesis, topo
+from core.libs import number_synthesis, topo, VPoint
 from core.graphics import (
     graph,
     engines,
@@ -59,7 +59,7 @@ class StructureSynthesis(QWidget, Ui_Form):
         self.setupUi(self)
         self.save_edges_auto_label.setStatusTip(self.save_edges_auto.statusTip())
         
-        #Function references
+        # Function references
         self.outputTo = parent.outputTo
         self.saveReplyBox = parent.saveReplyBox
         self.inputFrom = parent.inputFrom
@@ -67,13 +67,13 @@ class StructureSynthesis(QWidget, Ui_Form):
         self.linkDataFunc = parent.EntitiesLink.dataTuple
         self.getGraph = parent.getGraph
         
-        #Splitters
+        # Splitters
         self.splitter.setStretchFactor(0, 2)
         self.splitter.setStretchFactor(1, 15)
         
         self.answer = []
         
-        #Signals
+        # Signals
         self.NL_input.valueChanged.connect(self.__adjustStructureData)
         self.NJ_input.valueChanged.connect(self.__adjustStructureData)
         self.graph_engine.addItems(engines)
@@ -131,11 +131,11 @@ class StructureSynthesis(QWidget, Ui_Form):
             sum(len(vlink.points) > 1 for vlink in linkData) +
             sum(
                 len(vpoint.links) - 2 for vpoint in jointData
-                if (vpoint.type == 2) and (len(vpoint.links) > 1)
+                if (vpoint.type == VPoint.RP) and (len(vpoint.links) > 1)
             )
         )
         self.NJ_input.setValue(sum(
-            (len(vpoint.links) - 1 + int(vpoint.type == 2))
+            (len(vpoint.links) - 1 + int(vpoint.type == VPoint.RP))
             for vpoint in jointData if (len(vpoint.links) > 1)
         ))
         self.keep_dof.setChecked(keep_dof_checked)
@@ -202,7 +202,7 @@ class StructureSynthesis(QWidget, Ui_Form):
         else:
             for result in results:
                 item = QListWidgetItem(", ".join(
-                    "NL{} = {}".format(i + 2, result[i]) for i in range(len(result))
+                    f"NL{i + 2} = {result[i]}" for i in range(len(result))
                 ))
                 item.links = result
                 self.expr_number.addItem(item)
@@ -249,7 +249,8 @@ class StructureSynthesis(QWidget, Ui_Form):
         if not answers:
             return
         if break_point:
-            reply = QMessageBox.question(self,
+            reply = QMessageBox.question(
+                self,
                 "Type synthesis - abort",
                 "Do you want to keep the results?"
             )
@@ -269,7 +270,7 @@ class StructureSynthesis(QWidget, Ui_Form):
             self
         )
         progdlg.setAttribute(Qt.WA_DeleteOnClose, True)
-        progdlg.setWindowTitle("Type synthesis - ({})".format(item.text()))
+        progdlg.setWindowTitle(f"Type synthesis - ({item.text()})")
         progdlg.setMinimumSize(QSize(500, 120))
         progdlg.setModal(True)
         progdlg.show()
@@ -292,10 +293,7 @@ class StructureSynthesis(QWidget, Ui_Form):
             setjobFunc,
             stopFunc
         )
-        self.time_label.setText("{}[min] {:.2f}[s]".format(
-            int(time // 60),
-            time % 60
-        ))
+        self.time_label.setText(f"{time // 60}[min] {time % 60:.2f}[s]")
         progdlg.setValue(progdlg.maximum())
         if answer:
             return [Graph(G.edges) for G in answer]
@@ -332,7 +330,7 @@ class StructureSynthesis(QWidget, Ui_Form):
     
     def __drawAtlas(self, i: int, G: Graph) -> bool:
         """Draw atlas and return True if done."""
-        item = QListWidgetItem("No. {}".format(i + 1))
+        item = QListWidgetItem(f"No. {i + 1}")
         try:
             item.setIcon(graph(
                 G,
@@ -340,9 +338,10 @@ class StructureSynthesis(QWidget, Ui_Form):
                 self.engine,
                 self.graph_link_as_node.isChecked()
             ))
-        except EngineError as e:
-            QMessageBox.warning(self,
-                str(e),
+        except EngineError as error:
+            QMessageBox.warning(
+                self,
+                f"{error}",
                 "Please install and make sure Graphviz is working."
             )
             return False
@@ -376,7 +375,7 @@ class StructureSynthesis(QWidget, Ui_Form):
         elif action==self.copy_edges:
             clipboard.setText(str(self.answer[index].edges))
         elif action==self.copy_image:
-            #Turn the transparent background to white.
+            # Turn the transparent background to white.
             image1 = self.__atlasImage()
             image2 = QImage(image1.size(), image1.format())
             image2.fill(QColor(Qt.white).rgb())
@@ -412,7 +411,8 @@ class StructureSynthesis(QWidget, Ui_Form):
         file_name = ""
         lateral = 0
         if self.save_edges_auto.isChecked():
-            lateral, ok = QInputDialog.getInt(self,
+            lateral, ok = QInputDialog.getInt(
+                self,
                 "Atlas",
                 "The number of lateral:",
                 5, 1, 10
@@ -421,7 +421,8 @@ class StructureSynthesis(QWidget, Ui_Form):
                 return
             file_name = self.outputTo("Atlas image", QTIMAGES)
             if file_name:
-                reply = QMessageBox.question(self,
+                reply = QMessageBox.question(
+                    self,
                     "Type synthesis",
                     "Do you want to Re-synthesis?",
                     (QMessageBox.Yes | QMessageBox.YesToAll | QMessageBox.Cancel),
@@ -435,7 +436,8 @@ class StructureSynthesis(QWidget, Ui_Form):
         if not count:
             return
         if not lateral:
-            lateral, ok = QInputDialog.getInt(self,
+            lateral, ok = QInputDialog.getInt(
+                self,
                 "Atlas",
                 "The number of lateral:",
                 5, 1, 10
@@ -479,7 +481,8 @@ class StructureSynthesis(QWidget, Ui_Form):
             )
             if not file_name:
                 return
-            reply = QMessageBox.question(self,
+            reply = QMessageBox.question(
+                self,
                 "Type synthesis",
                 "Do you want to Re-synthesis?",
                 (QMessageBox.Yes | QMessageBox.YesToAll | QMessageBox.Cancel),
@@ -526,7 +529,8 @@ class StructureSynthesis(QWidget, Ui_Form):
             try:
                 answer.append(Graph(eval(edges)))
             except:
-                QMessageBox.warning(self,
+                QMessageBox.warning(
+                    self,
                     "Wrong format",
                     "Please check the edges text format."
                 )

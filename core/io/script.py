@@ -7,10 +7,10 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import Tuple, List
+from typing import Tuple, List, Sequence
 from pygments import highlight
-from pygments.lexer import RegexLexerMeta
-from pygments.formatters import HtmlFormatter
+from pygments.lexer import RegexLexer
+from pygments.formatters.html import HtmlFormatter
 from pygments.styles import (
     get_style_by_name,
     get_all_styles,
@@ -38,22 +38,22 @@ if __name__ == '__main__':
     vpoints = parse_vpoints("M["\n{0}
         "]")
     exprs = vpoints_configure(vpoints, {1})
-    mapping = {{n: 'P{{}}'.format(n) for n in range(len(vpoints))}}
+    mapping = {{n: f'P{{n}}' for n in range(len(vpoints))}}
     data_dict, dof = data_collecting(exprs, mapping, vpoints)
     pos = expr_solving(exprs, mapping, vpoints, [0.])
     print(data_dict)
-    print("DOF:{{}}".format(dof))
+    print(f"DOF:{{dof}}")
     print(pos)
 """
 
 
 def slvs_process_script(
-    script: Tuple[str],
-    inputs: List[Tuple[int, int]]
+    script: Sequence[str],
+    inputs: Sequence[Tuple[int, int]]
 ) -> str:
     """Return parser function script."""
     return _script.format(
-        '\n'.join(" " * 8 + '"{}, "'.format(expr) for expr in script),
+        '\n'.join(" " * 8 + f'"{expr}, "' for expr in script),
         inputs
     )
 
@@ -80,11 +80,12 @@ class ScriptDialog(QDialog, Ui_Dialog):
     
     """Dialog of script preview."""
     
-    def __init__(self,
+    def __init__(
+        self,
         script: str,
-        lexer: RegexLexerMeta,
+        lexer: RegexLexer,
         filename: str,
-        fileformat: List[str],
+        file_format: List[str],
         parent: QWidget
     ):
         """Input parameters:
@@ -105,7 +106,7 @@ class ScriptDialog(QDialog, Ui_Dialog):
         self.main_layout.insertWidget(1, self.script_view)
         self.code = highlight(script, lexer, HtmlFormatter())
         self.filename = filename
-        self.fileformat = fileformat
+        self.file_format = file_format
         self.outputTo = parent.outputTo
         self.saveReplyBox = parent.saveReplyBox
         self.setWindowTitle(self.filename)
@@ -117,10 +118,8 @@ class ScriptDialog(QDialog, Ui_Dialog):
     @pyqtSlot(str, name='on_style_option_currentIndexChanged')
     def __setStyle(self, style: str):
         """Redefind the CSS script of the html."""
-        self.script_view.setHtml("<style>{}</style>".format(
-            HtmlFormatter(style=get_style_by_name(style))
-            .get_style_defs()
-        ) + self.code)
+        style_code = HtmlFormatter(style=get_style_by_name(style)).get_style_defs()
+        self.script_view.setHtml(f"<style>{style_code}</style>" + self.code)
     
     @pyqtSlot(name='on_copy_clicked')
     def __copy(self):
@@ -130,9 +129,9 @@ class ScriptDialog(QDialog, Ui_Dialog):
     @pyqtSlot(name='on_save_clicked')
     def __save(self):
         """Save to .py file."""
-        file_name = self.outputTo(self.filename, self.fileformat)
+        file_name = self.outputTo(self.filename, self.file_format)
         if not file_name:
             return
-        with open(file_name, 'w', newline = "") as f:
+        with open(file_name, 'w', newline='') as f:
             f.write(self.script_view.toPlainText())
         self.saveReplyBox(self.filename, file_name)

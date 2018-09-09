@@ -10,12 +10,15 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from abc import ABCMeta
+from PyQt5.sip import wrappertype
 from PyQt5.QtCore import (
     pyqtSignal,
     pyqtSlot,
     QCoreApplication,
     QDir,
     QFileInfo,
+    QLineF,
     QModelIndex,
     QMutex,
     QMutexLocker,
@@ -80,6 +83,7 @@ from PyQt5.QtGui import (
     QCursor,
     QDesktopServices,
     QFont,
+    QFontMetrics,
     QIcon,
     QImage,
     QKeySequence,
@@ -127,6 +131,7 @@ __all__ = [
     'QFileDialog',
     'QFileInfo',
     'QFont',
+    'QFontMetrics',
     'QGraphicsScene',
     'QGraphicsView',
     'QHBoxLayout',
@@ -136,6 +141,7 @@ __all__ = [
     'QKeySequence',
     'QLabel',
     'QLineEdit',
+    'QLineF',
     'QLineSeries',
     'QListWidget',
     'QListWidgetItem',
@@ -183,4 +189,19 @@ __all__ = [
     'QVBoxLayout',
     'QWidget',
     'Qt',
+    'QAbcMeta',
 ]
+
+
+class QAbcMeta(wrappertype, ABCMeta):
+    """Qt ABCMeta class.
+    
+    Usage:
+    
+    class MyQObject(QObject, metaclass=QAbcMeta):
+        @abstractmethod
+        def my_abstract_method(self):
+            ...
+    
+    """
+    pass

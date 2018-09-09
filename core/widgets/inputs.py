@@ -5,8 +5,8 @@
 import csv
 from typing import (
     Tuple,
+    List,
     Iterator,
-    Union,
     Optional,
 )
 from core.QtModules import (
@@ -28,6 +28,7 @@ from core.io import (
     AddVariable, DeleteVariable,
     AddPath, DeletePath,
 )
+from core.libs import VPoint
 from .rotatable import RotatableView
 from .Ui_inputs import Ui_Form
 
@@ -46,7 +47,7 @@ class InputsWidget(QWidget, Ui_Form):
         super(InputsWidget, self).__init__(parent)
         self.setupUi(self)
         
-        #parent's function pointer.
+        # parent's function pointer.
         self.freemode_button = parent.freemode_button
         self.EntitiesPoint = parent.EntitiesPoint
         self.EntitiesLink = parent.EntitiesLink
@@ -60,7 +61,7 @@ class InputsWidget(QWidget, Ui_Form):
         self.CommandStack = parent.CommandStack
         self.setCoordsAsCurrent = parent.setCoordsAsCurrent
         
-        #QDial: Angle panel.
+        # QDial: Angle panel.
         self.dial = QDial()
         self.dial.setStatusTip("Input widget of rotatable joint.")
         self.dial.setEnabled(False)
@@ -68,20 +69,20 @@ class InputsWidget(QWidget, Ui_Form):
         self.dial_spinbox.valueChanged.connect(self.__setVar)
         self.inputs_dial_layout.addWidget(RotatableView(self.dial))
         
-        #QDial ok check.
+        # QDial ok check.
         self.variable_list.currentRowChanged.connect(self.__dialOk)
         
-        #Play button
+        # Play button
         action = QShortcut(QKeySequence("F5"), self)
         action.activated.connect(self.variable_play.click)
         self.variable_stop.clicked.connect(self.variableValueReset)
         
-        #Timer for play button.
+        # Timer for play button.
         self.inputs_playShaft = QTimer(self)
         self.inputs_playShaft.setInterval(10)
         self.inputs_playShaft.timeout.connect(self.__changeIndex)
         
-        #Change the point coordinates with current position.
+        # Change the point coordinates with current position.
         self.update_pos.clicked.connect(self.setCoordsAsCurrent)
         
         """Inputs record context menu
@@ -126,22 +127,21 @@ class InputsWidget(QWidget, Ui_Form):
         if p0 not in self.EntitiesPoint.selectedRows():
             self.EntitiesPoint.setSelections((p0,), False)
         for i, vpoint in enumerate(self.EntitiesPoint.data()):
-            self.driver_list.addItem("[{}] Point{}".format(vpoint.typeSTR, i))
+            self.driver_list.addItem(f"[{vpoint.typeSTR}] Point{i}")
     
     @pyqtSlot(int, name='on_driver_list_currentRowChanged')
     def __setAddVarEnabled(self, p1: int):
         """Set enable of 'add variable' button."""
         if not p1 > -1:
-            self.variable_list_add.setEnabled(False)
+            self.variable_add.setEnabled(False)
             return
         p0 = self.joint_list.currentRow()
         vpoints = self.EntitiesPoint.dataTuple()
-        self.variable_list_add.setEnabled(
-            p1 != p0 and vpoints[p0].type == 0
-        )
+        self.variable_add.setEnabled((p1 != p0) and (vpoints[p0].type == VPoint.R))
     
-    @pyqtSlot(name='on_variable_list_add_clicked')
-    def __addInputsVariable(self,
+    @pyqtSlot(name='on_variable_add_clicked')
+    def __addInputsVariable(
+        self,
         p0: Optional[int] = None,
         p1: Optional[int] = None
     ):
@@ -152,7 +152,8 @@ class InputsWidget(QWidget, Ui_Form):
             p1 = self.driver_list.currentRow()
         
         if self.DOF() <= self.inputCount():
-            QMessageBox.warning(self,
+            QMessageBox.warning(
+                self,
                 "Wrong DOF",
                 "The number of variable must no more than degrees of freedom."
             )
@@ -161,7 +162,8 @@ class InputsWidget(QWidget, Ui_Form):
         vpoints = self.EntitiesPoint.dataTuple()
         
         if not vpoints[p0].same_link(vpoints[p1]):
-            QMessageBox.warning(self,
+            QMessageBox.warning(
+                self,
                 "Wrong pair",
                 "The base point and driver point should at the same link."
             )
@@ -169,19 +171,20 @@ class InputsWidget(QWidget, Ui_Form):
         
         for p0_, p1_, a in self.inputPair():
             if {p0, p1} == {p0_, p1_}:
-                QMessageBox.warning(self,
+                QMessageBox.warning(
+                    self,
                     "Wrong pair",
                     "There already have a same pair."
                 )
                 return
         
-        name = 'Point{}'.format(p0)
-        self.CommandStack.beginMacro("Add variable of {}".format(name))
+        name = f'Point{p0}'
+        self.CommandStack.beginMacro(f"Add variable of {name}")
         self.CommandStack.push(AddVariable(
             '->'.join((
                 name,
-                'Point{}'.format(p1),
-                "{:.02f}".format(vpoints[p0].slope_angle(vpoints[p1])),
+                f'Point{p1}',
+                f"{vpoints[p0].slope_angle(vpoints[p1]):.02f}",
             )),
             self.variable_list
         ))
@@ -217,11 +220,11 @@ class InputsWidget(QWidget, Ui_Form):
         Default: all.
         """
         one_row = row is not None
-        for i, variable in enumerate(self.inputPair()):
-            #If this is not origin point any more.
-            if one_row and (row != variable[0]):
+        for i, (b, d, a) in enumerate(self.inputPair()):
+            # If this is not origin point any more.
+            if one_row and (row != b):
                 continue
-            self.CommandStack.beginMacro("Remove variable of Point{}".format(row))
+            self.CommandStack.beginMacro(f"Remove variable of Point{row}")
             self.CommandStack.push(DeleteVariable(i, self.variable_list))
             self.CommandStack.endMacro()
     
@@ -231,14 +234,15 @@ class InputsWidget(QWidget, Ui_Form):
         row = self.variable_list.currentRow()
         if not row > -1:
             return
-        reply = QMessageBox.question(self,
+        reply = QMessageBox.question(
+            self,
             "Remove variable",
             "Do you want to remove this variable?"
         )
         if reply != QMessageBox.Yes:
             return
         self.variable_stop.click()
-        self.CommandStack.beginMacro("Remove variable of Point{}".format(row))
+        self.CommandStack.beginMacro(f"Remove variable of Point{row}")
         self.CommandStack.push(DeleteVariable(row, self.variable_list))
         self.CommandStack.endMacro()
         self.EntitiesPoint.getBackPosition()
@@ -252,27 +256,20 @@ class InputsWidget(QWidget, Ui_Form):
         """Use to show input variable count."""
         return self.variable_list.count()
     
-    def inputPair(self, *,
-        has_angles: bool = True
-    ) -> Iterator[Union[Tuple[int, int, float], Tuple[int, int]]]:
+    def inputPair(self) -> Iterator[Tuple[int, int, float]]:
         """Back as point number code."""
         for row in range(self.variable_list.count()):
-            vars = self.variable_list.item(row).text().split('->')
-            p0 = int(vars[0].replace('Point', ''))
-            p1 = int(vars[1].replace('Point', ''))
-            if has_angles:
-                yield (p0, p1, float(vars[2]))
-            else:
-                yield (p0, p1)
+            var = self.variable_list.item(row).text().split('->')
+            p0 = int(var[0].replace('Point', ''))
+            p1 = int(var[1].replace('Point', ''))
+            yield (p0, p1, float(var[2]))
     
     def variableReload(self):
         """Auto check the points and type."""
         self.joint_list.clear()
         for i in range(self.EntitiesPoint.rowCount()):
-            self.joint_list.addItem("[{}] Point{}".format(
-                self.EntitiesPoint.item(i, 2).text(),
-                i
-            ))
+            type_text = self.EntitiesPoint.item(i, 2).text()
+            self.joint_list.addItem(f"[{type_text}] Point{i}")
         self.variableValueReset()
     
     @pyqtSlot(float)
@@ -289,7 +286,7 @@ class InputsWidget(QWidget, Ui_Form):
         self.dial_spinbox.blockSignals(False)
         if item:
             itemText = item.text().split('->')
-            itemText[-1] = "{:.02f}".format(value)
+            itemText[-1] = f"{value:.02f}"
             item.setText('->'.join(itemText))
             self.aboutToResolve.emit()
         if (
@@ -308,9 +305,9 @@ class InputsWidget(QWidget, Ui_Form):
         vpoints = self.EntitiesPoint.dataTuple()
         for i, (p0, p1, a) in enumerate(self.inputPair()):
             self.variable_list.item(i).setText('->'.join([
-                'Point{}'.format(p0),
-                'Point{}'.format(p1),
-                "{:.02f}".format(vpoints[p0].slope_angle(vpoints[p1]))
+                f'Point{p0}',
+                f'Point{p1}',
+                f"{vpoints[p0].slope_angle(vpoints[p1]):.02f}",
             ]))
         self.__dialOk()
         self.solve()
@@ -350,24 +347,26 @@ class InputsWidget(QWidget, Ui_Form):
             self.MainCanvas.recordStart(int(360 / self.record_interval.value()))
             return
         path = self.MainCanvas.getRecordPath()
-        name, ok = QInputDialog.getText(self,
+        name, ok = QInputDialog.getText(
+            self,
             "Recording completed!",
             "Please input name tag:"
         )
-        if (not name) or (name in self.__path_data):
-            i = 0
-            while "Record_{}".format(i) in self.__path_data:
-                i += 1
-            QMessageBox.information(self,
-                "Record",
-                "The name tag is being used or empty."
-            )
-            name = "Record_{}".format(i)
+        i = 0
+        name = name or f"Record_{i}"
+        while name in self.__path_data:
+            name = f"Record_{i}"
+            i += 1
+        QMessageBox.information(
+            self,
+            "Record",
+            "The name tag is being used or empty."
+        )
         self.addPath(name, path)
     
     def addPath(self, name: str, path: Tuple[Tuple[float, float]]):
         """Add path function."""
-        self.CommandStack.beginMacro("Add {{Path: {}}}".format(name))
+        self.CommandStack.beginMacro(f"Add {{Path: {name}}}")
         self.CommandStack.push(AddPath(
             self.record_list,
             name,
@@ -388,9 +387,8 @@ class InputsWidget(QWidget, Ui_Form):
         row = self.record_list.currentRow()
         if not row > 0:
             return
-        self.CommandStack.beginMacro("Delete {{Path: {}}}".format(
-            self.record_list.item(row).text()
-        ))
+        name = self.record_list.item(row).text()
+        self.CommandStack.beginMacro(f"Delete {{Path: {name}}}")
         self.CommandStack.push(DeletePath(
             row,
             self.record_list,
@@ -408,12 +406,11 @@ class InputsWidget(QWidget, Ui_Form):
             data = self.__path_data[name]
         except KeyError:
             return
+        points_text = ", ".join(f"Point{i}" for i in range(len(data)))
         reply = QMessageBox.question(
             self,
             "Path data",
-            "This path data including {}.".format(", ".join(
-                "Point{}".format(i) for i in range(len(data)) if data[i]
-            )),
+            f"This path data including {points_text}.",
             (QMessageBox.Save | QMessageBox.Close),
             QMessageBox.Close
         )
@@ -431,7 +428,7 @@ class InputsWidget(QWidget, Ui_Form):
                 for coordinate in point:
                     writer.writerow(coordinate)
                 writer.writerow(())
-        print("Output path data: {}".format(file_name))
+        print(f"Output path data: {file_name}")
     
     @pyqtSlot(QPoint)
     def __record_list_context_menu(self, point):
@@ -446,11 +443,11 @@ class InputsWidget(QWidget, Ui_Form):
         showall_action = self.popMenu_record_list.addAction("Show all")
         showall_action.index = -1
         copy_action = self.popMenu_record_list.addAction("Copy as new")
-        name = self.record_list.item(row).text().split(":")[0]
+        name = self.record_list.item(row).text().split(':')[0]
         try:
             data = self.__path_data[name]
         except KeyError:
-            #Auto preview path.
+            # Auto preview path.
             data = self.MainCanvas.Path.path
             showall_action.setEnabled(False)
         else:
@@ -459,7 +456,7 @@ class InputsWidget(QWidget, Ui_Form):
                 for i in range(len(data)):
                     if data[i]:
                         action = self.popMenu_record_list.addAction(
-                            "{} Point{}".format(action_text, i)
+                            f"{action_text} Point{i}"
                         )
                         action.index = i
         action_exec = self.popMenu_record_list.exec_(
@@ -467,37 +464,35 @@ class InputsWidget(QWidget, Ui_Form):
         )
         if action_exec:
             if action_exec == copy_action:
-                """Copy path data."""
+                # Copy path data.
                 num = 0
-                while "Copied_{}".format(num) in self.__path_data:
+                name_copy = f"{name}_{num}"
+                while name_copy in self.__path_data:
+                    name_copy = f"{name}_{num}"
                     num += 1
-                self.addPath("Copied_{}".format(num), data)
+                self.addPath(name_copy, data)
             elif "Copy data from" in action_exec.text():
-                """Copy data to clipboard."""
+                # Copy data to clipboard.
                 QApplication.clipboard().setText('\n'.join(
-                    "{},{}".format(x, y) for x, y in data[action_exec.index]
+                    f"{x},{y}" for x, y in data[action_exec.index]
                 ))
             elif "Show" in action_exec.text():
-                """Switch points enabled status."""
+                # Switch points enabled status.
                 if action_exec.index == -1:
                     self.record_show.setChecked(True)
                 self.MainCanvas.setPathShow(action_exec.index)
         self.popMenu_record_list.clear()
     
-    @pyqtSlot(name='on_record_show_clicked')
-    def __setPathShow(self):
+    @pyqtSlot(bool, name='on_record_show_toggled')
+    def __setPathShow(self, toggled: bool):
         """Show all paths or hide."""
-        if self.record_show.isChecked():
-            show = -1
-        else:
-            show = -2
-        self.MainCanvas.setPathShow(show)
+        self.MainCanvas.setPathShow(-1 if toggled else -2)
     
     @pyqtSlot(int, name='on_record_list_currentRowChanged')
     def __setPath(self, row: int):
         """Reload the canvas when switch the path."""
-        if self.record_show.isChecked():
-            self.MainCanvas.setPathShow(-1)
+        if not self.record_show.isChecked():
+            self.record_show.setChecked(True)
         self.reloadCanvas()
     
     def currentPath(self):
@@ -508,8 +503,20 @@ class InputsWidget(QWidget, Ui_Form):
         + Auto preview.
         """
         row = self.record_list.currentRow()
-        if row in (0, -1):
+        if row in {0, -1}:
             return ()
-        else:
-            name = self.record_list.item(row).text()
-            return self.__path_data.get(name.split(':')[0], ())
+        path_name = self.record_list.item(row).text().split(':')[0]
+        return self.__path_data.get(path_name, ())
+    
+    @pyqtSlot(name='on_variable_up_clicked')
+    @pyqtSlot(name='on_variable_down_clicked')
+    def __setVariablePriority(self):
+        row = self.variable_list.currentRow()
+        if not row > -1:
+            return
+        item = self.variable_list.currentItem()
+        self.variable_list.insertItem(
+            row + (-1 if self.sender() == self.variable_up else 1),
+            self.variable_list.takeItem(row)
+        )
+        self.variable_list.setCurrentItem(item)

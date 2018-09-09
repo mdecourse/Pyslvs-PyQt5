@@ -98,7 +98,8 @@ class StructureWidget(QWidget, Ui_Form):
         """Ask user before clear."""
         if not self.collections:
             return
-        reply = QMessageBox.question(self,
+        reply = QMessageBox.question(
+            self,
             "Delete",
             "Sure to remove all your collections?"
         )
@@ -107,10 +108,11 @@ class StructureWidget(QWidget, Ui_Form):
         self.clear()
         self.unsaveFunc()
     
-    def __engineErrorMsg(self, e: EngineError):
+    def __engineErrorMsg(self, error: EngineError):
         """Show up error message."""
-        QMessageBox.warning(self,
-            str(e),
+        QMessageBox.warning(
+            self,
+            f"{error}",
             "Please install and make sure Graphviz is working."
         )
     
@@ -145,7 +147,7 @@ class StructureWidget(QWidget, Ui_Form):
             QCoreApplication.processEvents()
             if progdlg.wasCanceled():
                 return
-            item = QListWidgetItem("No. {}".format(i+1))
+            item = QListWidgetItem(f"No. {i + 1}")
             try:
                 engine = engine_picker(G, engineSTR)
                 item.setIcon(graph(
@@ -159,11 +161,9 @@ class StructureWidget(QWidget, Ui_Form):
                 break
             else:
                 self.collections_layouts.append(engine)
-                item.setToolTip(
-                    "{}\nUse the right-click menu to operate.".format(G.edges)
-                )
+                item.setToolTip(f"{G.edges}\nUse the right-click menu to operate.")
                 self.collection_list.addItem(item)
-                progdlg.setValue(i+1)
+                progdlg.setValue(i + 1)
     
     def addCollection(self, edges: Tuple[Tuple[int, int]]):
         """Add collection by in put edges."""
@@ -178,7 +178,7 @@ class StructureWidget(QWidget, Ui_Form):
                 if is_isomorphic(G, H):
                     raise _TestError("is isomorphic")
         except _TestError as e:
-            QMessageBox.warning(self, "Add Collection Error", "Error: {}".format(e))
+            QMessageBox.warning(self, "Add Collection Error", f"Error: {e}")
             return
         self.collections.append(G)
         self.unsaveFunc()
@@ -197,17 +197,17 @@ class StructureWidget(QWidget, Ui_Form):
             edgesSTR, ok = QInputDialog.getText(
                 self,
                 "Add by edges",
-                "Please enter a connection expression:\n" +
+                "Please enter a connection expression:\n"
                 "Example: [(0, 1), (1, 2), (2, 3), (3, 0)]"
             )
             if not ok:
                 return
         try:
             edges = eval(edgesSTR)
-            if any(len(edge)!=2 for edge in edges):
+            if any(len(edge) != 2 for edge in edges):
                 raise IOError("Wrong format")
         except Exception as e:
-            QMessageBox.warning(self, str(e), "Error: {}".format(e))
+            QMessageBox.warning(self, str(e), f"Error: {e}")
             return
         else:
             self.addCollection(edges)
@@ -232,7 +232,8 @@ class StructureWidget(QWidget, Ui_Form):
             try:
                 collections.append(Graph(eval(edges)))
             except:
-                QMessageBox.warning(self,
+                QMessageBox.warning(
+                    self,
                     "Wrong format",
                     "Please check the edges text format."
                 )
@@ -248,7 +249,8 @@ class StructureWidget(QWidget, Ui_Form):
         count = self.collection_list.count()
         if not count:
             return
-        lateral, ok = QInputDialog.getInt(self,
+        lateral, ok = QInputDialog.getInt(
+            self,
             "Atlas",
             "The number of lateral:",
             5, 1, 10
@@ -340,9 +342,10 @@ class StructureWidget(QWidget, Ui_Form):
         row = self.collection_list.currentRow()
         if not row > -1:
             return
-        reply = QMessageBox.question(self,
+        reply = QMessageBox.question(
+            self,
             "Delete",
-            "Sure to remove #{} from your collections?".format(row)
+            f"Sure to remove # {row} from your collections?"
         )
         if reply != QMessageBox.Yes:
             return
@@ -391,7 +394,7 @@ class StructureWidget(QWidget, Ui_Form):
             G_.remove_node(node)
             if isomorphic(G_, self.collections_grounded):
                 continue
-            item = QListWidgetItem("link_{}".format(node))
+            item = QListWidgetItem(f"link_{node}")
             icon = graph(
                 G,
                 self.grounded_list.iconSize().width(),
@@ -415,9 +418,10 @@ class StructureWidget(QWidget, Ui_Form):
             ground_link = None
         else:
             ground_link = int(text.split("_")[1])
-        reply = QMessageBox.question(self,
+        reply = QMessageBox.question(
+            self,
             "Message",
-            "Merge \"{}\" chain to your canvas?".format(text)
+            f"Merge \"{text}\" chain to your canvas?"
         )
         if reply == QMessageBox.Yes:
             self.addPointsByGraph(

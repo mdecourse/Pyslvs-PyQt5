@@ -7,7 +7,6 @@ __copyright__ = "Copyright (C) 2016-2018"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from time import time
 from math import (
     radians,
     sin,
@@ -32,6 +31,7 @@ from core.QtModules import (
     Qt,
     QPointF,
     QRectF,
+    QPolygonF,
     QSizeF,
     QWidget,
     QSizePolicy,
@@ -40,13 +40,12 @@ from core.QtModules import (
     QPen,
     QColor,
     QFont,
-    QTimer,
     QPainterPath,
     QImage,
 )
 from core import io
 from core.libs import VPoint
-from . import colorQt, colorPath
+from . import colorQt, traget_path_style
 
 
 def convex_hull(
@@ -57,25 +56,15 @@ def convex_hull(
     """Returns points on convex hull in counterclockwise order
     according to Graham's scan algorithm.
     """
+    coordinate: type = Tuple[float, float]
     
     def cmp(a: float, b: float) -> int:
         return (a > b) - (a < b)
     
-    def turn(
-        p: Tuple[float, float],
-        q: Tuple[float, float],
-        r: Tuple[float, float]
-    ) -> int:
-        return cmp(
-            (q[0] - p[0])*(r[1] - p[1]) -
-            (r[0] - p[0])*(q[1] - p[1]),
-            0
-        )
+    def turn(p: coordinate, q: coordinate, r: coordinate) -> int:
+        return cmp((q[0] - p[0])*(r[1] - p[1]) - (r[0] - p[0])*(q[1] - p[1]), 0)
     
-    def keep_left(
-        hull: List[Tuple[float, float]],
-        r: Tuple[float, float]
-    ) -> List[Tuple[float, float]]:
+    def keep_left(hull: List[coordinate], r: coordinate) -> List[coordinate]:
         while (len(hull) > 1) and (turn(hull[-2], hull[-1], r) != 1):
             hull.pop()
         if not len(hull) or hull[-1] != r:
@@ -83,12 +72,12 @@ def convex_hull(
         return hull
     
     points.sort()
-    l = reduce(keep_left, points, [])
-    u = reduce(keep_left, reversed(points), [])
-    l.extend(u[i] for i in range(1, len(u) - 1))
+    lower = reduce(keep_left, points, [])
+    upper = reduce(keep_left, reversed(points), [])
+    lower.extend(upper[i] for i in range(1, len(upper) - 1))
     
     result = []
-    for x, y in l:
+    for x, y in lower:
         if as_qpoint:
             result.append(QPointF(x, y))
         else:
@@ -96,19 +85,19 @@ def convex_hull(
     return result
 
 
-def edges_view(G: Graph) -> Iterator[Tuple[int, Tuple[int, int]]]:
+def edges_view(graph: Graph) -> Iterator[Tuple[int, Tuple[int, int]]]:
     """This generator can keep the numbering be consistent."""
-    for n, edge in enumerate(sorted(sorted(e) for e in G.edges)):
+    for n, edge in enumerate(sorted(sorted(e) for e in graph.edges)):
         yield (n, tuple(edge))
 
 
 def graph2vpoints(
-    G: Graph,
+    graph: Graph,
     pos: Dict[int, Tuple[float, float]],
     cus: Dict[str, int],
     same: Dict[int, int]
-) -> Tuple[VPoint]:
-    """Change Networkx graph into VPoints."""
+) -> List[VPoint]:
+    """Change NetworkX graph into VPoints."""
     same_r = {}
     for k, v in same.items():
         if v in same_r:
@@ -116,23 +105,22 @@ def graph2vpoints(
         else:
             same_r[v] = [k]
     tmp_list = []
-    ev = dict(edges_view(G))
+    ev = dict(edges_view(graph))
     for i, e in ev.items():
         if i in same:
-            #Do not connect to anyone!
-            link = ''
-        else:
-            e = set(e)
-            if i in same_r:
-                for j in same_r[i]:
-                    e.update(set(ev[j]))
-            link = ", ".join((str(l) if l else 'ground') for l in e)
-        tmp_list.append(VPoint.from_R_joint(link, *pos[i]))
+            # Do not connect to anyone!
+            continue
+        e = set(e)
+        if i in same_r:
+            for j in same_r[i]:
+                e.update(set(ev[j]))
+        link = ", ".join((str(l) if l else 'ground') for l in e)
+        x, y = pos[i]
+        tmp_list.append(VPoint.from_R_joint(link, x, y))
     for name in sorted(cus):
-        tmp_list.append(VPoint.from_R_joint(
-            str(cus[name]) if cus[name] else 'ground',
-            *pos[int(name.replace('P', ''))]
-        ))
+        link = str(cus[name]) if cus[name] else 'ground'
+        x, y = pos[int(name.replace('P', ''))]
+        tmp_list.append(VPoint.from_R_joint(link, x, y))
     return tmp_list
 
 
@@ -151,13 +139,9 @@ class _Path:
             + Show mode parameter.
             + The path will be the curve, otherwise using the points.
         """
-        self.path = ()
-        self.show = -1
-        self.curve = True
-
-
-#Radius of canvas dot.
-RADIUS = 3
+        self.path: Tuple[Tuple[Tuple[float, float], ...], ...] = ()
+        self.show: int = -1
+        self.curve: bool = True
 
 
 class BaseCanvas(QWidget):
@@ -167,76 +151,64 @@ class BaseCanvas(QWidget):
     def __init__(self, parent: QWidget):
         """Set the parameters for drawing."""
         super(BaseCanvas, self).__init__(parent)
-        self.setSizePolicy(QSizePolicy(
-            QSizePolicy.Expanding,
-            QSizePolicy.Expanding
-        ))
+        self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
         self.setFocusPolicy(Qt.StrongFocus)
+        self.painter = QPainter()
         
-        #Origin coordinate.
+        # Origin coordinate.
         self.ox = self.width() / 2
         self.oy = self.height() / 2
-        #Canvas zoom rate.
-        self.rate = 2
-        self.zoom = 2 * self.rate
-        #Joint size.
-        self.joint_size = 5
-        #Canvas line width.
+        # Canvas zoom rate.
+        self.rate = 2.
+        self.zoom = 2. * self.rate
+        # Joint size.
+        self.joint_size = 3
+        # Canvas line width.
         self.link_width = 3
         self.path_width = 3
-        #Font size.
+        # Font size.
         self.font_size = 15
-        #Show point mark or dimension.
+        # Show point mark or dimension.
         self.show_point_mark = True
         self.show_dimension = True
-        #Path track.
+        # Path track.
         self.Path = _Path()
-        #Path solving.
+        # Path solving.
         self.target_path = {}
         self.show_target_path = False
-        #Background
+        # Background
         self.background = QImage()
+        self.background_opacity = 1.
         self.background_scale = 1
         self.background_offset = QPointF(0, 0)
-        #Frame
-        self.show_fps = True
-        self.__t0 = time()
-        self.__frame_timer = QTimer(self)
-        self.__frame_timer.timeout.connect(self.update)
-        self.__frame_timer.start(1000)
     
     def paintEvent(self, event):
         """Using a QPainter under 'self',
         so just change QPen or QBrush before painting.
         """
-        self.painter = QPainter()
         self.painter.begin(self)
         self.painter.fillRect(event.rect(), QBrush(Qt.white))
-        #Translation
+        # Translation
         self.painter.translate(self.ox, self.oy)
-        #Background
+        # Background
         if not self.background.isNull():
             rect = self.background.rect()
+            self.painter.setOpacity(self.background_opacity)
             self.painter.drawImage(
-                QRectF(self.background_offset, QSizeF(
+                QRectF(self.background_offset * self.zoom, QSizeF(
                     rect.width() * self.background_scale * self.zoom,
                     rect.height() * self.background_scale * self.zoom
                 )),
                 self.background,
                 QRectF(rect)
             )
-        #Show frame.
+            self.painter.setOpacity(1)
+        # Show frame.
         pen = QPen(Qt.blue)
         pen.setWidth(1)
         self.painter.setPen(pen)
         self.painter.setFont(QFont("Arial", self.font_size))
-        if self.show_fps:
-            self.painter.drawText(
-                QPointF(-self.ox, -self.oy + 20),
-                "FPS: {:6.02f}".format(1 / (time() - self.__t0))
-            )
-            self.__t0 = time()
-        #Draw origin lines.
+        # Draw origin lines.
         pen.setColor(Qt.gray)
         self.painter.setPen(pen)
         x_l = -self.ox
@@ -252,18 +224,19 @@ class BaseCanvas(QWidget):
         
         for x in range(indexing(x_l), indexing(x_r) + 1, 5):
             self.painter.drawLine(
-                QPointF(x * self.zoom, 0),
-                QPointF(x * self.zoom, -10 if (x % 10 == 0) else -5)
+                QPointF(x, 0) * self.zoom,
+                QPointF(x * self.zoom, -10 if x % 10 == 0 else -5)
             )
         for y in range(indexing(y_b), indexing(y_t) + 1, 5):
             self.painter.drawLine(
-                QPointF(0, y * self.zoom),
-                QPointF(10 if (y % 10 == 0) else 5, y * self.zoom)
+                QPointF(0, y) * self.zoom,
+                QPointF(10 if y % 10 == 0 else 5, y * self.zoom)
             )
-        #Please to call the "end" method when ending paint event.
-        #self.painter.end()
+        # Please to call the "end" method when ending paint event.
+        # self.painter.end()
     
-    def drawPoint(self,
+    def drawPoint(
+        self,
         i: int,
         cx,
         cy,
@@ -279,24 +252,26 @@ class BaseCanvas(QWidget):
         if fix:
             bottom = y + 20
             width = 10
-            #Draw a triangle below.
+            # Draw a triangle below.
             self.painter.drawPolygon(
                 QPointF(x, y),
                 QPointF(x - width, bottom),
                 QPointF(x + width, bottom)
             )
-            self.painter.drawEllipse(QPointF(x, y), width, width)
+            r = self.joint_size * 2
         else:
-            self.painter.drawEllipse(QPointF(x, y), self.joint_size, self.joint_size)
+            r = self.joint_size
+        self.painter.drawEllipse(QPointF(x, y), r, r)
+        
         if not self.show_point_mark:
             return
         pen.setColor(Qt.darkGray)
         pen.setWidth(2)
         self.painter.setPen(pen)
-        text = "[{}]".format(i) if (type(i) == str) else "[Point{}]".format(i)
+        text = f"[{i}]" if type(i) == str else f"[Point{i}]"
         if self.show_dimension:
-            text += ":({:.02f}, {:.02f})".format(cx, cy)
-        self.painter.drawText(QPointF(x + 6, y - 6), text)
+            text += f":({cx:.02f}, {cy:.02f})"
+        self.painter.drawText(QPointF(x, y) + QPointF(6, -6), text)
     
     def drawTargetPath(self):
         """Draw solving path."""
@@ -304,48 +279,55 @@ class BaseCanvas(QWidget):
         pen.setWidth(self.path_width)
         for i, name in enumerate(sorted(self.target_path)):
             path = self.target_path[name]
-            Pen, Dot, Brush = colorPath(i)
-            pen.setColor(Pen)
+            road, dot, brush = traget_path_style(i)
+            pen.setColor(road)
             self.painter.setPen(pen)
-            self.painter.setBrush(Brush)
-            if len(path) > 1:
-                pointPath = QPainterPath()
+            self.painter.setBrush(brush)
+            if len(path) == 1:
+                x, y = path[0]
+                p = QPointF(x, -y) * self.zoom
+                self.painter.drawText(p + QPointF(6, -6), name)
+                pen.setColor(dot)
+                self.painter.setPen(pen)
+                self.painter.drawEllipse(p, self.joint_size, self.joint_size)
+            else:
+                painter_path = QPainterPath()
                 for j, (x, y) in enumerate(path):
-                    x *= self.zoom
-                    y *= -self.zoom
-                    self.painter.drawEllipse(QPointF(x, y), RADIUS, RADIUS)
+                    p = QPointF(x, -y) * self.zoom
+                    self.painter.drawEllipse(p, self.joint_size, self.joint_size)
                     if j == 0:
-                        self.painter.drawText(QPointF(x + 6, y - 6), name)
-                        pointPath.moveTo(x, y)
+                        self.painter.drawText(p + QPointF(6, -6), name)
+                        painter_path.moveTo(p)
                     else:
                         x2, y2 = path[j - 1]
-                        self.drawArrow(x, y, x2 * self.zoom, y2 * -self.zoom)
-                        pointPath.lineTo(QPointF(x, y))
-                self.painter.drawPath(pointPath)
-                for x, y in path:
-                    pen.setColor(Dot)
-                    self.painter.setPen(pen)
-                    self.painter.drawEllipse(
-                        QPointF(x, -y) * self.zoom, RADIUS, RADIUS
-                    )
-            elif len(path) == 1:
-                x = path[0][0] * self.zoom
-                y = path[0][1] * -self.zoom
-                self.painter.drawText(QPointF(x + 6, y - 6), name)
-                pen.setColor(Dot)
+                        self.__drawArrow(x, -y, x2, -y2, zoom=True)
+                        painter_path.lineTo(p)
+                pen.setColor(road)
                 self.painter.setPen(pen)
-                self.painter.drawEllipse(QPointF(x, y), RADIUS, RADIUS)
+                self.painter.drawPath(painter_path)
+                for x, y in path:
+                    pen.setColor(dot)
+                    self.painter.setPen(pen)
+                    p = QPointF(x, -y) * self.zoom
+                    self.painter.drawEllipse(p, self.joint_size, self.joint_size)
         self.painter.setBrush(Qt.NoBrush)
     
-    def drawArrow(self,
+    def __drawArrow(
+        self,
         x1: float,
         y1: float,
         x2: float,
         y2: float,
         *,
+        zoom: bool = False,
         text: str = ''
     ):
         """Front point -> Back point"""
+        if zoom:
+            x1 *= self.zoom
+            y1 *= self.zoom
+            x2 *= self.zoom
+            y2 *= self.zoom
         a = atan2(y2 - y1, x2 - x1)
         x1 = (x1 + x2) / 2 - 7.5 * cos(a)
         y1 = (y1 + y2) / 2 - 7.5 * sin(a)
@@ -360,13 +342,13 @@ class BaseCanvas(QWidget):
         ))
         if not text:
             return
-        #Font
+        # Font
         font = self.painter.font()
         font_copy = QFont(font)
         font.setBold(True)
         font.setPointSize(font.pointSize() + 8)
         self.painter.setFont(font)
-        #Color
+        # Color
         pen = self.painter.pen()
         color = pen.color()
         pen.setColor(color.darker())
@@ -380,26 +362,26 @@ class BaseCanvas(QWidget):
         """Draw path as curve."""
         if len(set(path)) <= 2:
             return
-        pointPath = QPainterPath()
+        painter_path = QPainterPath()
         error = False
         for i, (x, y) in enumerate(path):
             if isnan(x):
                 error = True
-                self.painter.drawPath(pointPath)
-                pointPath = QPainterPath()
+                self.painter.drawPath(painter_path)
+                painter_path = QPainterPath()
             else:
                 x *= self.zoom
                 y *= -self.zoom
                 if i == 0:
-                    pointPath.moveTo(x, y)
-                    self.painter.drawEllipse(QPointF(x, y), RADIUS, RADIUS)
+                    painter_path.moveTo(x, y)
+                    self.painter.drawEllipse(QPointF(x, y), self.joint_size, self.joint_size)
                     continue
                 if error:
-                    pointPath.moveTo(x, y)
+                    painter_path.moveTo(x, y)
                     error = False
                 else:
-                    pointPath.lineTo(x, y)
-        self.painter.drawPath(pointPath)
+                    painter_path.lineTo(x, y)
+        self.painter.drawPath(painter_path)
     
     def drawDot(self, path: Sequence[Tuple[float, float]]):
         """Draw path as dots."""
@@ -410,12 +392,13 @@ class BaseCanvas(QWidget):
                 continue
             self.painter.drawPoint(QPointF(x, -y) * self.zoom)
     
-    def solutionPolygon(self,
+    def solutionPolygon(
+        self,
         func: str,
-        args: Tuple[str],
+        args: Sequence[str],
         target: str,
-        pos: Union[Tuple[VPoint], Dict[int, Tuple[float, float]]]
-    ) -> Tuple[List[Tuple[float, float]], QColor]:
+        pos: Union[Tuple[VPoint, ...], Dict[int, Tuple[float, float]]]
+    ) -> Tuple[List[QPointF], QColor]:
         """Get solution polygon."""
         if func == 'PLLP':
             color = QColor(121, 171, 252)
@@ -423,10 +406,11 @@ class BaseCanvas(QWidget):
         elif func == 'PLAP':
             color = QColor(249, 84, 216)
             params = [args[0]]
-        elif func in ('PLPP', 'PXY'):
+        else:
             if func == 'PLPP':
                 color = QColor(94, 255, 185)
             else:
+                # PXY
                 color = QColor(249, 175, 27)
             params = [args[0]]
         params.append(target)
@@ -437,49 +421,41 @@ class BaseCanvas(QWidget):
             except ValueError:
                 continue
             else:
-                tmp_list.append(pos[index])
+                x, y = pos[index]
+                tmp_list.append(QPointF(x, -y) * self.zoom)
         return tmp_list, color
     
-    def drawSolution(self,
+    def drawSolution(
+        self,
         func: str,
-        args: Tuple[str],
+        args: Sequence[str],
         target: str,
-        pos: Union[Tuple[VPoint], Dict[int, Tuple[float, float]]]
+        pos: Union[Tuple[VPoint, ...], Dict[int, Tuple[float, float]]]
     ):
         """Draw the solution triangle."""
-        params, color = self.solutionPolygon(func, args, target, pos)
+        points, color = self.solutionPolygon(func, args, target, pos)
         
         color.setAlpha(150)
         pen = QPen(color)
-        pen.setWidth(RADIUS)
+        pen.setWidth(self.joint_size)
         self.painter.setPen(pen)
         
-        def tryDrawArrow(index: int, text: str) -> bool:
-            """Draw arrow and return True if done."""
-            try:
-                x, y = params[-1]
-                x2, y2 = params[index]
-            except ValueError:
-                return False
-            else:
-                self.drawArrow(
-                    x * self.zoom, y * -self.zoom,
-                    x2 * self.zoom, y2 * -self.zoom,
-                    text = text
-                )
-                return True
+        def draw_arrow(index: int, text: str):
+            """Draw arrow."""
+            self.__drawArrow(
+                points[-1].x(),
+                points[-1].y(),
+                points[index].x(),
+                points[index].y(),
+                text=text
+            )
         
-        if not tryDrawArrow(0, args[1]):
-            return
+        draw_arrow(0, args[1])
         if func == 'PLLP':
-            if not tryDrawArrow(1, args[2]):
-                return
+            draw_arrow(1, args[2])
         color.setAlpha(30)
         self.painter.setBrush(QBrush(color))
-        qpoints = []
-        for x, y in params:
-            qpoints.append(QPointF(x, -y) * self.zoom)
-        self.painter.drawPolygon(*qpoints)
+        self.painter.drawPolygon(QPolygonF(points))
         self.painter.setBrush(Qt.NoBrush)
 
 
@@ -487,14 +463,15 @@ class PreviewCanvas(BaseCanvas):
     
     """A preview canvas use to show structure diagram."""
     
-    def __init__(self,
-        get_solutions: Callable[[], Tuple[str]],
+    def __init__(
+        self,
+        get_solutions: Callable[[], str],
         parent: QWidget
     ):
         """Input parameters and attributes.
         
         + A function should return a tuple of function expression.
-            Like: ("PLAP[P1,a0,L0,P2](P3)", "PLLP[P1,a0,L0,P2](P3)", ...)
+            format: ("PLAP[P1,a0,L0,P2](P3)", "PLLP[P1,a0,L0,P2](P3)", ...)
         + Origin graph
         + Customize points: Dict[str, int]
         + Multiple joints: Dict[int, int]
@@ -510,13 +487,16 @@ class PreviewCanvas(BaseCanvas):
         self.same = {}
         self.pos = {}
         self.status = {}
+        
+        # Additional attributes.
+        self.grounded = -1
+        self.Driver = -1
+        self.Target = -1
+        
         self.clear()
     
     def clear(self):
-        """Clear the attributes.
-        
-        + Special marks
-        """
+        """Clear the attributes."""
         self.G = Graph()
         self.cus.clear()
         self.same.clear()
@@ -551,28 +531,28 @@ class PreviewCanvas(BaseCanvas):
             self.oy = height / 2
         super(PreviewCanvas, self).paintEvent(event)
         pen = QPen()
-        pen.setWidth(RADIUS)
+        pen.setWidth(self.joint_size)
         self.painter.setPen(pen)
         self.painter.setBrush(QBrush(QColor(226, 219, 190, 150)))
-        #Links
+        # Links
         for link in self.G.nodes:
             if link == self.grounded:
                 continue
             points = []
-            #Points that is belong with the link.
+            # Points that is belong with the link.
             for num, edge in edges_view(self.G):
                 if link in edge:
                     if num in self.same:
                         num = self.same[num]
                     x, y = self.pos[num]
                     points.append((x * self.zoom, y * -self.zoom))
-            #Customize points.
+            # Customize points.
             for name, link_ in self.cus.items():
                 if link == link_:
                     x, y = self.pos[int(name.replace('P', ''))]
                     points.append((x * self.zoom, y * -self.zoom))
             self.painter.drawPolygon(*convex_hull(points, as_qpoint=True))
-        #Nodes
+        # Nodes
         for node, (x, y) in self.pos.items():
             if node in self.same:
                 continue
@@ -584,7 +564,7 @@ class PreviewCanvas(BaseCanvas):
                 elif node == self.Target:
                     pen.setColor(colorQt('Yellow'))
                 self.painter.setPen(pen)
-                self.painter.drawEllipse(QPointF(x, y), RADIUS, RADIUS)
+                self.painter.drawEllipse(QPointF(x, y), self.joint_size, self.joint_size)
             if self.getStatus(node):
                 color = colorQt('Dark-Magenta')
             else:
@@ -592,10 +572,10 @@ class PreviewCanvas(BaseCanvas):
             pen.setColor(color)
             self.painter.setPen(pen)
             self.painter.setBrush(QBrush(color))
-            self.painter.drawEllipse(QPointF(x, y), RADIUS, RADIUS)
+            self.painter.drawEllipse(QPointF(x, y), self.joint_size, self.joint_size)
             pen.setColor(colorQt('Black'))
             self.painter.setPen(pen)
-        #Solutions
+        # Solutions
         if self.showSolutions:
             solutions = self.get_solutions()
             if solutions:
@@ -606,16 +586,17 @@ class PreviewCanvas(BaseCanvas):
                         io.strbetween(expr, '(', ')'),
                         self.pos
                     )
-        #Text of node.
+        # Text of node.
         pen.setColor(Qt.black)
         self.painter.setPen(pen)
         for node, (x, y) in self.pos.items():
             if node in self.same:
                 continue
-            self.painter.drawText(QPointF(
-                x*self.zoom + 2*RADIUS,
-                y*-self.zoom
-            ), 'P{}'.format(node))
+            x *= self.zoom
+            x += 2 * self.joint_size
+            y *= -self.zoom
+            y -= 2 * self.joint_size
+            self.painter.drawText(x, y, f'P{node}')
         self.painter.end()
     
     def __zoomToFitLimit(self) -> Tuple[float, float, float, float]:
@@ -636,9 +617,9 @@ class PreviewCanvas(BaseCanvas):
                 y_top = y
         return x_right, x_left, y_top, y_bottom
     
-    def setGraph(self, G: Graph, pos: Dict[int, Tuple[float, float]]):
+    def setGraph(self, graph: Graph, pos: Dict[int, Tuple[float, float]]):
         """Set the graph from NetworkX graph type."""
-        self.G = G
+        self.G = graph
         self.pos = pos
         self.status = {k: False for k in pos}
         self.update()
@@ -679,23 +660,20 @@ class PreviewCanvas(BaseCanvas):
     
     def from_profile(self, params: Dict[str, Any]):
         """Simple load by dict object."""
-        #Add customize joints.
-        G = Graph(params['Graph'])
-        self.setGraph(G, params['pos'])
+        # Add customize joints.
+        graph = Graph(params['Graph'])
+        self.setGraph(graph, params['pos'])
         self.cus = params['cus']
         self.same = params['same']
-        #Grounded setting.
-        Driver = set(params['Driver'])
-        Follower = set(params['Follower'])
-        for row, link in enumerate(G.nodes):
-            points = set(
-                'P{}'.format(n)
-                for n, edge in edges_view(G) if link in edge
-            )
-            if (Driver | Follower) <= points:
+        # Grounded setting.
+        driver = set(params['Driver'])
+        follower = set(params['Follower'])
+        for row, link in enumerate(graph.nodes):
+            points = set(f'P{n}' for n, edge in edges_view(graph) if link in edge)
+            if (driver | follower) <= points:
                 self.setGrounded(row)
                 break
-        #Expression
+        # Expression
         if params['Expression']:
             for expr in params['Expression'].split(';'):
                 self.setStatus(io.strbetween(expr, '(', ')'), True)
