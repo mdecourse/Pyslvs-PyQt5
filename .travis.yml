@@ -1,27 +1,67 @@
-#Travis-Ci
-dist: trusty
-sudo: required
+# Travis-CI for Pyslvs-UI
 language: python
 
-python:
-- 3.5
-- 3.6
+matrix:
+    include:
 
-branches:
-  only:
-    - master
-    - /^dev\d*[.]?\d*$/
+        - os: linux
+          sudo: required
+          python: "3.7"
+          dist: xenial
+          deploy: &deploy-options
+              overwrite: true
+              provider: releases
+              api_key: $TRAVIS_TOKEN
+              file_glob: true
+              file: out/pyslvs-*.AppImage
+              skip_cleanup: true
+              on:
+                  tags: true
 
+        - os: osx
+          language: generic
+          env: PYTHON=37
+          deploy:
+              <<: *deploy-options
+              file: dist/pyslvs-*.app.zip
+
+# For OS X
 before_install:
-  #SWIG & graphviz
-  - sudo apt -y install swig graphviz
+
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+        curl -LO https://raw.githubusercontent.com/GiovanniBussi/macports-ci/master/macports-ci;
+        source ./macports-ci install;
+        fi
+
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+        yes | sudo port install python$PYTHON;
+        yes | sudo port install py$PYTHON-pip;
+        sudo port select --set python3 python$PYTHON;
+        sudo port select --set pip pip$PYTHON;
+        python3 -m pip install pyinstaller --user --no-use-pep517;
+        export PATH=$PATH:$(python3 -c "import site; print(site.USER_BASE)")/bin;
+        fi
+
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+        python3 --version;
+        python3 -m pip --version;
+        pyinstaller --version;
+        fi
+
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+        python3 -m pip install -r requirements.txt --user;
+        fi
 
 script:
-  - make
+    - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+        make;
+        else
+        make USER_MODE=false;
+        fi
 
 before_cache:
-  - rm -rf $HOME/.cache/pip/log
+    - rm -rf $HOME/.cache/pip/log
 
 cache:
-  directories:
-    - $HOME/.cache/pip
+    directories:
+        - $HOME/.cache/pip

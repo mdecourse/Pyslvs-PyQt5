@@ -2,21 +2,24 @@
 
 """The canvas of main window."""
 
+from __future__ import annotations
+
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from collections import deque
 from typing import (
+    TYPE_CHECKING,
     List,
     Tuple,
+    Sequence,
     Dict,
     Union,
 )
 from core.QtModules import (
-    pyqtSignal,
-    pyqtSlot,
+    Slot,
     Qt,
     QApplication,
     QRectF,
@@ -24,305 +27,262 @@ from core.QtModules import (
     QSizeF,
     QCursor,
     QToolTip,
-    QWidget,
 )
-from core.graphics import BaseCanvas
-from core.libs import VPoint, VLink
-from . import main_canvas_method as _method
-from .main_canvas_method import Selector, FreeMode
+from .main_canvas_method import (
+    DynamicCanvasInterface,
+    FreeMode,
+    SelectMode,
+)
+
+if TYPE_CHECKING:
+    from core.widgets import MainWindowBase
+
+_Coord = Tuple[float, float]
 
 
-class DynamicCanvas(BaseCanvas):
-    
+class DynamicCanvas(DynamicCanvasInterface):
+
     """The canvas in main window.
-    
+
     + Parse and show PMKS expression.
     + Show paths.
     + Show settings of dimensional synthesis widget.
     + Mouse interactions.
     + Zoom to fit function.
     """
-    
-    tracking = pyqtSignal(float, float)
-    browse_tracking = pyqtSignal(float, float)
-    selected = pyqtSignal(tuple, bool)
-    freemoved = pyqtSignal(tuple)
-    noselected = pyqtSignal()
-    alt_add = pyqtSignal()
-    doubleclick_edit = pyqtSignal(int)
-    zoom_changed = pyqtSignal(int)
-    
-    def __init__(self, parent: QWidget):
+
+    def __init__(self, parent: MainWindowBase):
         super(DynamicCanvas, self).__init__(parent)
-        self.setMouseTracking(True)
-        self.setStatusTip("Use mouse wheel or middle button to look around.")
-        #The current mouse coordinates.
-        self.selector = Selector()
-        #Entities.
-        self.vpoints = ()
-        self.vlinks = ()
-        self.vangles = ()
-        #Solution.
-        self.exprs = []
-        #Select function.
-        self.select_mode = 0
-        self.sr = 10
-        self.selections = []
-        #Link transparency.
-        self.transparency = 1.
-        #Path solving range.
-        self.ranges = {}
-        #Set show_dimension to False.
-        self.show_dimension = False
-        #Free move mode.
-        self.freemove = FreeMode.NoFreeMove
-        #Path preview.
-        self.pathpreview = []
-        self.previewpath = parent.previewpath
-        #Path record.
-        self.path_record = []
-        #Zooming center.
-        """
-        0: By cursor.
-        1: By canvas center.
-        """
-        self.zoomby = 0
-        #Mouse snapping value.
-        self.snap = 5
-        #Dependent functions to set zoom bar.
-        self.__setZoom = parent.ZoomBar.setValue
-        self.__zoom = parent.ZoomBar.value
-        self.__zoom_factor = parent.scalefactor_option.value
-        #Dependent functions to set selection mode.
-        self.__setSelectionMode = parent.EntitiesTab.setCurrentIndex
-        self.__selectionMode = parent.EntitiesTab.currentIndex
-        #Default margin factor.
-        self.margin_factor = 0.95
-        #Widget size.
-        self.width_old = None
-        self.height_old = None
-    
-    def updateFigure(self,
-        vpoints: Tuple[VPoint],
-        vlinks: Tuple[VLink],
-        exprs: List[Tuple[str]],
-        path: List[Tuple[float, float]]
-    ):
+        # Dependent functions to set zoom bar.
+        self.set_zoom_bar = parent.zoom_bar.setValue
+        self.zoom_value = parent.zoom_bar.value
+        self.zoom_factor = parent.scalefactor_option.value
+        # Dependent functions to set selection mode.
+        self.set_selection_mode = parent.entities_tab.setCurrentIndex
+        self.selection_mode = parent.entities_tab.currentIndex
+
+    def update_figure(self, exprs: List[Tuple[str, ...]], path: List[_Coord]):
         """Update with Point and Links data."""
-        self.vpoints = vpoints
-        self.vlinks = vlinks
         self.vangles = tuple(vpoint.angle for vpoint in self.vpoints)
         self.exprs = exprs
-        self.Path.path = path
+        self.path.path = path
         self.update()
-    
-    def updatePreviewPath(self):
+
+    @Slot()
+    def update_preview_path(self):
         """Update preview path."""
-        self.previewpath(self.pathpreview, self.vpoints)
-    
-    @pyqtSlot(int)
-    def setLinkWidth(self, link_width: int):
+        self.preview_path(self.path_preview, self.slider_path_preview, self.vpoints)
+        self.update()
+
+    @Slot(int)
+    def set_link_width(self, link_width: int):
         """Update width of links."""
         self.link_width = link_width
         self.update()
-    
-    @pyqtSlot(int)
-    def setPathWidth(self, path_width: int):
+
+    @Slot(int)
+    def set_path_width(self, path_width: int):
         """Update width of links."""
         self.path_width = path_width
         self.update()
-    
-    @pyqtSlot(bool)
-    def setPointMark(self, show_point_mark: bool):
+
+    @Slot(bool)
+    def set_point_mark(self, show_point_mark: bool):
         """Update show point mark or not."""
         self.show_point_mark = show_point_mark
         self.update()
-    
-    @pyqtSlot(bool)
-    def setShowDimension(self, show_dimension: bool):
+
+    @Slot(bool)
+    def set_show_dimension(self, show_dimension: bool):
         """Update show dimension or not."""
         self.show_dimension = show_dimension
         self.update()
-    
-    @pyqtSlot(bool)
-    def setCurveMode(self, curve: bool):
+
+    @Slot(bool)
+    def set_curve_mode(self, curve: bool):
         """Update show as curve mode or not."""
-        self.Path.curve = curve
+        self.path.curve = curve
         self.update()
-    
-    @pyqtSlot(int)
-    def setFontSize(self, font_size: int):
+
+    @Slot(int)
+    def set_font_size(self, font_size: int):
         """Update font size."""
         self.font_size = font_size
         self.update()
-    
-    @pyqtSlot(int)
-    def setZoom(self, zoom: int):
+
+    @Slot(int)
+    def set_zoom(self, zoom: int):
         """Update zoom factor."""
         zoom_old = self.zoom
         self.zoom = zoom / 100 * self.rate
-        dz = zoom_old - self.zoom
+        zoom_old -= self.zoom
         if self.zoomby == 0:
             pos = self.mapFromGlobal(QCursor.pos())
-        elif self.zoomby == 1:
+        else:
             pos = QPointF(self.width() / 2, self.height() / 2)
-        self.ox += (pos.x() - self.ox) / self.zoom * dz
-        self.oy += (pos.y() - self.oy) / self.zoom * dz
+        self.ox += (pos.x() - self.ox) / self.zoom * zoom_old
+        self.oy += (pos.y() - self.oy) / self.zoom * zoom_old
         self.update()
-    
-    def setShowTargetPath(self, show_target_path: bool):
+
+    def set_show_target_path(self, show_target_path: bool):
         """Update show target path or not."""
         self.show_target_path = show_target_path
         self.update()
-    
-    def setFreeMove(self, freemove: int):
-        """Update freemove mode number."""
-        self.freemove = FreeMode(freemove)
+
+    def set_free_move(self, free_move: int):
+        """Update free move mode number."""
+        self.free_move = FreeMode(free_move + 1)
         self.update()
-    
-    @pyqtSlot(int)
-    def setSelectionRadius(self, sr: int):
+
+    @Slot(int)
+    def set_selection_radius(self, sr: int):
         """Update radius of point selector."""
         self.sr = sr
-    
-    @pyqtSlot(int)
-    def setTransparency(self, transparency: int):
-        """Update transparency.
-        
-        0%: opaque.
-        """
+
+    @Slot(int)
+    def set_transparency(self, transparency: int):
+        """Update transparency. (0%: opaque)"""
         self.transparency = (100 - transparency) / 100
         self.update()
-    
-    @pyqtSlot(int)
-    def setMarginFactor(self, margin_factor: int):
+
+    @Slot(int)
+    def set_margin_factor(self, margin_factor: int):
         """Update margin factor when zoom to fit."""
         self.margin_factor = 1 - margin_factor / 100
         self.update()
-    
-    @pyqtSlot(int)
-    def setJointSize(self, joint_size: int):
+
+    @Slot(int)
+    def set_joint_size(self, joint_size: int):
         """Update size for each joint."""
         self.joint_size = joint_size
         self.update()
-    
-    @pyqtSlot(int)
-    def setZoomBy(self, zoomby: int):
+
+    @Slot(int)
+    def set_zoom_by(self, zoomby: int):
         """Update zooming center option."""
         self.zoomby = zoomby
-    
-    @pyqtSlot(float)
-    def setSnap(self, snap: float):
+
+    @Slot(float)
+    def set_snap(self, snap: float):
         """Update mouse capture value."""
         self.snap = snap
-    
-    @pyqtSlot(int)
-    def setSelectionMode(self, select_mode: int):
-        """Update the selection."""
-        self.select_mode = select_mode
+
+    @Slot(str)
+    def set_background(self, path: str):
+        """Set background from file path."""
+        if self.background.load(path):
+            self.update()
+
+    @Slot(float)
+    def set_background_opacity(self, opacity: float):
+        """Set opacity of background."""
+        self.background_opacity = opacity
         self.update()
-    
-    @pyqtSlot(list)
-    def setSelection(self, selections: List[int]):
+
+    @Slot(float)
+    def set_background_scale(self, scale: float):
+        """Set scale value of background."""
+        self.background_scale = scale
+        self.update()
+
+    @Slot(float)
+    def set_background_offset_x(self, x: float):
+        """Set offset x value of background."""
+        self.background_offset.setX(x)
+        self.update()
+
+    @Slot(float)
+    def set_background_offset_y(self, y: float):
+        """Set offset y value of background."""
+        self.background_offset.setY(-y)
+        self.update()
+
+    @Slot(int)
+    def set_selection_mode(self, select_mode: int):
+        """Update the selection."""
+        self.select_mode = SelectMode(select_mode + 1)
+        self.update()
+
+    @Slot(list)
+    def set_selection(self, selections: List[int]):
         """Update the selection."""
         self.selections = selections
         self.update()
-    
-    def setSolvingPath(self,
-        target_path: Dict[str, Tuple[Tuple[float, float]]]
+
+    def set_solving_path(
+        self,
+        target_path: Dict[str, Tuple[_Coord]]
     ):
         """Update target path."""
         self.target_path = target_path
         self.update()
-    
-    def setPathShow(self, p: int):
+
+    def set_path_show(self, p: int):
         """Update path present mode.
-        
+
         -2: Hide all paths.
         -1: Show all paths.
         i: Show path i.
         """
-        self.Path.show = p
+        self.path.show = p
         self.update()
-    
-    def updateRanges(self, ranges: Dict[str, Tuple[float, float, float]]):
+
+    def update_ranges(self, ranges: Dict[str, Tuple[float, float, float]]):
         """Update the ranges of dimensional synthesis."""
         self.ranges.clear()
         self.ranges.update({tag: QRectF(
-            QPointF(values[0] - values[2]/2, values[1] + values[2]/2),
-            QSizeF(values[2], values[2])
+            QPointF(values[0] - values[2], values[1] + values[2]),
+            QSizeF(values[2] * 2, values[2] * 2)
         ) for tag, values in ranges.items()})
         self.update()
-    
-    def recordStart(self, limit: int):
+
+    def record_start(self, limit: int):
         """Start a limit from main window."""
-        self.path_record = [deque([], limit) for i in range(len(self.vpoints))]
-    
-    def recordPath(self):
+        self.path_record = []
+        for _ in range(len(self.vpoints)):
+            self.path_record.append(deque([], limit))
+
+    def record_path(self):
         """Recording path."""
         for i, vpoint in enumerate(self.vpoints):
             self.path_record[i].append((vpoint.cx, vpoint.cy))
-    
-    def getRecordPath(self) -> Tuple[Tuple[Tuple[float, float]]]:
+
+    def get_record_path(self) -> Tuple[Tuple[_Coord, ...], ...]:
         """Return paths."""
-        path = tuple(
-            tuple(path) if (len(set(path)) > 1) else ()
+        paths = tuple(
+            tuple(path) if len(set(path)) > 1 else ()
             for path in self.path_record
         )
         self.path_record.clear()
-        return path
-    
-    def adjustLink(self,
-        coords: Tuple[Union[Tuple[Tuple[float, float], Tuple[float, float]]]]
+        return paths
+
+    def adjust_link(
+        self,
+        coords: Sequence[Union[Tuple[_Coord, ...], _Coord]]
     ):
         """Change points coordinates."""
         for i, c in enumerate(coords):
-            vpoint = self.vpoints[i]
-            if type(c[0]) == float:
-                vpoint.move(c)
+            if type(c[0]) is float:
+                self.vpoints[i].move(c)
             else:
-                vpoint.move(*c)
-        self.update()
-    
-    def emit_freemove_all(self):
-        _method.emit_freemove_all(self)
-    
-    def paintEvent(self, event):
-        _method.paintEvent(self, event)
-    
+                self.vpoints[i].move(*c)
+        self.update_preview_path()
+
     def wheelEvent(self, event):
         """Switch function by mouse wheel.
-        
+
         + Set zoom bar value.
         + Set select mode.
         """
         value = event.angleDelta().y()
         if QApplication.keyboardModifiers() == Qt.ControlModifier:
-            self.__setSelectionMode(self.__selectionMode() + (-1 if (value > 0) else 1))
-            i = self.__selectionMode()
-            QToolTip.showText(
-                event.globalPos(),
-                "<p style=\"background-color: #77abff\">" + ''.join(
-                    "<img width=\"{}\" src=\":icons/{}.png\"/>".format(70 if (i == j) else 40, icon)
-                    for j, icon in enumerate(('bearing', 'link', 'triangular-iteration'))
-                ) + "</p>",
-                self
+            self.set_selection_mode(self.selection_mode() + (-1 if value > 0 else 1))
+            i = self.selection_mode()
+            icons = ''.join(
+                f"<img width=\"{70 if i == j else 40}\" src=\":icons/{icon}.png\"/>"
+                for j, icon in enumerate(('bearing', 'link', 'configure'))
             )
+            QToolTip.showText(event.globalPos(), f"<p style=\"background-color: # 77abff\">{icons}</p>", self)
         else:
-            self.__setZoom(self.__zoom() + self.__zoom_factor() * (1 if (value > 0) else -1))
+            self.set_zoom_bar(self.zoom_value() + self.zoom_factor() * (1 if value > 0 else -1))
         event.accept()
-    
-    def mousePressEvent(self, event):
-        _method.mousePressEvent(self, event)
-    
-    def mouseDoubleClickEvent(self, event):
-        _method.mouseDoubleClickEvent(self, event)
-    
-    def mouseReleaseEvent(self, event):
-        _method.mouseReleaseEvent(self, event)
-    
-    def mouseMoveEvent(self, event):
-        _method.mouseMoveEvent(self, event)
-    
-    def zoomToFit(self):
-        _method.zoomToFit(self)

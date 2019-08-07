@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/home/ahshoe/桌面/Pyslvs-PyQt5/core/io/output_option.ui'
+# Form implementation generated from reading ui file 'core/io/output_option.ui'
 #
-# Created by: PyQt5 UI code generator 5.10
+# Created by: PyQt5 UI code generator 5.12.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from core.QtModules import QtCore, QtGui, QtWidgets
+
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -24,12 +25,12 @@ class Ui_Dialog(object):
         self.path_edit = QtWidgets.QLineEdit(Dialog)
         self.path_edit.setObjectName("path_edit")
         self.horizontalLayout_2.addWidget(self.path_edit)
-        self.choosedir_button = QtWidgets.QToolButton(Dialog)
+        self.choose_dir_button = QtWidgets.QToolButton(Dialog)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/icons/loadfile.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-        self.choosedir_button.setIcon(icon)
-        self.choosedir_button.setObjectName("choosedir_button")
-        self.horizontalLayout_2.addWidget(self.choosedir_button)
+        self.choose_dir_button.setIcon(icon)
+        self.choose_dir_button.setObjectName("choose_dir_button")
+        self.horizontalLayout_2.addWidget(self.choose_dir_button)
         self.main_layout.addLayout(self.horizontalLayout_2)
         self.newfolder_option = QtWidgets.QCheckBox(Dialog)
         self.newfolder_option.setChecked(True)
@@ -109,14 +110,14 @@ class Ui_Dialog(object):
         self.horizontalLayout.setObjectName("horizontalLayout")
         spacerItem2 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem2)
-        self.buttonBox = QtWidgets.QDialogButtonBox(Dialog)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Save)
-        self.buttonBox.setObjectName("buttonBox")
-        self.horizontalLayout.addWidget(self.buttonBox)
+        self.button_box = QtWidgets.QDialogButtonBox(Dialog)
+        self.button_box.setStandardButtons(QtWidgets.QDialogButtonBox.Cancel|QtWidgets.QDialogButtonBox.Save)
+        self.button_box.setObjectName("button_box")
+        self.horizontalLayout.addWidget(self.button_box)
         self.main_layout.addLayout(self.horizontalLayout)
 
         self.retranslateUi(Dialog)
-        self.buttonBox.rejected.connect(Dialog.reject)
+        self.button_box.rejected.connect(Dialog.reject)
         self.assembly_radio.toggled['bool'].connect(self.assembly_group.setEnabled)
         self.frame_radio.toggled['bool'].connect(self.frame_group.setEnabled)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
@@ -124,7 +125,7 @@ class Ui_Dialog(object):
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         self.path_label.setText(_translate("Dialog", "Directory:"))
-        self.choosedir_button.setText(_translate("Dialog", "..."))
+        self.choose_dir_button.setText(_translate("Dialog", "..."))
         self.newfolder_option.setText(_translate("Dialog", "Export to a folder with workbook name (it will be create if not exist)"))
         self.filename_label.setText(_translate("Dialog", "Main file name:"))
         self.filename_suffix_label.setText(_translate("Dialog", ".slvs"))
@@ -136,14 +137,5 @@ class Ui_Dialog(object):
         self.overwrite_radio.setText(_translate("Dialog", "Always overwrite"))
         self.warn_radio.setText(_translate("Dialog", "Warning me then back to this dialog"))
 
+
 import icons_rc
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    Dialog = QtWidgets.QDialog()
-    ui = Ui_Dialog()
-    ui.setupUi(Dialog)
-    Dialog.show()
-    sys.exit(app.exec_())
-

@@ -1,110 +1,40 @@
 # -*- coding: utf-8 -*-
 
-"""This module contain all the Qt objects we needed.
+"""This module contains all the Qt objects we needed.
 
 Customized class will define below.
 """
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from PyQt5.QtCore import (
-    pyqtSignal,
-    pyqtSlot,
-    QCoreApplication,
-    QDir,
-    QFileInfo,
-    QModelIndex,
-    QMutex,
-    QMutexLocker,
-    QObject,
-    QPoint,
-    QPointF,
-    QRectF,
-    QSettings,
-    QSize,
-    QSizeF,
-    QStandardPaths,
-    QThread,
-    QTimer,
-    QUrl,
-    Qt,
-)
-from PyQt5.QtWidgets import (
-    QAbstractItemView,
-    QAction,
-    QApplication,
-    QCheckBox,
-    QColorDialog,
-    QComboBox,
-    QDial,
-    QDialog,
-    QDialogButtonBox,
-    QDoubleSpinBox,
-    QFileDialog,
-    QGraphicsScene,
-    QGraphicsView,
-    QHBoxLayout,
-    QInputDialog,
-    QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
-    QMainWindow,
-    QMenu,
-    QMessageBox,
-    QProgressDialog,
-    QPushButton,
-    QShortcut,
-    QSizePolicy,
-    QSpacerItem,
-    QSpinBox,
-    QSplashScreen,
-    QTabWidget,
-    QTableWidget,
-    QTableWidgetItem,
-    QTableWidgetSelectionRange,
-    QTextEdit,
-    QToolTip,
-    QUndoCommand,
-    QUndoStack,
-    QUndoView,
-    QVBoxLayout,
-    QWidget,
-)
-from PyQt5.QtGui import (
-    QBrush,
-    QColor,
-    QCursor,
-    QDesktopServices,
-    QFont,
-    QIcon,
-    QImage,
-    QKeySequence,
-    QPainter,
-    QPainterPath,
-    QPen,
-    QPixmap,
-    QPolygonF,
-    QTextCursor,
-)
-from PyQt5.QtChart import (
-    QCategoryAxis,
-    QChart,
-    QChartView,
-    QLineSeries,
-    QScatterSeries,
-    QValueAxis,
-)
-from PyQt5.QtCore import qVersion, PYQT_VERSION_STR
+from abc import ABCMeta
+from typing import Tuple
+
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
+from PyQt5.QtChart import *
+
+Signal = QtCore.pyqtSignal
+Slot = QtCore.pyqtSlot
+QT_VERSION_STR = QtCore.QT_VERSION_STR
+PYQT_VERSION_STR = QtCore.PYQT_VERSION_STR
 
 __all__ = [
-    'pyqtSignal',
-    'pyqtSlot',
-    'qVersion',
+    'Qt',
+    'QtCore',
+    'QtGui',
+    'QtWidgets',
+    'Signal',
+    'Slot',
+    'qt_image_format',
+    'QT_VERSION_STR',
     'PYQT_VERSION_STR',
+    'QABCMeta',
     'QAbstractItemView',
     'QAction',
     'QApplication',
@@ -124,23 +54,34 @@ __all__ = [
     'QDialogButtonBox',
     'QDir',
     'QDoubleSpinBox',
+    'QFile',
     'QFileDialog',
     'QFileInfo',
     'QFont',
+    'QFontMetrics',
+    'QFormLayout',
+    'QFrame',
     'QGraphicsScene',
     'QGraphicsView',
+    'QGridLayout',
+    'QGroupBox',
     'QHBoxLayout',
+    'QHeaderView',
     'QIcon',
     'QImage',
     'QInputDialog',
     'QKeySequence',
     'QLabel',
     'QLineEdit',
+    'QLineF',
     'QLineSeries',
+    'QListView',
     'QListWidget',
     'QListWidgetItem',
     'QMainWindow',
+    'QMetaObject',
     'QMenu',
+    'QMenuBar',
     'QMessageBox',
     'QModelIndex',
     'QMutex',
@@ -153,27 +94,39 @@ __all__ = [
     'QPoint',
     'QPointF',
     'QPolygonF',
+    'QProgressBar',
     'QProgressDialog',
     'QPushButton',
+    'QRadioButton',
+    'QRect',
     'QRectF',
     'QSpacerItem',
+    'QSplitter',
     'QScatterSeries',
+    'QScrollArea',
+    'QScrollBar',
     'QSettings',
     'QShortcut',
     'QSize',
     'QSizeF',
     'QSizePolicy',
+    'QSlider',
     'QSpinBox',
     'QSplashScreen',
     'QStandardPaths',
+    'QStatusBar',
     'QTabWidget',
     'QTableWidget',
     'QTableWidgetItem',
     'QTableWidgetSelectionRange',
+    'QTextBrowser',
     'QTextCursor',
     'QTextEdit',
     'QThread',
     'QTimer',
+    'QTreeWidgetItem',
+    'QToolButton',
+    'QToolBox',
     'QToolTip',
     'QUndoCommand',
     'QUndoStack',
@@ -182,5 +135,30 @@ __all__ = [
     'QValueAxis',
     'QVBoxLayout',
     'QWidget',
-    'Qt',
 ]
+
+
+qt_image_format: Tuple[str, ...] = (
+    "Portable Network Graphics (*.png)",
+    "Joint Photographic Experts Group (*.jpg)",
+    "Bitmap Image file (*.bmp)",
+    "Business Process Model (*.bpm)",
+    "Tagged Image File Format (*.tiff)",
+    "Windows Icon (*.ico)",
+    "Wireless Application Protocol Bitmap (*.wbmp)",
+    "X Bitmap (*.xbm)",
+    "X Pixmap (*.xpm)",
+)
+
+
+class QABCMeta(type(QObject), ABCMeta):
+    """Qt ABCMeta class.
+
+    Usage:
+
+    class MyQObject(QObject, metaclass=QABCMeta):
+        @abstractmethod
+        def my_abstract_method(self):
+            ...
+    """
+    pass

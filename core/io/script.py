@@ -2,21 +2,28 @@
 
 """Python script output function."""
 
+from __future__ import annotations
+
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import Tuple, List
+from typing import (
+    TYPE_CHECKING,
+    Tuple,
+    List,
+    Sequence,
+)
 from pygments import highlight
-from pygments.lexer import RegexLexerMeta
-from pygments.formatters import HtmlFormatter
+from pygments.lexer import RegexLexer
+from pygments.formatters.html import HtmlFormatter
 from pygments.styles import (
     get_style_by_name,
     get_all_styles,
 )
 from core.QtModules import (
-    pyqtSlot,
+    Slot,
     Qt,
     QApplication,
     QDialog,
@@ -25,8 +32,11 @@ from core.QtModules import (
 )
 from .Ui_script import Ui_Dialog
 
+if TYPE_CHECKING:
+    from core.widgets import MainWindowBase
 
-_script = """
+
+_SCRIPT = """
 from pyslvs import (
     parse_vpoints,
     vpoints_configure,
@@ -35,38 +45,39 @@ from pyslvs import (
 )
 
 if __name__ == '__main__':
-    vpoints = parse_vpoints("M["\n{0}
+    vpoints = parse_vpoints(
+        "M["\n{0}
         "]")
     exprs = vpoints_configure(vpoints, {1})
-    mapping = {{n: 'P{{}}'.format(n) for n in range(len(vpoints))}}
+    mapping = {{n: f'P{{n}}' for n in range(len(vpoints))}}
     data_dict, dof = data_collecting(exprs, mapping, vpoints)
     pos = expr_solving(exprs, mapping, vpoints, [0.])
     print(data_dict)
-    print("DOF:{{}}".format(dof))
+    print(f"DOF:{{dof}}")
     print(pos)
 """
 
 
 def slvs_process_script(
-    script: Tuple[str],
-    inputs: List[Tuple[int, int]]
+    script: Sequence[str],
+    inputs: Sequence[Tuple[int, int]]
 ) -> str:
     """Return parser function script."""
-    return _script.format(
-        '\n'.join(" " * 8 + '"{}, "'.format(expr) for expr in script),
+    return _SCRIPT.format(
+        '\n'.join(" " * 8 + f'"{expr}, "' for expr in script),
         inputs
     )
 
 
 class _ScriptBrowser(QTextEdit):
-    
+
     """Custom text browser to implement text zooming."""
-    
+
     def __init__(self, parent: QWidget):
         super(_ScriptBrowser, self).__init__(parent)
         self.setReadOnly(True)
         self.zoomIn(3)
-    
+
     def wheelEvent(self, event):
         super(_ScriptBrowser, self).wheelEvent(event)
         if QApplication.keyboardModifiers() == Qt.ControlModifier:
@@ -77,18 +88,19 @@ class _ScriptBrowser(QTextEdit):
 
 
 class ScriptDialog(QDialog, Ui_Dialog):
-    
+
     """Dialog of script preview."""
-    
-    def __init__(self,
+
+    def __init__(
+        self,
         script: str,
-        lexer: RegexLexerMeta,
+        lexer: RegexLexer,
         filename: str,
-        fileformat: List[str],
-        parent: QWidget
+        file_format: List[str],
+        parent: MainWindowBase
     ):
         """Input parameters:
-        
+
         + Script
         + Lexer
         + File name
@@ -105,34 +117,32 @@ class ScriptDialog(QDialog, Ui_Dialog):
         self.main_layout.insertWidget(1, self.script_view)
         self.code = highlight(script, lexer, HtmlFormatter())
         self.filename = filename
-        self.fileformat = fileformat
-        self.outputTo = parent.outputTo
-        self.saveReplyBox = parent.saveReplyBox
+        self.file_format = file_format
+        self.output_to = parent.output_to
+        self.save_reply_box = parent.save_reply_box
         self.setWindowTitle(self.filename)
         styles = sorted(get_all_styles())
         styles.insert(0, styles.pop(styles.index('default')))
         self.style_option.addItems(styles)
         self.style_option.setCurrentIndex(0)
-    
-    @pyqtSlot(str)
-    def on_style_option_currentIndexChanged(self, style_name: str):
-        """Redefind the CSS script of the html."""
-        self.script_view.setHtml("<style>{}</style>".format(
-            HtmlFormatter(style = get_style_by_name(style_name))
-            .get_style_defs()
-        ) + self.code)
-    
-    @pyqtSlot()
-    def on_copy_clicked(self):
+
+    @Slot(str, name='on_style_option_currentIndexChanged')
+    def __set_style(self, style: str):
+        """Redefine the CSS script of the html."""
+        style_code = HtmlFormatter(style=get_style_by_name(style)).get_style_defs()
+        self.script_view.setHtml(f"<style>{style_code}</style>" + self.code)
+
+    @Slot(name='on_copy_clicked')
+    def __copy(self):
         """Copy to clipboard."""
         QApplication.clipboard().setText(self.script_view.toPlainText())
-    
-    @pyqtSlot()
-    def on_save_clicked(self):
+
+    @Slot(name='on_save_clicked')
+    def __save(self):
         """Save to .py file."""
-        file_name = self.outputTo(self.filename, self.fileformat)
+        file_name = self.output_to(self.filename, self.file_format)
         if not file_name:
             return
-        with open(file_name, 'w', newline = "") as f:
+        with open(file_name, 'w', encoding='utf-8', newline='') as f:
             f.write(self.script_view.toPlainText())
-        self.saveReplyBox(self.filename, file_name)
+        self.save_reply_box(self.filename, file_name)

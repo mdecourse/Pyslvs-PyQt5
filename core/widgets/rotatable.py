@@ -3,7 +3,7 @@
 """A QGraphics widget to rotate the QDial widget."""
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
@@ -16,9 +16,9 @@ from core.QtModules import (
 
 
 class RotatableView(QGraphicsView):
-    
+
     """Rotate QDial widget."""
-    
+
     def __init__(self, item):
         QGraphicsView.__init__(self)
         scene = QGraphicsScene(self)
@@ -33,7 +33,7 @@ class RotatableView(QGraphicsView):
         item.setNotchesVisible(True)
         graphics_item = scene.addWidget(item)
         graphics_item.setRotation(-90)
-        #make the QGraphicsView invisible.
+        # make the QGraphicsView invisible.
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setFixedHeight(item.height())
