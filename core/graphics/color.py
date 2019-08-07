@@ -3,34 +3,34 @@
 """All color options in Pyslvs."""
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from pyslvs import color_names, color_rgb
 from core.QtModules import (
     QColor,
     QIcon,
     QPixmap,
     QSize,
 )
-from core.libs import colorNames, colorRGB
 
 
-def colorQt(name: str) -> QColor:
+def color_qt(name: str) -> QColor:
     """Get color and translate to QColor."""
-    return QColor(*colorRGB(name))
+    return QColor(*color_rgb(name))
 
 
-def colorNum(colorIndex: int) -> QColor:
+def color_num(color_index: int) -> QColor:
     """Get color by index."""
-    return colorQt(colorNames[colorIndex % len(colorNames)])
+    return color_qt(color_names[color_index % len(color_names)])
 
 
-def colorIcon(name: str, size: int = 20) -> QIcon:
+def color_icon(name: str, size: int = 20) -> QIcon:
     """Get color block as QIcon by name."""
-    colorBlock = QPixmap(QSize(size, size))
-    colorBlock.fill(colorQt(name))
-    return QIcon(colorBlock)
+    color_block = QPixmap(QSize(size, size))
+    color_block.fill(color_qt(name))
+    return QIcon(color_block)
 
 
 # Target path color: (road, dot, brush)
@@ -46,6 +46,6 @@ _path_color = (
 )
 
 
-def traget_path_style(colorIndex: int) -> QColor:
+def target_path_style(color_index: int) -> QColor:
     """Get path colors."""
-    return _path_color[colorIndex % len(_path_color)]
+    return _path_color[color_index % len(_path_color)]

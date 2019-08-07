@@ -6,7 +6,7 @@ This part is using PyQtChart module.
 """
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
@@ -20,9 +20,9 @@ from core.QtModules import (
 
 
 class DataChart(QChart):
-    
-    """A axis setted Qt chart widget."""
-    
+
+    """Two axises Qt chart widget."""
+
     def __init__(
         self,
         title: str,

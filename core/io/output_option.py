@@ -3,7 +3,7 @@
 """Output dialog for slvs format."""
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
@@ -17,8 +17,9 @@ from typing import (
 from os.path import isdir, isfile
 import shutil
 from subprocess import Popen, DEVNULL
+from pyslvs import VPoint
 from core.QtModules import (
-    pyqtSlot,
+    Slot,
     Qt,
     QDialog,
     QDir,
@@ -35,9 +36,8 @@ from core.QtModules import (
     QSpacerItem,
     QIcon,
     QPixmap,
-    QAbcMeta,
+    QABCMeta,
 )
-from core.libs import VPoint
 from .slvs import slvs_frame, slvs_part
 from .dxf import (
     DXF_VERSIONS,
@@ -57,10 +57,10 @@ def _get_name(widget: QTextEdit, *, ispath: bool = False) -> str:
     return ''.join(x for x in text if x.isalnum() or x in "._- ") or place_text
 
 
-class _OutputDialog(QDialog, Ui_Dialog, metaclass=QAbcMeta):
-    
+class _OutputDialog(QDialog, Ui_Dialog, metaclass=QABCMeta):
+
     """Output dialog template."""
-    
+
     def __init__(
         self,
         format_name: str,
@@ -69,7 +69,7 @@ class _OutputDialog(QDialog, Ui_Dialog, metaclass=QAbcMeta):
         frame_description: str,
         env: str,
         file_name: str,
-        vpoints: Tuple[VPoint],
+        vpoints: Sequence[VPoint],
         v_to_slvs: Callable[[], Sequence[Tuple[int, int]]],
         parent: QWidget
     ):
@@ -85,9 +85,9 @@ class _OutputDialog(QDialog, Ui_Dialog, metaclass=QAbcMeta):
         self.filename_edit.setPlaceholderText(file_name)
         self.vpoints = vpoints
         self.v_to_slvs = v_to_slvs
-    
-    @pyqtSlot(name='on_choosedir_button_clicked')
-    def __setDir(self):
+
+    @Slot(name='on_choose_dir_button_clicked')
+    def __set_dir(self):
         """Choose path and it will be set as environment variable if accepted."""
         path = self.path_edit.text()
         if not isdir(path):
@@ -95,8 +95,8 @@ class _OutputDialog(QDialog, Ui_Dialog, metaclass=QAbcMeta):
         path = QFileDialog.getExistingDirectory(self, "Choose a directory", path)
         if path:
             self.path_edit.setText(path)
-    
-    @pyqtSlot(name='on_buttonBox_accepted')
+
+    @Slot(name='on_button_box_accepted')
     def __accepted(self):
         """Use the file path to export the project."""
         qdir = QDir(_get_name(self.path_edit, ispath=True))
@@ -106,20 +106,20 @@ class _OutputDialog(QDialog, Ui_Dialog, metaclass=QAbcMeta):
                 self.exist_warning(new_folder, folder=True)
                 return
             qdir.cd(new_folder)
-            del new_folder
+
         try:
             ok = self.do(qdir)
-        except PermissionError as e:
-            QMessageBox.warning(self, "Permission error", str(e))
+        except PermissionError as error:
+            QMessageBox.warning(self, "Permission error", str(error))
         else:
             if ok:
                 self.accept()
-    
+
     @abstractmethod
     def do(self, dir_str: QDir) -> Optional[bool]:
         """Do the saving work here, return True if done."""
         ...
-    
+
     def exist_warning(self, name: str, *, folder: bool = False):
         """Show the "file is exist" message box."""
         QMessageBox.warning(
@@ -132,23 +132,23 @@ class _OutputDialog(QDialog, Ui_Dialog, metaclass=QAbcMeta):
 
 
 class SlvsOutputDialog(_OutputDialog):
-    
+
     """Dialog for Solvespace format."""
-    
+
     def __init__(self, *args):
         """Type name: "Solvespace module"."""
         super(SlvsOutputDialog, self).__init__(
             "Solvespace",
-            "Solvespace.ico",
+            "solvespace.ico",
             "The part sketchs file will be generated automatically "
             "with target directory.",
             "There is only sketch file of main mechanism will be generated.",
             *args
         )
-    
+
     def do(self, dir_str: QDir) -> Optional[bool]:
         """Output types:
-        
+
         + Assembly
         + Only wire frame
         """
@@ -156,19 +156,19 @@ class SlvsOutputDialog(_OutputDialog):
         if isfile(file_name) and self.warn_radio.isChecked():
             self.exist_warning(file_name)
             return
-        
+
         # Wire frame
         slvs_frame(self.vpoints, self.v_to_slvs, file_name)
-        
+
         # Open Solvespace by commend line if available.
         cmd = shutil.which("solvespace")
         if cmd:
             Popen([cmd, file_name], stdout=DEVNULL, stderr=DEVNULL)
-        
+
         if self.frame_radio.isChecked():
             self.accept()
             return
-        
+
         # Assembly
         vlinks = {}
         for i, vpoint in enumerate(self.vpoints):
@@ -187,14 +187,14 @@ class SlvsOutputDialog(_OutputDialog):
             slvs_part([
                 self.vpoints[i] for i in points
             ], self.link_radius.value(), file_name)
-        
+
         return True
 
 
 class DxfOutputDialog(_OutputDialog):
-    
+
     """Dialog for DXF format."""
-    
+
     def __init__(self, *args):
         """Type name: "DXF module"."""
         super(DxfOutputDialog, self).__init__(
@@ -232,10 +232,10 @@ class DxfOutputDialog(_OutputDialog):
         )
         dxf_interval_layout.addWidget(self.interval_option)
         self.assembly_layout.insertLayout(2, dxf_interval_layout)
-    
+
     def do(self, dir_str: QDir) -> Optional[bool]:
         """Output types:
-        
+
         + Boundary
         + Frame
         """
@@ -243,9 +243,9 @@ class DxfOutputDialog(_OutputDialog):
         if isfile(file_name) and self.warn_radio.isChecked():
             self.exist_warning(file_name)
             return
-        
+
         version = self.version_option.currentText().split()[0]
-        
+
         if self.frame_radio.isChecked():
             # Frame
             dxf_frame(
@@ -264,5 +264,5 @@ class DxfOutputDialog(_OutputDialog):
                 version,
                 file_name
             )
-        
+
         return True

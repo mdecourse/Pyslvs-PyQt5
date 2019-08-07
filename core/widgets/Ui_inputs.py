@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'Y:\Pyslvs-PyQt5\core\widgets\inputs.ui'
+# Form implementation generated from reading ui file 'core/widgets/inputs.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.2
+# Created by: PyQt5 UI code generator 5.12.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from core.QtModules import QtCore, QtGui, QtWidgets
+
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -133,7 +134,6 @@ class Ui_Form(object):
         self.verticalLayout.setObjectName("verticalLayout")
         self.dial_spinbox = QtWidgets.QDoubleSpinBox(self.variable_groupBox)
         self.dial_spinbox.setEnabled(False)
-        self.dial_spinbox.setMinimum(-360.0)
         self.dial_spinbox.setMaximum(360.0)
         self.dial_spinbox.setObjectName("dial_spinbox")
         self.verticalLayout.addWidget(self.dial_spinbox)
@@ -149,7 +149,7 @@ class Ui_Form(object):
         self.horizontalLayout_2.addWidget(self.update_pos_option)
         self.update_pos = QtWidgets.QPushButton(self.variable_groupBox)
         icon5 = QtGui.QIcon()
-        icon5.addPixmap(QtGui.QPixmap(":/icons/dataupdate.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon5.addPixmap(QtGui.QPixmap(":/icons/data_update.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.update_pos.setIcon(icon5)
         self.update_pos.setObjectName("update_pos")
         self.horizontalLayout_2.addWidget(self.update_pos)
@@ -257,14 +257,5 @@ class Ui_Form(object):
         self.record_start.setStatusTip(_translate("Form", "Start / Stop record."))
         self.record_remove.setStatusTip(_translate("Form", "Delete the specified path data."))
 
+
 import icons_rc
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    Form = QtWidgets.QWidget()
-    ui = Ui_Form()
-    ui.setupUi(Form)
-    Form.show()
-    sys.exit(app.exec_())
-

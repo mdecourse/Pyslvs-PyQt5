@@ -3,58 +3,34 @@
 """'io' module contains Pyslvs IO and undo redo functions."""
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from .script import ScriptDialog, slvs_process_script
-from .images import QTIMAGES
 from .slvs import SlvsParser
-from .loggingHandler import XStream
 from .output_option import SlvsOutputDialog, DxfOutputDialog
-from .database import FileWidget
-from .undo_redo import (
-    AddTable, DeleteTable,
-    FixSequenceNumber,
-    EditPointTable, EditLinkTable,
-    AddPath, DeletePath,
-    AddStorage, DeleteStorage,
-    AddStorageName, ClearStorageName,
-    AddVariable, DeleteVariable,
-)
+from .database import DatabaseWidget
+from .pyslvs_yaml import YamlEditor
 
 __all__ = [
     'ScriptDialog',
     'slvs_process_script',
-    'AddTable',
-    'DeleteTable',
-    'FixSequenceNumber',
-    'EditPointTable',
-    'EditLinkTable',
-    'AddPath',
-    'DeletePath',
-    'AddStorage',
-    'DeleteStorage',
-    'AddStorageName',
-    'ClearStorageName',
-    'AddVariable',
-    'DeleteVariable',
-    'QTIMAGES',
     'SlvsParser',
     'SlvsOutputDialog',
     'DxfOutputDialog',
-    'XStream',
-    'FileWidget',
-    'strbetween',
-    'strbefore',
+    'DatabaseWidget',
+    'YamlEditor',
+    'str_between',
+    'str_before',
 ]
 
 
-def strbetween(s: str, front: str, back: str) -> str:
+def str_between(s: str, front: str, back: str) -> str:
     """Get from parenthesis."""
     return s[(s.find(front) + 1):s.find(back)]
 
 
-def strbefore(s: str, front: str) -> str:
+def str_before(s: str, front: str) -> str:
     """Get from parenthesis."""
     return s[:s.find(front)]

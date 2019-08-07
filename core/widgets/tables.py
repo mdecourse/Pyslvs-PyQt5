@@ -4,14 +4,17 @@
 Also contains selection status label.
 """
 
+from __future__ import annotations
+
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from abc import abstractmethod
 from time import time
 from typing import (
+    TYPE_CHECKING,
     Tuple,
     List,
     Dict,
@@ -19,79 +22,102 @@ from typing import (
     Sequence,
     Union,
     Optional,
-    Any,
+    TypeVar,
+    Generic,
+)
+from pyslvs import (
+    ExpressionStack,
+    Coordinate,
+    VJoint,
+    VPoint,
+    VLink,
+    color_rgb,
 )
 from core.QtModules import (
-    pyqtSignal,
+    Signal,
     Qt,
     QTimer,
     QTableWidget,
     QSizePolicy,
     QAbstractItemView,
     QTableWidgetItem,
-    pyqtSlot,
+    Slot,
     QApplication,
     QTableWidgetSelectionRange,
+    QHeaderView,
     QLabel,
     QWidget,
-    QAbcMeta,
+    QABCMeta,
 )
-from core.graphics import colorIcon, colorQt
-from core.libs import VPoint, VLink
+from core.graphics import color_icon
+
+if TYPE_CHECKING:
+    from core.widgets import MainWindowBase
+
+_Data = TypeVar('_Data', VPoint, VLink)
+_Coord = Tuple[float, float]
 
 
-class _BaseTableWidget(QTableWidget, metaclass=QAbcMeta):
-    
+class BaseTableWidget(QTableWidget, Generic[_Data], metaclass=QABCMeta):
+
     """Two tables has some shared function."""
-    
-    rowSelectionChanged = pyqtSignal(list)
-    deleteRequest = pyqtSignal()
-    
+
+    row_selection_changed = Signal(list)
+    delete_request = Signal()
+
     def __init__(self, row: int, headers: Sequence[str], parent: QWidget):
-        super(_BaseTableWidget, self).__init__(parent)
+        super(BaseTableWidget, self).__init__(parent)
         self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
         self.setStatusTip("This table will show about the entities items in current view mode.")
         self.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.setVerticalScrollMode(QAbstractItemView.ScrollPerPixel)
         self.setHorizontalScrollMode(QAbstractItemView.ScrollPerPixel)
-        
+
         self.setRowCount(row)
         self.setColumnCount(len(headers))
         for i, e in enumerate(headers):
             self.setHorizontalHeaderItem(i, QTableWidgetItem(e))
-        
-        self.itemSelectionChanged.connect(self.__emitSelectionChanged)
-    
-    def rowTexts(self, row: int, *, has_name: bool = False) -> List[str]:
+
+        # Table widget column width.
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+
+        @Slot()
+        def __emit_selection_changed():
+            self.row_selection_changed.emit(self.selected_rows())
+
+        self.itemSelectionChanged.connect(__emit_selection_changed)
+
+    def row_text(self, row: int, *, has_name: bool) -> List[str]:
         """Get the whole row of texts.
-        
+
         + Edit point: has_name = False
         + Edit link: has_name = True
         """
         texts = []
-        for column in self.effectiveRange(has_name):
+        for column in self.effective_range(has_name):
             item = self.item(row, column)
             if item is None:
                 texts.append('')
             else:
                 texts.append(item.text())
         return texts
-    
+
     @abstractmethod
-    def data(self) -> Iterator[Any]:
-        """Return table data in subclass."""
+    def effective_range(self, has_name: bool) -> Iterator[int]:
+        """Return valid column range for row text."""
         ...
-    
-    def dataTuple(self) -> Tuple[Union[VPoint, VLink]]:
-        """Return data set as a container."""
-        return tuple(self.data())
-    
-    def selectedRows(self) -> List[int]:
+
+    def selected_rows(self) -> List[int]:
         """Get what row is been selected."""
         return [row for row in range(self.rowCount()) if self.item(row, 0).isSelected()]
-    
-    def setSelections(self, selections: Sequence[int], key_detect: bool):
+
+    def selectAll(self):
+        """Override method of select all function."""
+        self.setFocus(Qt.ShortcutFocusReason)
+        super(BaseTableWidget, self).selectAll()
+
+    def set_selections(self, selections: Sequence[int], key_detect: bool = False):
         """Auto select function, get the signal from canvas."""
         self.setFocus()
         keyboard_modifiers = QApplication.keyboardModifiers()
@@ -100,68 +126,63 @@ class _BaseTableWidget(QTableWidget, metaclass=QAbcMeta):
                 Qt.ShiftModifier: (True, False),
                 Qt.ControlModifier: (True, True),
             }.get(keyboard_modifiers, (False, False))
-            self.__setSelectedRanges(
+            self.__set_selected_ranges(
                 selections,
-                continue_select=continue_select,
+                is_continue=continue_select,
                 un_select=not_select
             )
         else:
-            self.__setSelectedRanges(
+            self.__set_selected_ranges(
                 selections,
-                continue_select=(keyboard_modifiers == Qt.ShiftModifier),
+                is_continue=(keyboard_modifiers == Qt.ShiftModifier),
                 un_select=False
             )
-    
-    def __setSelectedRanges(
+
+    def __set_selected_ranges(
         self,
         selections: Sequence[int],
         *,
-        continue_select: bool,
+        is_continue: bool,
         un_select: bool
     ):
         """Different mode of select function."""
-        selected_rows = self.selectedRows()
-        if not continue_select:
+        selected_rows = self.selected_rows()
+        if not is_continue:
             self.clearSelection()
         self.setCurrentCell(selections[-1], 0)
         for row in selections:
             is_selected = (row not in selected_rows) if un_select else True
             self.setRangeSelected(
-                QTableWidgetSelectionRange(row, 0, row, self.columnCount()-1),
+                QTableWidgetSelectionRange(row, 0, row, self.columnCount() - 1),
                 is_selected
             )
             self.scrollToItem(self.item(row, 0))
-    
+
     def keyPressEvent(self, event):
         """Hit the delete key,
         will emit delete signal from this table.
         """
         if event.key() == Qt.Key_Delete:
-            self.deleteRequest.emit()
-    
+            self.delete_request.emit()
+
     def clear(self):
         """Overridden the clear function, just removed all items."""
         for row in range(self.rowCount()):
             self.removeRow(0)
-    
-    @pyqtSlot()
+
+    @Slot()
     def clearSelection(self):
-        """Overridden the 'clearSelection' slot to emit 'rowSelectionChanged'"""
-        super(_BaseTableWidget, self).clearSelection()
-        self.rowSelectionChanged.emit([])
-    
-    @pyqtSlot()
-    def __emitSelectionChanged(self):
-        """Let canvas to show the point selections."""
-        self.rowSelectionChanged.emit(self.selectedRows())
+        """Overridden the 'clear_selection' slot to emit 'row_selection_changed'"""
+        super(BaseTableWidget, self).clearSelection()
+        self.row_selection_changed.emit([])
 
 
-class PointTableWidget(_BaseTableWidget):
-    
+class PointTableWidget(BaseTableWidget[VPoint]):
+
     """Custom table widget for points."""
-    
-    selectionLabelUpdate = pyqtSignal(list)
-    
+
+    selectionLabelUpdate = Signal(list)
+
     def __init__(self, parent: QWidget):
         super(PointTableWidget, self).__init__(0, (
             'Number',
@@ -172,160 +193,114 @@ class PointTableWidget(_BaseTableWidget):
             'Y',
             'Current',
         ), parent)
-        self.setColumnWidth(0, 60)
-        self.setColumnWidth(1, 130)
-        self.setColumnWidth(2, 60)
-        self.setColumnWidth(3, 90)
-        self.setColumnWidth(4, 60)
-        self.setColumnWidth(5, 60)
-        self.setColumnWidth(6, 130)
-    
-    def data(self) -> Iterator[VPoint]:
-        """Yield the digitization of all table data."""
-        for row in range(self.rowCount()):
-            links = self.item(row, 1).text()
-            color = self.item(row, 3).text()
-            x = float(self.item(row, 4).text())
-            y = float(self.item(row, 5).text())
-            # p_type = (type: str, angle: float)
-            p_type = self.item(row, 2).text().split(':')
-            if p_type[0] == 'R':
-                type_int = 0
-                angle = 0.
-            else:
-                angle = float(p_type[1])
-                type_int = 1 if p_type[0] == 'P' else 2
-            vpoint = VPoint(links, type_int, angle, color, x, y, colorQt)
-            vpoint.move(*self.currentPosition(row))
-            yield vpoint
-    
-    def expression(self) -> str:
-        """Return expression string."""
-        exprs = ", ".join(vpoint.expr for vpoint in self.data())
-        return f"M[{exprs}]"
-    
-    def editArgs(
-        self,
-        row: int,
-        links: str,
-        type_str: str,
-        color: str,
-        x: float,
-        y: float
-    ):
+
+    def edit_point(self, row: int, links: str, type_str: str, color: str, x: float, y: float):
         """Edit a point."""
         for i, e in enumerate([f'Point{row}', links, type_str, color, x, y, f"({x}, {y})"]):
             item = QTableWidgetItem(str(e))
             item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
             if i == 3:
-                item.setIcon(colorIcon(e))
+                item.setIcon(color_icon(e))
             self.setItem(row, i, item)
-    
+
+    def row_data(self, row: int) -> List[Union[str, float]]:
+        """Return row data for 'edit_point' method."""
+        row_text: List[Union[str, float]] = self.row_text(row, has_name=False)
+        for i in (3, 4):
+            row_text[i] = float(row_text[i]) if row_text[i] else 0.
+        return row_text
+
     def rename(self, row: int):
         """When index changed, the points need to rename."""
         for j in range(row, self.rowCount()):
             self.setItem(j, 0, QTableWidgetItem(f'Point{j}'))
-    
-    def currentPosition(self, row: int) -> List[Tuple[float, float]]:
+
+    def current_position(self, row: int) -> List[_Coord]:
         """Get the current coordinate from a point."""
         type_str = self.item(row, 2).text().split(':')
         coords_text = self.item(row, 6).text().replace(';', ',')
         coords = eval(f"[{coords_text}]")
-        if (type_str[0] in ('P', 'RP')) and (len(coords) == 1):
+        if (type_str[0] in {'P', 'RP'}) and len(coords) == 1:
             x, y = coords[0]
-            self.item(row, 6).setText(f"({x}, {y}); ({x}, {y})")
+            self.item(row, 6).setText("; ".join([f"({x:.06f}, {y:.06f})"] * 2))
             coords.append(coords[0])
         return coords
-    
-    def updateCurrentPosition(self, coords: Sequence[Tuple[float, float]]):
+
+    def update_current_position(self, coords: Sequence[Union[_Coord, Tuple[_Coord, _Coord]]]):
         """Update the current coordinate for a point."""
         for i, c in enumerate(coords):
-            if type(c[0]) == float:
-                text = f"({c[0]}, {c[1]})"
+            if type(c[0]) is float:
+                text = f"({c[0]:.06f}, {c[1]:.06f})"
             else:
-                text = "; ".join(f"({x}, {y})" for x, y in c)
+                text = "; ".join(f"({x:.06f}, {y:.06f})" for x, y in c)
             item = QTableWidgetItem(text)
             item.setToolTip(text)
             self.setItem(i, 6, item)
-    
-    def getBackPosition(self):
+
+    def get_back_position(self):
         """Let all the points go back to origin coordinate."""
-        self.updateCurrentPosition(tuple(
+        self.update_current_position(tuple(
             (float(self.item(row, 4).text()), float(self.item(row, 5).text()))
             for row in range(self.rowCount())
         ))
-    
-    def getLinks(self, row: int) -> List[str]:
+
+    def get_links(self, row: int) -> List[str]:
         item = self.item(row, 1)
         if not item:
             return []
         return [s for s in item.text().split(',') if s]
-    
-    def setSelections(self, selections: Sequence[int], key_detect: bool):
-        super(PointTableWidget, self).setSelections(selections, key_detect)
-        self.selectionLabelUpdate.emit(self.selectedRows())
-    
-    def effectiveRange(self, has_name: bool):
+
+    def set_selections(self, selections: Sequence[int], key_detect: bool = False):
+        """Need to update selection label on status bar."""
+        super(PointTableWidget, self).set_selections(selections, key_detect)
+        self.selectionLabelUpdate.emit(self.selected_rows())
+
+    def effective_range(self, has_name: bool) -> Iterator[int]:
         """Row range that can be delete."""
         if has_name:
             return range(self.columnCount())
         else:
             return range(1, self.columnCount() - 1)
-    
-    @pyqtSlot()
+
+    @Slot()
     def clearSelection(self):
-        """Overridden the 'clearSelection' slot,
+        """Overridden the 'clear_selection' slot,
         so it will emit signal to clean the selection.
         """
         super(PointTableWidget, self).clearSelection()
         self.selectionLabelUpdate.emit([])
 
 
-class LinkTableWidget(_BaseTableWidget):
-    
+class LinkTableWidget(BaseTableWidget[VLink]):
+
     """Custom table widget for link."""
-    
+
     def __init__(self, parent: QWidget):
         super(LinkTableWidget, self).__init__(1, ('Name', 'Color', 'Points'), parent)
         self.setDragDropMode(QAbstractItemView.DropOnly)
         self.setAcceptDrops(True)
-        self.editArgs(0, 'ground', 'White', '')
-        self.setColumnWidth(0, 60)
-        self.setColumnWidth(1, 90)
-        self.setColumnWidth(2, 130)
-    
-    def data(self) -> Iterator[VLink]:
-        """Yield the digitization of all table data."""
-        for row in range(self.rowCount()):
-            name = self.item(row, 0).text()
-            color = self.item(row, 1).text()
-            points = []
-            for p in self.item(row, 2).text().split(','):
-                if not p:
-                    continue
-                points.append(int(p.replace('Point', '')))
-            yield VLink(name, color, tuple(points), colorQt)
-    
-    def dataDict(self) -> Dict[str, str]:
-        """Return name and color as a dict."""
-        return {vlink.name: vlink.colorSTR for vlink in self.data()}
-    
-    def editArgs(
+        self.edit_link(0, 'ground', 'White', '')
+
+    def edit_link(
         self,
         row: int,
         name: str,
         color: str,
         points: str
     ):
-        """Edite a link."""
+        """Edit a link."""
         for i, e in enumerate((name, color, points)):
             item = QTableWidgetItem(e)
             item.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
             if i == 1:
-                item.setIcon(colorIcon(e))
+                item.setIcon(color_icon(e))
             self.setItem(row, i, item)
-    
-    def findName(self, name: str) -> int:
+
+    def row_data(self, row: int) -> List[str]:
+        """Return row data for 'edit_link' method."""
+        return self.row_text(row, has_name=True)
+
+    def find_name(self, name: str) -> int:
         """Return row index by input name."""
         for row in range(self.rowCount()):
             item = self.item(row, 0)
@@ -333,63 +308,52 @@ class LinkTableWidget(_BaseTableWidget):
                 continue
             if name == item.text():
                 return row
-    
-    def getPoints(self, row: int) -> List[int]:
+
+    def get_points(self, row: int) -> List[int]:
         """Get all point names."""
         item = self.item(row, 2)
         if not item:
             return []
         return [int(s.replace('Point', '')) for s in item.text().split(',') if s]
-    
-    def effectiveRange(self, has_name: bool):
+
+    def effective_range(self, has_name: bool) -> Iterator[int]:
         """Row range that can be delete."""
-        del has_name
         return range(self.columnCount())
-    
+
     def clear(self):
         """We should keep the 'ground' left."""
         super(LinkTableWidget, self).clear()
         self.setRowCount(1)
-        self.editArgs(0, 'ground', 'White', '')
+        self.edit_link(0, 'ground', 'White', '')
 
 
-class ExprTableWidget(_BaseTableWidget):
-    
+class ExprTableWidget(BaseTableWidget[None]):
+
     """Expression table.
-    
-    + Freemove request: link name, length
+
+    + Free move request: link name, length
     """
-    
-    reset = pyqtSignal(bool)
-    freemove_request = pyqtSignal(bool)
-    
+
     def __init__(self, parent: QWidget):
-        column_count = ('Function', 'p0', 'p1', 'p2', 'p3', 'p4', 'target')
-        super(ExprTableWidget, self).__init__(0, column_count, parent)
-        for column in range(self.columnCount()):
-            self.setColumnWidth(column, 80)
+        super(ExprTableWidget, self).__init__(0, (
+            'Function',
+            'p0',
+            'p1',
+            'p2',
+            'p3',
+            'p4',
+            'target',
+        ), parent)
         self.exprs = []
-        
-        @pyqtSlot(QTableWidgetItem)
-        def adjust_request(item: QTableWidgetItem):
-            """This function is use to change link length
-            without to drag the points.
-            """
-            if item:
-                self.freemove_request.emit(item.text().startswith('L'))
-            else:
-                self.freemove_request.emit(False)
-        
-        # Double click behavior.
-        self.currentItemChanged.connect(adjust_request)
-    
-    def setExpr(
+
+    def set_expr(
         self,
-        exprs: List[Tuple[str]],
-        data_dict: Dict[str, Union[Tuple[float, float], float]],
-        unsolved: Tuple[int]
+        exprs: ExpressionStack,
+        data_dict: Dict[str, Union[Coordinate, float]],
+        unsolved: Tuple[int, ...]
     ):
         """Set the table items for new coming expression."""
+        exprs = exprs.as_list()
         if exprs != self.exprs:
             self.clear()
             self.setRowCount(len(exprs) + len(unsolved))
@@ -400,12 +364,13 @@ class ExprTableWidget(_BaseTableWidget):
             # Parameters
             for column, e in enumerate(expr[:-1]):
                 if e in data_dict:
-                    if type(data_dict[e]) == float:
+                    if type(data_dict[e]) is float:
                         # Pure digit
                         text = f"{e}:{data_dict[e]:.02f}"
                     else:
                         # Coordinate
-                        text = f"{e}:({data_dict[e][0]:.02f}, {data_dict[e][1]:.02f})"
+                        c = data_dict[e]
+                        text = f"{e}:({c.x:.02f}, {c.y:.02f})"
                 else:
                     # Function name
                     text = e
@@ -420,29 +385,32 @@ class ExprTableWidget(_BaseTableWidget):
             self.setItem(row, self.columnCount() - 1, QTableWidgetItem(f"P{p}"))
             row += 1
         self.exprs = exprs
-    
-    def data(self) -> None:
+
+    def item_data(self, _: int) -> None:
         """Not used generator."""
-        return
-    
+        return None
+
+    def effective_range(self, has_name: bool) -> Iterator[int]:
+        """Return column count."""
+        return range(self.columnCount())
+
     def clear(self):
         """Emit to close the link free move widget."""
         super(ExprTableWidget, self).clear()
-        self.reset.emit(False)
 
 
 class SelectionLabel(QLabel):
-    
+
     """This QLabel can show distance in status bar."""
-    
-    def __init__(self, parent: QWidget):
+
+    def __init__(self, parent: MainWindowBase):
         super(SelectionLabel, self).__init__(parent)
-        self.updateSelectPoint()
-        self.dataTuple = parent.EntitiesPoint.dataTuple
-    
-    @pyqtSlot()
-    @pyqtSlot(list)
-    def updateSelectPoint(self, points: Optional[List[int]] = None):
+        self.update_select_point()
+        self.vpoints = parent.vpoint_list
+
+    @Slot()
+    @Slot(list)
+    def update_select_point(self, points: Optional[List[int]] = None):
         """Get points and distance from Point table widget."""
         if points is None:
             points = []
@@ -450,50 +418,49 @@ class SelectionLabel(QLabel):
         if not p_count:
             self.setText("No selection.")
             return
-        text = ""
-        text += "Selected: "
+        text = "Selected: "
         text += " - ".join(str(p) for p in points)
-        vpoints = self.dataTuple()
         if p_count > 1:
             distances = []
             angles = []
-            for i in range(p_count):
-                if i != 0:
-                    vpoint0 = vpoints[points[i - 1]]
-                    vpoint1 = vpoints[points[i]]
-                    distances.append(f"{vpoint1.distance(vpoint0):.04}")
-                    angles.append(f"{vpoint0.slope_angle(vpoint1):.04}°")
+            for i in range(min(p_count, 3)):
+                if i == 0:
+                    continue
+                vpoint0 = self.vpoints[points[i - 1]]
+                vpoint1 = self.vpoints[points[i]]
+                distances.append(f"{vpoint1.distance(vpoint0):.04}")
+                angles.append(f"{vpoint0.slope_angle(vpoint1):.04}°")
             ds_t = ", ".join(distances)
             as_t = ", ".join(angles)
             text += f" | {ds_t} | {as_t}"
         self.setText(text)
-    
-    @pyqtSlot(float, float)
-    def updateMousePosition(self, x: float, y: float):
+
+    @Slot(float, float)
+    def update_mouse_position(self, x: float, y: float):
         """Get the mouse position from canvas when press the middle button."""
         self.setText(f"Mouse at: ({x:.04f}, {y:.04f})")
 
 
 class FPSLabel(QLabel):
-    
+
     """This QLabel can show FPS of main canvas in status bar."""
-    
+
     def __init__(self, parent: QWidget):
         super(FPSLabel, self).__init__(parent)
         self.__t0 = time() - 1
-        self.__frame_timer = QTimer(self)
-        self.__frame_timer.timeout.connect(self.__updateText)
+        self.__frame_timer = QTimer()
+        self.__frame_timer.timeout.connect(self.__update_text)
         self.__frame_timer.start(500)
-    
-    @pyqtSlot()
-    def __updateText(self):
+
+    @Slot()
+    def __update_text(self):
         """Update FPS with timer."""
         t1 = time() - self.__t0
         fps = 1 / t1 if t1 else 1
         self.setText(f"FPS: {fps:6.02f}")
-    
-    @pyqtSlot()
-    def updateText(self):
+
+    @Slot()
+    def update_text(self):
         """Update FPS with timer."""
-        self.__updateText()
+        self.__update_text()
         self.__t0 = time()

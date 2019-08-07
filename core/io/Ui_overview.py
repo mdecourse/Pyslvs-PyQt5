@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file '/home/ahshoe/桌面/Pyslvs-PyQt5/core/io/overview.ui'
+# Form implementation generated from reading ui file 'core/io/overview.ui'
 #
-# Created by: PyQt5 UI code generator 5.10
+# Created by: PyQt5 UI code generator 5.12.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from core.QtModules import QtCore, QtGui, QtWidgets
+
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -19,7 +20,7 @@ class Ui_Dialog(object):
         self.toolBox = QtWidgets.QToolBox(Dialog)
         self.toolBox.setObjectName("toolBox")
         self.page0 = QtWidgets.QWidget()
-        self.page0.setGeometry(QtCore.QRect(0, 0, 424, 329))
+        self.page0.setGeometry(QtCore.QRect(0, 0, 420, 345))
         self.page0.setObjectName("page0")
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.page0)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
@@ -33,7 +34,7 @@ class Ui_Dialog(object):
         icon.addPixmap(QtGui.QPixmap(":/icons/mechanism.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.toolBox.addItem(self.page0, icon, "")
         self.page1 = QtWidgets.QWidget()
-        self.page1.setGeometry(QtCore.QRect(0, 0, 171, 121))
+        self.page1.setGeometry(QtCore.QRect(0, 0, 420, 345))
         self.page1.setObjectName("page1")
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout(self.page1)
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
@@ -59,7 +60,7 @@ class Ui_Dialog(object):
         icon1.addPixmap(QtGui.QPixmap(":/icons/motor.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.toolBox.addItem(self.page1, icon1, "")
         self.page2 = QtWidgets.QWidget()
-        self.page2.setGeometry(QtCore.QRect(0, 0, 259, 121))
+        self.page2.setGeometry(QtCore.QRect(0, 0, 237, 136))
         self.page2.setObjectName("page2")
         self.horizontalLayout_3 = QtWidgets.QHBoxLayout(self.page2)
         self.horizontalLayout_3.setObjectName("horizontalLayout_3")
@@ -85,7 +86,7 @@ class Ui_Dialog(object):
         icon2.addPixmap(QtGui.QPixmap(":/icons/collections.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.toolBox.addItem(self.page2, icon2, "")
         self.page3 = QtWidgets.QWidget()
-        self.page3.setGeometry(QtCore.QRect(0, 0, 98, 119))
+        self.page3.setGeometry(QtCore.QRect(0, 0, 420, 345))
         self.page3.setObjectName("page3")
         self.verticalLayout_7 = QtWidgets.QVBoxLayout(self.page3)
         self.verticalLayout_7.setObjectName("verticalLayout_7")
@@ -96,21 +97,21 @@ class Ui_Dialog(object):
         self.results_list.setObjectName("results_list")
         self.verticalLayout_7.addWidget(self.results_list)
         icon3 = QtGui.QIcon()
-        icon3.addPixmap(QtGui.QPixmap(":/icons/DimensionalSynthesis.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+        icon3.addPixmap(QtGui.QPixmap(":/icons/dimensional_synthesis.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         self.toolBox.addItem(self.page3, icon3, "")
         self.verticalLayout.addWidget(self.toolBox)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
         spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout.addItem(spacerItem)
-        self.buttonBox = QtWidgets.QDialogButtonBox(Dialog)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Close)
-        self.buttonBox.setObjectName("buttonBox")
-        self.horizontalLayout.addWidget(self.buttonBox)
+        self.button_box = QtWidgets.QDialogButtonBox(Dialog)
+        self.button_box.setStandardButtons(QtWidgets.QDialogButtonBox.Close)
+        self.button_box.setObjectName("button_box")
+        self.horizontalLayout.addWidget(self.button_box)
         self.verticalLayout.addLayout(self.horizontalLayout)
 
         self.retranslateUi(Dialog)
-        self.buttonBox.rejected.connect(Dialog.reject)
+        self.button_box.rejected.connect(Dialog.reject)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
 
     def retranslateUi(self, Dialog):
@@ -126,14 +127,5 @@ class Ui_Dialog(object):
         self.results_label.setText(_translate("Dialog", "Results:"))
         self.toolBox.setItemText(self.toolBox.indexOf(self.page3), _translate("Dialog", "Dimensional Synthesis"))
 
+
 import icons_rc
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    Dialog = QtWidgets.QDialog()
-    ui = Ui_Dialog()
-    ui.setupUi(Dialog)
-    Dialog.show()
-    sys.exit(app.exec_())
-

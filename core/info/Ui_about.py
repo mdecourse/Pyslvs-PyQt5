@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'Y:\Pyslvs-PyQt5\core\info\about.ui'
+# Form implementation generated from reading ui file 'core/info/about.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.2
+# Created by: PyQt5 UI code generator 5.12.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from core.QtModules import QtCore, QtGui, QtWidgets
+
 
 class Ui_Dialog(object):
     def setupUi(self, Dialog):
@@ -39,12 +40,12 @@ class Ui_Dialog(object):
         self.horizontalLayout.addLayout(self.verticalLayout_2)
         self.verticalLayout_3 = QtWidgets.QVBoxLayout()
         self.verticalLayout_3.setObjectName("verticalLayout_3")
-        self.Title = QtWidgets.QLabel(Dialog)
-        self.Title.setText("")
-        self.Title.setObjectName("Title")
-        self.verticalLayout_3.addWidget(self.Title)
-        self.tabWidget = QtWidgets.QTabWidget(Dialog)
-        self.tabWidget.setObjectName("tabWidget")
+        self.title_label = QtWidgets.QLabel(Dialog)
+        self.title_label.setText("")
+        self.title_label.setObjectName("title_label")
+        self.verticalLayout_3.addWidget(self.title_label)
+        self.tab_widget = QtWidgets.QTabWidget(Dialog)
+        self.tab_widget.setObjectName("tab_widget")
         self.AboutTab = QtWidgets.QWidget()
         self.AboutTab.setObjectName("AboutTab")
         self.verticalLayout_4 = QtWidgets.QVBoxLayout(self.AboutTab)
@@ -53,19 +54,15 @@ class Ui_Dialog(object):
         self.description_text = QtWidgets.QTextBrowser(self.AboutTab)
         self.description_text.setObjectName("description_text")
         self.verticalLayout_4.addWidget(self.description_text)
-        self.tabWidget.addTab(self.AboutTab, "")
+        self.tab_widget.addTab(self.AboutTab, "")
         self.LicenseTab = QtWidgets.QWidget()
         self.LicenseTab.setObjectName("LicenseTab")
-        self.verticalLayout_11 = QtWidgets.QVBoxLayout(self.LicenseTab)
-        self.verticalLayout_11.setContentsMargins(6, 6, 6, 6)
-        self.verticalLayout_11.setObjectName("verticalLayout_11")
-        self.label = QtWidgets.QLabel(self.LicenseTab)
-        self.label.setTextFormat(QtCore.Qt.RichText)
-        self.label.setAlignment(QtCore.Qt.AlignLeading|QtCore.Qt.AlignLeft|QtCore.Qt.AlignTop)
-        self.label.setWordWrap(True)
-        self.label.setObjectName("label")
-        self.verticalLayout_11.addWidget(self.label)
-        self.tabWidget.addTab(self.LicenseTab, "")
+        self.verticalLayout = QtWidgets.QVBoxLayout(self.LicenseTab)
+        self.verticalLayout.setObjectName("verticalLayout")
+        self.license_text = QtWidgets.QTextBrowser(self.LicenseTab)
+        self.license_text.setObjectName("license_text")
+        self.verticalLayout.addWidget(self.license_text)
+        self.tab_widget.addTab(self.LicenseTab, "")
         self.VersionsTab = QtWidgets.QWidget()
         self.VersionsTab.setObjectName("VersionsTab")
         self.verticalLayout_6 = QtWidgets.QVBoxLayout(self.VersionsTab)
@@ -74,7 +71,7 @@ class Ui_Dialog(object):
         self.ver_text = QtWidgets.QTextBrowser(self.VersionsTab)
         self.ver_text.setObjectName("ver_text")
         self.verticalLayout_6.addWidget(self.ver_text)
-        self.tabWidget.addTab(self.VersionsTab, "")
+        self.tab_widget.addTab(self.VersionsTab, "")
         self.ArgumentsTab = QtWidgets.QWidget()
         self.ArgumentsTab.setObjectName("ArgumentsTab")
         self.verticalLayout_9 = QtWidgets.QVBoxLayout(self.ArgumentsTab)
@@ -83,51 +80,42 @@ class Ui_Dialog(object):
         self.args_text = QtWidgets.QTextBrowser(self.ArgumentsTab)
         self.args_text.setObjectName("args_text")
         self.verticalLayout_9.addWidget(self.args_text)
-        self.tabWidget.addTab(self.ArgumentsTab, "")
-        self.verticalLayout_3.addWidget(self.tabWidget)
+        self.tab_widget.addTab(self.ArgumentsTab, "")
+        self.verticalLayout_3.addWidget(self.tab_widget)
         self.horizontalLayout.addLayout(self.verticalLayout_3)
         self.verticalLayout_7.addLayout(self.horizontalLayout)
         self.horizontalLayout_2 = QtWidgets.QHBoxLayout()
         self.horizontalLayout_2.setObjectName("horizontalLayout_2")
         spacerItem1 = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_2.addItem(spacerItem1)
-        self.buttonBox = QtWidgets.QDialogButtonBox(Dialog)
+        self.button_box = QtWidgets.QDialogButtonBox(Dialog)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
         sizePolicy.setHorizontalStretch(0)
         sizePolicy.setVerticalStretch(0)
-        sizePolicy.setHeightForWidth(self.buttonBox.sizePolicy().hasHeightForWidth())
-        self.buttonBox.setSizePolicy(sizePolicy)
-        self.buttonBox.setOrientation(QtCore.Qt.Horizontal)
-        self.buttonBox.setStandardButtons(QtWidgets.QDialogButtonBox.Ok)
-        self.buttonBox.setObjectName("buttonBox")
-        self.horizontalLayout_2.addWidget(self.buttonBox)
+        sizePolicy.setHeightForWidth(self.button_box.sizePolicy().hasHeightForWidth())
+        self.button_box.setSizePolicy(sizePolicy)
+        self.button_box.setOrientation(QtCore.Qt.Horizontal)
+        self.button_box.setStandardButtons(QtWidgets.QDialogButtonBox.Ok)
+        self.button_box.setObjectName("button_box")
+        self.horizontalLayout_2.addWidget(self.button_box)
         self.verticalLayout_7.addLayout(self.horizontalLayout_2)
 
         self.retranslateUi(Dialog)
-        self.buttonBox.accepted.connect(Dialog.accept)
-        self.buttonBox.rejected.connect(Dialog.reject)
+        self.tab_widget.setCurrentIndex(0)
+        self.button_box.accepted.connect(Dialog.accept)
+        self.button_box.rejected.connect(Dialog.reject)
         QtCore.QMetaObject.connectSlotsByName(Dialog)
 
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         Dialog.setWindowTitle(_translate("Dialog", "About Pyslvs"))
         self.iconLabel.setWhatsThis(_translate("Dialog", "Pyslvs Icon!"))
-        self.iconLabel.setText(_translate("Dialog", "<html><head/><body><p><img width=\"80\" src=\":/icons/main_big.png\"/></p></body></html>"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.AboutTab), _translate("Dialog", "About"))
-        self.label.setText(_translate("Dialog", "<html><head/><body><p><span style=\" font-size:14pt;\">This program is free software; you can redistribute it and/or modify it under the terms of the Affero General Public License (AGPL) as published by Affero, Inc. version 3. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</span></p></body></html>"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.LicenseTab), _translate("Dialog", "LICENSE"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.VersionsTab), _translate("Dialog", "Versions"))
-        self.tabWidget.setTabText(self.tabWidget.indexOf(self.ArgumentsTab), _translate("Dialog", "Arguments"))
-        self.buttonBox.setWhatsThis(_translate("Dialog", "Click to exit"))
+        self.iconLabel.setText(_translate("Dialog", "<html><head/><body><p><img width=\"80\" src=\":/icons/main.png\"/></p></body></html>"))
+        self.tab_widget.setTabText(self.tab_widget.indexOf(self.AboutTab), _translate("Dialog", "About"))
+        self.tab_widget.setTabText(self.tab_widget.indexOf(self.LicenseTab), _translate("Dialog", "LICENSE"))
+        self.tab_widget.setTabText(self.tab_widget.indexOf(self.VersionsTab), _translate("Dialog", "Versions"))
+        self.tab_widget.setTabText(self.tab_widget.indexOf(self.ArgumentsTab), _translate("Dialog", "Arguments"))
+        self.button_box.setWhatsThis(_translate("Dialog", "Click to exit"))
+
 
 import icons_rc
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    Dialog = QtWidgets.QDialog()
-    ui = Ui_Dialog()
-    ui.setupUi(Dialog)
-    Dialog.show()
-    sys.exit(app.exec_())
-

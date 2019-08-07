@@ -3,46 +3,40 @@
 """'graphics' module contains custom display widgets."""
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from .color import (
-    colorNum,
-    colorNames,
-    colorIcon,
-    colorQt,
-    traget_path_style
+    color_num,
+    color_names,
+    color_icon,
+    color_qt,
+    target_path_style
 )
 from .chart import DataChart
 from .canvas import (
     BaseCanvas,
     PreviewCanvas,
     convex_hull,
-    edges_view,
-    graph2vpoints,
 )
-from .nx_pydot import (
-    graph,
+from .nx_layout import (
+    graph2icon,
     engine_picker,
     engines,
-    EngineError,
 )
 
 __all__ = [
-    'colorNum',
-    'colorNames',
-    'colorIcon',
-    'colorQt',
-    'traget_path_style',
+    'color_num',
+    'color_names',
+    'color_icon',
+    'color_qt',
+    'target_path_style',
     'DataChart',
     'BaseCanvas',
     'PreviewCanvas',
     'convex_hull',
-    'edges_view',
-    'graph2vpoints',
-    'graph',
+    'graph2icon',
     'engine_picker',
     'engines',
-    'EngineError',
 ]

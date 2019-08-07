@@ -1,30 +1,29 @@
 # -*- coding: utf-8 -*-
 
-"""'info' module contains Pyslvs program informations."""
+"""'info' module contains Pyslvs program information."""
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from .info import (
-    INFO,
+    SYS_INFO,
     ARGUMENTS,
-    __version__,
-    check_update
+    check_update,
 )
-from .about import (
-    PyslvsSplash,
-    PyslvsAbout,
-    html
-)
+from .about import PyslvsAbout, html
+from .logging_handler import logger, XStream
 
 __all__ = [
-    'INFO',
+    'SYS_INFO',
     'ARGUMENTS',
-    '__version__',
     'check_update',
-    'PyslvsSplash',
     'PyslvsAbout',
-    'html'
+    'html',
+    'logger',
+    'XStream',
+    'kernel_list',
 ]
+
+kernel_list = ("Pyslvs", "Python-Solvespace", "Sketch Solve")

@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 'Y:\Pyslvs-PyQt5\core\io\database.ui'
+# Form implementation generated from reading ui file 'core/io/database.ui'
 #
-# Created by: PyQt5 UI code generator 5.11.2
+# Created by: PyQt5 UI code generator 5.12.2
 #
 # WARNING! All changes made in this file will be lost!
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+from core.QtModules import QtCore, QtGui, QtWidgets
+
 
 class Ui_Form(object):
     def setupUi(self, Form):
@@ -144,7 +145,7 @@ class Ui_Form(object):
         _translate = QtCore.QCoreApplication.translate
         Form.setWindowTitle(_translate("Form", "Form"))
         self.CommitTable_text.setText(_translate("Form", "Commits:"))
-        self.label_2.setText(_translate("Form", "<html><head/><body><p><img src=\":/icons/SQL_icon.png\" width=\"15\"/>Power by SQLite data base</p></body></html>"))
+        self.label_2.setText(_translate("Form", "<html><head/><body><p><img src=\":/icons/sql.png\" width=\"15\"/>Powered by SQLite data base</p></body></html>"))
         self.commit_current_id.setPrefix(_translate("Form", "#"))
         self.commit_search_text.setPlaceholderText(_translate("Form", "Filter: Enter a keyword about the commit description."))
         item = self.CommitTable.horizontalHeaderItem(0)
@@ -175,14 +176,5 @@ class Ui_Form(object):
         self.commit_stash.setStatusTip(_translate("Form", "Abandon all changes of this time, and return to the latest commit."))
         self.commit_stash.setText(_translate("Form", "Stash"))
 
+
 import icons_rc
-
-if __name__ == "__main__":
-    import sys
-    app = QtWidgets.QApplication(sys.argv)
-    Form = QtWidgets.QWidget()
-    ui = Ui_Form()
-    ui.setupUi(Form)
-    Form.show()
-    sys.exit(app.exec_())
-

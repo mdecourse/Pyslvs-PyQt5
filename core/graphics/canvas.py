@@ -3,32 +3,40 @@
 """All color options in Pyslvs."""
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2018"
+__copyright__ = "Copyright (C) 2016-2019"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
+from typing import (
+    Tuple,
+    List,
+    Sequence,
+    Set,
+    Dict,
+    Any,
+    Union,
+)
+from abc import abstractmethod
+from dataclasses import dataclass
 from math import (
     radians,
     sin,
     cos,
     atan2,
+    hypot,
     isnan,
 )
-from typing import (
-    Tuple,
-    List,
-    Dict,
-    Sequence,
-    Iterator,
-    Callable,
-    Any,
-    Union,
-)
 from functools import reduce
-from networkx import Graph
+from pyslvs import (
+    VPoint,
+    Graph,
+    edges_view,
+    parse_pos,
+)
 from core.QtModules import (
-    pyqtSlot,
+    Slot,
     Qt,
+    QABCMeta,
     QPointF,
     QRectF,
     QPolygonF,
@@ -43,39 +51,44 @@ from core.QtModules import (
     QPainterPath,
     QImage,
 )
-from core import io
-from core.libs import VPoint
-from . import colorQt, traget_path_style
+from .color import (
+    color_num,
+    color_qt,
+    target_path_style,
+)
+
+_Coord = Tuple[float, float]
 
 
 def convex_hull(
-    points: List[Tuple[float, float]],
+    points: List[_Coord],
     *,
     as_qpoint: bool = False
-) -> Union[List[Tuple[float, float]], List[QPointF]]:
+) -> Union[List[_Coord], List[QPointF]]:
     """Returns points on convex hull in counterclockwise order
     according to Graham's scan algorithm.
     """
-    coordinate: type = Tuple[float, float]
-    
     def cmp(a: float, b: float) -> int:
         return (a > b) - (a < b)
-    
-    def turn(p: coordinate, q: coordinate, r: coordinate) -> int:
-        return cmp((q[0] - p[0])*(r[1] - p[1]) - (r[0] - p[0])*(q[1] - p[1]), 0)
-    
-    def keep_left(hull: List[coordinate], r: coordinate) -> List[coordinate]:
-        while (len(hull) > 1) and (turn(hull[-2], hull[-1], r) != 1):
+
+    def turn(p: _Coord, q: _Coord, r: _Coord) -> int:
+        px, py = p
+        qx, qy = q
+        rx, ry = r
+        return cmp((qx - px) * (ry - py) - (rx - px) * (qy - py), 0)
+
+    def keep_left(hull: List[_Coord], r: _Coord) -> List[_Coord]:
+        while len(hull) > 1 and turn(hull[-2], hull[-1], r) != 1:
             hull.pop()
-        if not len(hull) or hull[-1] != r:
+        if not hull or hull[-1] != r:
             hull.append(r)
         return hull
-    
+
     points.sort()
     lower = reduce(keep_left, points, [])
     upper = reduce(keep_left, reversed(points), [])
     lower.extend(upper[i] for i in range(1, len(upper) - 1))
-    
+
     result = []
     for x, y in lower:
         if as_qpoint:
@@ -85,76 +98,37 @@ def convex_hull(
     return result
 
 
-def edges_view(graph: Graph) -> Iterator[Tuple[int, Tuple[int, int]]]:
-    """This generator can keep the numbering be consistent."""
-    for n, edge in enumerate(sorted(sorted(e) for e in graph.edges)):
-        yield (n, tuple(edge))
+@dataclass(repr=False, eq=False)
+class _PathOption:
+
+    """Path option class.
+
+    Attributes:
+
+    + Preview path data
+    + Path data
+    + Display mode:
+        + Show mode parameter.
+        + The path will be the curve, otherwise using the points.
+    """
+
+    path: Tuple[Tuple[_Coord, ...], ...] = ()
+    show: int = -1
+    curve: bool = True
 
 
-def graph2vpoints(
-    graph: Graph,
-    pos: Dict[int, Tuple[float, float]],
-    cus: Dict[str, int],
-    same: Dict[int, int]
-) -> List[VPoint]:
-    """Change NetworkX graph into VPoints."""
-    same_r = {}
-    for k, v in same.items():
-        if v in same_r:
-            same_r[v].append(k)
-        else:
-            same_r[v] = [k]
-    tmp_list = []
-    ev = dict(edges_view(graph))
-    for i, e in ev.items():
-        if i in same:
-            # Do not connect to anyone!
-            continue
-        e = set(e)
-        if i in same_r:
-            for j in same_r[i]:
-                e.update(set(ev[j]))
-        link = ", ".join((str(l) if l else 'ground') for l in e)
-        x, y = pos[i]
-        tmp_list.append(VPoint.from_R_joint(link, x, y))
-    for name in sorted(cus):
-        link = str(cus[name]) if cus[name] else 'ground'
-        x, y = pos[int(name.replace('P', ''))]
-        tmp_list.append(VPoint.from_R_joint(link, x, y))
-    return tmp_list
+class BaseCanvas(QWidget, metaclass=QABCMeta):
 
-
-class _Path:
-    
-    """Path option class."""
-    
-    __slots__ = ('path', 'show', 'curve')
-    
-    def __init__(self):
-        """Attributes:
-        
-        + Preview path data
-        + Path data
-        + Display mode:
-            + Show mode parameter.
-            + The path will be the curve, otherwise using the points.
-        """
-        self.path: Tuple[Tuple[Tuple[float, float], ...], ...] = ()
-        self.show: int = -1
-        self.curve: bool = True
-
-
-class BaseCanvas(QWidget):
-    
     """The subclass can draw a blank canvas more easier."""
-    
+
+    @abstractmethod
     def __init__(self, parent: QWidget):
         """Set the parameters for drawing."""
         super(BaseCanvas, self).__init__(parent)
         self.setSizePolicy(QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding))
         self.setFocusPolicy(Qt.StrongFocus)
         self.painter = QPainter()
-        
+
         # Origin coordinate.
         self.ox = self.width() / 2
         self.oy = self.height() / 2
@@ -162,7 +136,7 @@ class BaseCanvas(QWidget):
         self.rate = 2.
         self.zoom = 2. * self.rate
         # Joint size.
-        self.joint_size = 3
+        self.joint_size = 5
         # Canvas line width.
         self.link_width = 3
         self.path_width = 3
@@ -172,16 +146,20 @@ class BaseCanvas(QWidget):
         self.show_point_mark = True
         self.show_dimension = True
         # Path track.
-        self.Path = _Path()
+        self.path = _PathOption()
         # Path solving.
-        self.target_path = {}
+        self.ranges: Dict[str, QRectF] = {}
+        self.target_path: Dict[str, Sequence[_Coord]] = {}
         self.show_target_path = False
         # Background
         self.background = QImage()
         self.background_opacity = 1.
         self.background_scale = 1
         self.background_offset = QPointF(0, 0)
-    
+        # Monochrome mode
+        self.monochrome = False
+
+    @abstractmethod
     def paintEvent(self, event):
         """Using a QPainter under 'self',
         so just change QPen or QBrush before painting.
@@ -194,8 +172,9 @@ class BaseCanvas(QWidget):
         if not self.background.isNull():
             rect = self.background.rect()
             self.painter.setOpacity(self.background_opacity)
+            img_origin: QPointF = self.background_offset * self.zoom
             self.painter.drawImage(
-                QRectF(self.background_offset * self.zoom, QSizeF(
+                QRectF(img_origin, QSizeF(
                     rect.width() * self.background_scale * self.zoom,
                     rect.height() * self.background_scale * self.zoom
                 )),
@@ -217,11 +196,12 @@ class BaseCanvas(QWidget):
         y_t = self.height() - self.oy
         y_b = -self.oy
         self.painter.drawLine(QPointF(0, y_b), QPointF(0, y_t))
-        
+
         def indexing(v):
             """Draw tick."""
             return int(v / self.zoom - v / self.zoom % 5)
-        
+
+        # Draw tick
         for x in range(indexing(x_l), indexing(x_r) + 1, 5):
             self.painter.drawLine(
                 QPointF(x, 0) * self.zoom,
@@ -233,18 +213,17 @@ class BaseCanvas(QWidget):
                 QPointF(10 if y % 10 == 0 else 5, y * self.zoom)
             )
         # Please to call the "end" method when ending paint event.
-        # self.painter.end()
-    
-    def drawPoint(
+
+    def draw_point(
         self,
         i: int,
         cx,
         cy,
         fix: bool,
-        color: QColor
+        color: Tuple[int, int, int]
     ):
         """Draw a joint."""
-        pen = QPen(color)
+        pen = QPen(Qt.black if self.monochrome else QColor(*color))
         pen.setWidth(2)
         self.painter.setPen(pen)
         x = cx * self.zoom
@@ -262,24 +241,50 @@ class BaseCanvas(QWidget):
         else:
             r = self.joint_size
         self.painter.drawEllipse(QPointF(x, y), r, r)
-        
+
         if not self.show_point_mark:
             return
         pen.setColor(Qt.darkGray)
         pen.setWidth(2)
         self.painter.setPen(pen)
-        text = f"[{i}]" if type(i) == str else f"[Point{i}]"
+        text = f"[{i}]" if type(i) is str else f"[Point{i}]"
         if self.show_dimension:
             text += f":({cx:.02f}, {cy:.02f})"
         self.painter.drawText(QPointF(x, y) + QPointF(6, -6), text)
-    
-    def drawTargetPath(self):
+
+    def draw_slvs_ranges(self):
+        """Draw solving range."""
+        pen = QPen()
+        pen.setWidth(5)
+        for i, (tag, rect) in enumerate(self.ranges.items()):
+            range_color = QColor(color_num(i + 1))
+            range_color.setAlpha(30)
+            self.painter.setBrush(range_color)
+            range_color.setAlpha(255)
+            pen.setColor(range_color)
+            self.painter.setPen(pen)
+            cx = rect.x() * self.zoom
+            cy = rect.y() * -self.zoom
+            if rect.width():
+                self.painter.drawRect(QRectF(
+                    QPointF(cx, cy),
+                    QSizeF(rect.width(), rect.height()) * self.zoom
+                ))
+            else:
+                self.painter.drawEllipse(QPointF(cx, cy), 3, 3)
+            range_color.setAlpha(255)
+            pen.setColor(range_color)
+            self.painter.setPen(pen)
+            self.painter.drawText(QPointF(cx, cy) + QPointF(6, -6), tag)
+            self.painter.setBrush(Qt.NoBrush)
+
+    def draw_target_path(self):
         """Draw solving path."""
         pen = QPen()
         pen.setWidth(self.path_width)
         for i, name in enumerate(sorted(self.target_path)):
             path = self.target_path[name]
-            road, dot, brush = traget_path_style(i)
+            road, dot, brush = target_path_style(i)
             pen.setColor(road)
             self.painter.setPen(pen)
             self.painter.setBrush(brush)
@@ -300,7 +305,7 @@ class BaseCanvas(QWidget):
                         painter_path.moveTo(p)
                     else:
                         x2, y2 = path[j - 1]
-                        self.__drawArrow(x, -y, x2, -y2, zoom=True)
+                        self.__draw_arrow(x, -y, x2, -y2, zoom=True)
                         painter_path.lineTo(p)
                 pen.setColor(road)
                 self.painter.setPen(pen)
@@ -311,8 +316,8 @@ class BaseCanvas(QWidget):
                     p = QPointF(x, -y) * self.zoom
                     self.painter.drawEllipse(p, self.joint_size, self.joint_size)
         self.painter.setBrush(Qt.NoBrush)
-    
-    def __drawArrow(
+
+    def __draw_arrow(
         self,
         x1: float,
         y1: float,
@@ -357,8 +362,8 @@ class BaseCanvas(QWidget):
         pen.setColor(color)
         self.painter.setPen(pen)
         self.painter.setFont(font_copy)
-    
-    def drawCurve(self, path: Sequence[Tuple[float, float]]):
+
+    def draw_curve(self, path: Sequence[_Coord]):
         """Draw path as curve."""
         if len(set(path)) <= 2:
             return
@@ -382,8 +387,8 @@ class BaseCanvas(QWidget):
                 else:
                     painter_path.lineTo(x, y)
         self.painter.drawPath(painter_path)
-    
-    def drawDot(self, path: Sequence[Tuple[float, float]]):
+
+    def draw_dot(self, path: Sequence[_Coord]):
         """Draw path as dots."""
         if len(set(path)) <= 2:
             return
@@ -391,13 +396,13 @@ class BaseCanvas(QWidget):
             if isnan(x):
                 continue
             self.painter.drawPoint(QPointF(x, -y) * self.zoom)
-    
-    def solutionPolygon(
+
+    def solution_polygon(
         self,
         func: str,
         args: Sequence[str],
         target: str,
-        pos: Union[Tuple[VPoint, ...], Dict[int, Tuple[float, float]]]
+        pos: Sequence[VPoint]
     ) -> Tuple[List[QPointF], QColor]:
         """Get solution polygon."""
         if func == 'PLLP':
@@ -421,35 +426,34 @@ class BaseCanvas(QWidget):
             except ValueError:
                 continue
             else:
-                x, y = pos[index]
-                tmp_list.append(QPointF(x, -y) * self.zoom)
+                vpoint = pos[index]
+                tmp_list.append(QPointF(vpoint.cx, -vpoint.cy) * self.zoom)
         return tmp_list, color
-    
-    def drawSolution(
+
+    def draw_solution(
         self,
         func: str,
         args: Sequence[str],
         target: str,
-        pos: Union[Tuple[VPoint, ...], Dict[int, Tuple[float, float]]]
+        pos: Sequence[VPoint]
     ):
         """Draw the solution triangle."""
-        points, color = self.solutionPolygon(func, args, target, pos)
-        
+        points, color = self.solution_polygon(func, args, target, pos)
         color.setAlpha(150)
         pen = QPen(color)
         pen.setWidth(self.joint_size)
         self.painter.setPen(pen)
-        
+
         def draw_arrow(index: int, text: str):
             """Draw arrow."""
-            self.__drawArrow(
+            self.__draw_arrow(
                 points[-1].x(),
                 points[-1].y(),
                 points[index].x(),
                 points[index].y(),
                 text=text
             )
-        
+
         draw_arrow(0, args[1])
         if func == 'PLLP':
             draw_arrow(1, args[2])
@@ -458,20 +462,21 @@ class BaseCanvas(QWidget):
         self.painter.drawPolygon(QPolygonF(points))
         self.painter.setBrush(Qt.NoBrush)
 
+    @Slot(bool)
+    def set_monochrome_mode(self, monochrome: bool):
+        self.monochrome = monochrome
+        self.update()
+
 
 class PreviewCanvas(BaseCanvas):
-    
+
     """A preview canvas use to show structure diagram."""
-    
-    def __init__(
-        self,
-        get_solutions: Callable[[], str],
-        parent: QWidget
-    ):
+
+    view_size = 240
+
+    def __init__(self, parent: QWidget):
         """Input parameters and attributes.
-        
-        + A function should return a tuple of function expression.
-            format: ("PLAP[P1,a0,L0,P2](P3)", "PLLP[P1,a0,L0,P2](P3)", ...)
+
         + Origin graph
         + Customize points: Dict[str, int]
         + Multiple joints: Dict[int, int]
@@ -480,39 +485,37 @@ class PreviewCanvas(BaseCanvas):
         + Name dict: Dict['P0', 'A']
         """
         super(PreviewCanvas, self).__init__(parent)
-        self.showSolutions = True
-        self.get_solutions = get_solutions
-        self.G = Graph()
-        self.cus = {}
-        self.same = {}
-        self.pos = {}
+        self.G = Graph([])
+        self.cus: Dict[int, int] = {}
+        self.same: Dict[int, int] = {}
+        self.pos: Dict[int, _Coord] = {}
         self.status = {}
-        
+
         # Additional attributes.
         self.grounded = -1
-        self.Driver = -1
-        self.Target = -1
-        
+        self.driver: Set[int] = set()
+        self.target: Set[int] = set()
+
         self.clear()
-    
+
     def clear(self):
         """Clear the attributes."""
-        self.G = Graph()
+        self.G = Graph([])
         self.cus.clear()
         self.same.clear()
         self.pos.clear()
         self.status.clear()
         self.grounded = -1
-        self.Driver = -1
-        self.Target = -1
+        self.driver.clear()
+        self.target.clear()
         self.update()
-    
+
     def paintEvent(self, event):
         """Draw the structure."""
         width = self.width()
         height = self.height()
         if self.pos:
-            x_right, x_left, y_top, y_bottom = self.__zoomToFitLimit()
+            x_right, x_left, y_top, y_bottom = self.__zoom_to_fit_limit()
             x_diff = x_left - x_right
             y_diff = y_top - y_bottom
             x_diff = x_diff if x_diff else 1
@@ -521,19 +524,29 @@ class PreviewCanvas(BaseCanvas):
                 factor = width / x_diff
             else:
                 factor = height / y_diff
-            self.zoom = factor * 0.95
+            self.zoom = factor * 0.75
             self.ox = width / 2 - (x_left + x_right) / 2 * self.zoom
             self.oy = height / 2 + (y_top + y_bottom) / 2 * self.zoom
         else:
-            sq_w = 240
-            self.zoom = (width / sq_w) if (width <= height) else (height / sq_w)
+            if width <= height:
+                self.zoom = width / PreviewCanvas.view_size
+            else:
+                self.zoom = height / PreviewCanvas.view_size
             self.ox = width / 2
             self.oy = height / 2
+
         super(PreviewCanvas, self).paintEvent(event)
+
         pen = QPen()
         pen.setWidth(self.joint_size)
         self.painter.setPen(pen)
-        self.painter.setBrush(QBrush(QColor(226, 219, 190, 150)))
+        if self.monochrome:
+            color = QColor(Qt.darkGray)
+        else:
+            color = QColor(226, 219, 190)
+        color.setAlpha(150)
+        self.painter.setBrush(QBrush(color))
+
         # Links
         for link in self.G.nodes:
             if link == self.grounded:
@@ -549,43 +562,33 @@ class PreviewCanvas(BaseCanvas):
             # Customize points.
             for name, link_ in self.cus.items():
                 if link == link_:
-                    x, y = self.pos[int(name.replace('P', ''))]
+                    x, y = self.pos[name]
                     points.append((x * self.zoom, y * -self.zoom))
             self.painter.drawPolygon(*convex_hull(points, as_qpoint=True))
+
         # Nodes
         for node, (x, y) in self.pos.items():
             if node in self.same:
                 continue
             x *= self.zoom
             y *= -self.zoom
-            if node in (self.Driver, self.Target):
-                if node == self.Driver:
-                    pen.setColor(colorQt('Red'))
-                elif node == self.Target:
-                    pen.setColor(colorQt('Yellow'))
-                self.painter.setPen(pen)
-                self.painter.drawEllipse(QPointF(x, y), self.joint_size, self.joint_size)
-            if self.getStatus(node):
-                color = colorQt('Dark-Magenta')
+            if self.monochrome:
+                color = Qt.black
+            elif node in self.driver:
+                color = color_qt('Red')
+            elif node in self.target:
+                color = color_qt('Orange')
+            elif self.get_status(node):
+                color = color_qt('Green')
             else:
-                color = colorQt('Green')
+                color = color_qt('Blue')
             pen.setColor(color)
             self.painter.setPen(pen)
             self.painter.setBrush(QBrush(color))
             self.painter.drawEllipse(QPointF(x, y), self.joint_size, self.joint_size)
-            pen.setColor(colorQt('Black'))
+            pen.setColor(Qt.black)
             self.painter.setPen(pen)
-        # Solutions
-        if self.showSolutions:
-            solutions = self.get_solutions()
-            if solutions:
-                for expr in solutions.split(';'):
-                    self.drawSolution(
-                        io.strbefore(expr, '['),
-                        io.strbetween(expr, '[', ']').split(','),
-                        io.strbetween(expr, '(', ')'),
-                        self.pos
-                    )
+
         # Text of node.
         pen.setColor(Qt.black)
         self.painter.setPen(pen)
@@ -596,10 +599,11 @@ class PreviewCanvas(BaseCanvas):
             x += 2 * self.joint_size
             y *= -self.zoom
             y -= 2 * self.joint_size
-            self.painter.drawText(x, y, f'P{node}')
+            self.painter.drawText(QPointF(x, y), f'P{node}')
+
         self.painter.end()
-    
-    def __zoomToFitLimit(self) -> Tuple[float, float, float, float]:
+
+    def __zoom_to_fit_limit(self) -> Tuple[float, float, float, float]:
         """Limitations of four side."""
         inf = float('inf')
         x_right = inf
@@ -616,76 +620,90 @@ class PreviewCanvas(BaseCanvas):
             if y > y_top:
                 y_top = y
         return x_right, x_left, y_top, y_bottom
-    
-    def setGraph(self, graph: Graph, pos: Dict[int, Tuple[float, float]]):
+
+    def set_graph(self, graph: Graph, pos: Dict[int, _Coord]):
         """Set the graph from NetworkX graph type."""
         self.G = graph
         self.pos = pos
         self.status = {k: False for k in pos}
         self.update()
-    
-    def setGrounded(self, link: int):
+
+    def set_grounded(self, link: int):
         """Set the grounded link number."""
         self.grounded = link
         for n, edge in edges_view(self.G):
             self.status[n] = self.grounded in edge
         for n, link in self.cus.items():
-            self.status[int(n.replace('P', ''))] = self.grounded == link
+            self.status[n] = self.grounded == link
         self.update()
-    
-    def setDriver(self, nodes: Sequence[int]):
+
+    def set_driver(self, input_list: List[Tuple[int, int]]):
         """Set driver nodes."""
-        self.Driver = tuple(nodes)
+        self.driver.clear()
+        self.driver.update(pair[0] for pair in input_list)
         self.update()
-    
-    def setTarget(self, nodes: Sequence[int]):
+
+    def set_target(self, nodes: Sequence[int]):
         """Set target nodes."""
-        self.Target = tuple(nodes)
+        self.target.clear()
+        self.target.update(nodes)
         self.update()
-    
-    def setStatus(self, point: str, status: bool):
+
+    def set_status(self, point: str, status: bool):
         """Set status node."""
         self.status[int(point.replace('P', ''))] = status
         self.update()
-    
-    def getStatus(self, point: int) -> bool:
+
+    def get_status(self, point: int) -> bool:
         """Get status. If multiple joints, return true."""
         return self.status[point] or (point in self.same)
-    
-    @pyqtSlot(bool)
-    def setShowSolutions(self, status: bool):
-        """Switch solutions."""
-        self.showSolutions = status
-        self.update()
-    
+
     def from_profile(self, params: Dict[str, Any]):
         """Simple load by dict object."""
-        # Add customize joints.
+        # Customize points and multiple joints
         graph = Graph(params['Graph'])
-        self.setGraph(graph, params['pos'])
-        self.cus = params['cus']
-        self.same = params['same']
-        # Grounded setting.
-        driver = set(params['Driver'])
-        follower = set(params['Follower'])
-        for row, link in enumerate(graph.nodes):
-            points = set(f'P{n}' for n, edge in edges_view(graph) if link in edge)
-            if (driver | follower) <= points:
-                self.setGrounded(row)
+        expression: str = params['Expression']
+        pos_list = parse_pos(expression)
+        self.cus: Dict[int, int] = params['cus']
+        self.same: Dict[int, int] = params['same']
+        for node, ref in sorted(self.same.items()):
+            pos_list.insert(node, pos_list[ref])
+        pos: Dict[int, _Coord] = dict(enumerate(pos_list))
+        self.set_graph(graph, pos)
+
+        # Grounded setting
+        placement: Set[int] = set(params['Placement'])
+        links: List[Set[int]] = [set() for _ in range(len(graph.nodes))]
+        for joint, link in edges_view(graph):
+            for node in link:
+                links[node].add(joint)
+
+        for row, link in enumerate(links):
+            if placement == link - set(self.same):
+                self.set_grounded(row)
                 break
-        # Expression
-        if params['Expression']:
-            for expr in params['Expression'].split(';'):
-                self.setStatus(io.strbetween(expr, '(', ')'), True)
+
+        # Driver setting
+        input_list: List[Tuple[int, int]] = params['input']
+        self.driver.clear()
+        self.driver.update(pair[0] for pair in input_list)
+
+        # Target setting
+        target: Dict[int, Sequence[_Coord]] = params['Target']
+        self.target.clear()
+        self.target.update(target)
+
         self.update()
-    
-    def isAllLock(self) -> bool:
+
+    def is_all_lock(self) -> bool:
         """Is all joint has solution."""
         for node, status in self.status.items():
             if not status and node not in self.same:
                 return False
         return True
-    
-    def isMultiple(self, name: str) -> bool:
-        """Is the name in 'same'."""
-        return int(name.replace('P', '')) in self.same
+
+    def distance(self, n1: int, n2: int) -> float:
+        """Return the distance of two point."""
+        x1, y1 = self.pos[n1]
+        x2, y2 = self.pos[n2]
+        return hypot(x1 - x2, y1 - y2)
