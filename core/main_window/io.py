@@ -16,8 +16,8 @@ from typing import (
     Union,
 )
 from abc import ABC
-from pygments.lexers.python import Python3Lexer
 from lark.exceptions import LarkError
+from pygments.lexers.python import Python3Lexer
 from pyslvs import __version__, parse_params, PMKSLexer
 from core.QtModules import (
     Slot,
@@ -37,6 +37,9 @@ from core.QtModules import (
     QComboBox,
     QCheckBox,
     QLineEdit,
+    QMimeData,
+    QDragEnterEvent,
+    QDropEvent,
 )
 from core.info import (
     ARGUMENTS,
@@ -55,6 +58,8 @@ from core.io import (
 )
 from core.widgets import AddTable, EditPointTable
 from .actions import ActionMethodInterface
+
+_PREFIX = f"# Generate by Pyslvs {__version__}\n# Project "
 Settings: type = Union[int, float, bool, str]
 
 
@@ -144,9 +149,9 @@ class IOMethodInterface(ActionMethodInterface, ABC):
             (self.dontsave_option, True),
         )
 
-    def dragEnterEvent(self, event):
+    def dragEnterEvent(self, event: QDragEnterEvent):
         """Drag file in to our window."""
-        mime_data = event.mimeData()
+        mime_data: QMimeData = event.mimeData()
         if not mime_data.hasUrls():
             return
         for url in mime_data.urls():
@@ -154,7 +159,7 @@ class IOMethodInterface(ActionMethodInterface, ABC):
             if suffix in {'pyslvs.yml', 'pyslvs', 'slvs'}:
                 event.acceptProposedAction()
 
-    def dropEvent(self, event):
+    def dropEvent(self, event: QDropEvent):
         """Drop file in to our window."""
         file_name = event.mimeData().urls()[-1].toLocalFile()
         self.__load_file(file_name)
@@ -521,7 +526,7 @@ class IOMethodInterface(ActionMethodInterface, ABC):
         """Output to PMKS as URL."""
         url = "http://designengrlab.github.io/PMKS/pmks.html?mech="
         url_table = []
-        for row in range(self.entities_point.rowCount()):
+        for row in range(len(self.vpoint_list)):
             type_and_angle = self.entities_point.item(row, 2).text().split(':')
             point_data = [
                 self.entities_point.item(row, 1).text(),
@@ -566,15 +571,20 @@ class IOMethodInterface(ActionMethodInterface, ABC):
     @Slot(name='on_action_exprsion_triggered')
     def __show_expr(self):
         """Output as expression."""
-        context = ",\n".join(" " * 4 + vpoint.expr() for vpoint in self.vpoint_list)
+        expr = [vpoint.expr() for vpoint in self.vpoint_list]
+        context = ",\n".join(" " * 4 + e for e in expr)
+        script = _PREFIX + f"\"{self.database_widget.file_name().baseName()}\"\n"
+        if context:
+            script += f"M[\n{context}\n]"
+        else:
+            script += "M[]"
         dlg = ScriptDialog(
-            f"# Generate by Pyslvs {__version__}\n"
-            f"# Project \"{self.database_widget.file_name().baseName()}\"\n" +
-            (f"M[\n{context}\n]" if context else "M[]"),
+            script,
             PMKSLexer(),
             "Pyslvs expression",
             ["Text file (*.txt)"],
-            self
+            self,
+            compressed_script="M[" + ','.join(expr).replace(", ", ",") + "]" if expr else ""
         )
         dlg.show()
         dlg.exec()
@@ -584,8 +594,7 @@ class IOMethodInterface(ActionMethodInterface, ABC):
     def __show_py_script(self):
         """Output to Python script for Jupyter notebook."""
         dlg = ScriptDialog(
-            f"# Generate by Pyslvs {__version__}\n"
-            f"# Project \"{self.database_widget.file_name().baseName()}\"\n" +
+            _PREFIX + f"\"{self.database_widget.file_name().baseName()}\"\n" +
             slvs_process_script(
                 tuple(vpoint.expr() for vpoint in self.vpoint_list),
                 tuple((b, d) for b, d, a in self.inputs_widget.input_pairs())
@@ -708,13 +717,13 @@ class IOMethodInterface(ActionMethodInterface, ABC):
                 widget.setText(value)
 
     def load_from_args(self):
-        if not ARGUMENTS.file:
+        if not ARGUMENTS.filepath:
             return
-        suffix = QFileInfo(ARGUMENTS.file).suffix()
+        suffix = QFileInfo(ARGUMENTS.filepath).suffix()
         if suffix == 'pyslvs':
-            self.database_widget.read(ARGUMENTS.file)
+            self.database_widget.read(ARGUMENTS.filepath)
         elif suffix == 'slvs':
-            self.__read_slvs(ARGUMENTS.file)
+            self.__read_slvs(ARGUMENTS.filepath)
         else:
             logger.critical("Unsupported format has been ignore when startup.")
 
@@ -723,15 +732,5 @@ class IOMethodInterface(ActionMethodInterface, ABC):
         """The time of withdrawal and redo action."""
         self.workbook_no_save()
         self.entities_point.clearSelection()
-
-        # Variable reload for link adjust function.
-        if self.link_free_move_base.count() != self.entities_point.rowCount():
-            self.link_free_move_base.clear()
-            for i in range(self.entities_point.rowCount()):
-                self.link_free_move_base.addItem(f"Point{i}")
-
-        # Variable reload for input widget.
         self.inputs_widget.variable_reload()
-
-        # Solve
         self.solve()

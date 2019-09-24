@@ -9,24 +9,37 @@ the programming script can be compiled as an executable file.
 In development state, Pyslvs including several dynamic libraries,
 which are need to be compiled first.
 
-## Dependency
+## Dependencies
 
 Actual testing platforms with CI:
 
-+ ![w3.7](https://img.shields.io/badge/Windows%20x64-Python%203.7-blue.svg)
-+ ![m3.7](https://img.shields.io/badge/macOS%20Sierra-Python%203.7-ff69b4.svg)
-+ ![u3.7](https://img.shields.io/badge/Ubuntu%20x64-Python%203.7-orange.svg)
+| Platform (64-bit) | Windows | MacOS | Ubuntu |
+|:------------------:|:-------:|:-----:|:------:|
+| Python 3.7 | O | O | O |
 
 **Please note that the other platforms may be available but I have not tested before.**
 
-**Mac OS and Ubuntu**:
+Install dependences:
 
 ```bash
-# Local Python
-pip3 install -r requirements.txt
+pip install -r requirements.txt
+```
 
-# Global Python
-sudo pip3 install -r requirements.txt
+**Mac OS and Ubuntu**:
+
+It is recommended to use [pyenv](https://github.com/pyenv/pyenv),
+which will be more easier to handle Python version instead of using system Python.
+So any operation about Python will not required `sudo` or `--user` option.
+
+```bash
+# Install supported version of Pyslvs
+# The devlopment tools need to prepare first (like openssl, sqlite3)
+pyenv install --list  # show all available versions
+pyenv install 3.7.4
+pyenv install 3.7-dev
+pyenv global 3.7.4
+python --version  # Python 3.7.4
+pip --version  # pip 19.2.2 from /home/user/.pyenv/versions/3.7.4/lib/python3.7/site-packages/pip (python 3.7)
 ```
 
 **Windows**:
@@ -35,19 +48,22 @@ Python 3: [Official Python] for Windows 64 bit.
 
 Makefile tool: [MinGW] or [Msys 2][msys].
 
-```bash
-pip install -r requirements.txt
-```
+### Qt Stuff (Development)
 
-### PyQt Stuff (Development)
+PyQt5 and its additional modules are now packed into the wheel file that most of platform can install them directly.
 
-PyQt5 and QtChart are now pack into the wheel file that Windows and Ubuntu can install them directly.
-
-Qt tools can be used to design the *.ui files, they are not the requirement if you just want to run Pyslvs.
-
-**Mac OS and Ubuntu**:
+You need to get original Qt tools for development, which can be used to design the *.ui files,
+they are not the requirement if you just want to run Pyslvs.
 
 Download and install [Qt5] to get the tools.
+
+**Ubuntu**:
+
+Ubuntu users can obtain them via APT:
+
+```bash
+sudo apt install qttools5-dev-tools
+```
 
 **Windows**:
 
@@ -59,7 +75,7 @@ pip install pyqt5-tools
 
 ## Kernels Requirement
 
-About the development tools, please see [Modules Requirement](#modules-requirement).
+About the development tools, please see [Dependencies](#dependencies).
 
 Make command:
 
@@ -100,28 +116,41 @@ When using Msys2, following command might be helpful:
 ```bash
 # Install tools for Msys.
 # Open the "mingw64.exe" shell.
+
+# Install GCC
 pacman -S mingw-w64-x86_64-gcc
+# Install Make
 pacman -S mingw-w64-x86_64-toolchain
-# A list of tools will shown, choose "mingw-w64-x86_64-make".
-# The "make" command is named as "mingw32-make".
+# A list of tools will shown, choose 13 ("mingw-w64-x86_64-make").
+# The "make" command is named as "mingw32-make". You can rename it:
+mv /mingw64/bin/mingw32-make /mingw64/bin/make
+
+# Install patch
 pacman -S patch
+```
+
+And the programs should be added in to environment variable (with administrator).
+
+```batch
+setx Path %Path%C:\tools\msys64\mingw64\bin;C:\tools\msys64\usr\bin; /M
 ```
 
 Setup Python compiler as gcc / g++ of MinGW64:
 
-```bash
-# Where %PYTHON_DIR% is the directory of your Python installation.
-# In Pyslvs project.
+```batch
+REM Where %PYTHON_DIR% is the directory of your Python installation.
+REM In Pyslvs project.
+set PYTHON_DIR=C:\Python37
 
-# Create "distutils.cfg"
+REM Create "distutils.cfg"
 echo [build]>> %PYTHON_DIR%\Lib\distutils\distutils.cfg
 echo compiler = mingw32>> %PYTHON_DIR%\Lib\distutils\distutils.cfg
 
-# Apply the patch of "cygwinccompiler.py".
-# Unix "patch" command of Msys.
+REM Apply the patch of "cygwinccompiler.py".
+REM Unix "patch" command of Msys.
 patch %PYTHON_DIR%\lib\distutils\cygwinccompiler.py platform\patch.diff
 
-# Copy "vcruntime140.dll" to "libs".
+REM Copy "vcruntime140.dll" to "libs".
 copy %PYTHON_DIR%\vcruntime140.dll %PYTHON_DIR%\libs
 ```
 
@@ -159,7 +188,7 @@ After following operation, the executable file is in `out` folder.
 Make command:
 
 ```bash
-sudo pip3 install virtualenv
+pip install virtualenv
 make
 ```
 

@@ -2,9 +2,10 @@
 
 # Form implementation generated from reading ui file 'core/io/script.ui'
 #
-# Created by: PyQt5 UI code generator 5.12.2
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
+
 
 from core.QtModules import QtCore, QtGui, QtWidgets
 
@@ -13,7 +14,7 @@ class Ui_Dialog(object):
     def setupUi(self, Dialog):
         Dialog.setObjectName("Dialog")
         Dialog.setEnabled(True)
-        Dialog.resize(520, 564)
+        Dialog.resize(533, 564)
         icon = QtGui.QIcon()
         icon.addPixmap(QtGui.QPixmap(":/icons/script.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
         Dialog.setWindowIcon(icon)
@@ -32,15 +33,15 @@ class Ui_Dialog(object):
         self.horizontalLayout_2.addWidget(self.style_option)
         spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
         self.horizontalLayout_2.addItem(spacerItem)
+        self.show_qrcode = QtWidgets.QPushButton(Dialog)
+        self.show_qrcode.setAutoDefault(False)
+        self.show_qrcode.setObjectName("show_qrcode")
+        self.horizontalLayout_2.addWidget(self.show_qrcode)
         self.copy = QtWidgets.QPushButton(Dialog)
         self.copy.setContextMenuPolicy(QtCore.Qt.NoContextMenu)
         self.copy.setAutoDefault(False)
         self.copy.setObjectName("copy")
         self.horizontalLayout_2.addWidget(self.copy)
-        self.save = QtWidgets.QPushButton(Dialog)
-        self.save.setAutoDefault(False)
-        self.save.setObjectName("save")
-        self.horizontalLayout_2.addWidget(self.save)
         self.main_layout.addLayout(self.horizontalLayout_2)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
@@ -68,10 +69,8 @@ class Ui_Dialog(object):
     def retranslateUi(self, Dialog):
         _translate = QtCore.QCoreApplication.translate
         self.label_2.setText(_translate("Dialog", "Style:"))
+        self.show_qrcode.setText(_translate("Dialog", "Show QR code"))
         self.copy.setText(_translate("Dialog", "Copy"))
-        self.save.setText(_translate("Dialog", "Save as..."))
         self.label_3.setText(_translate("Dialog", "Syntax highlighting powered by Pygments."))
         self.button_box.setWhatsThis(_translate("Dialog", "Click to exit"))
-
-
 import icons_rc

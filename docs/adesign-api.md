@@ -17,7 +17,7 @@ The modules are:
 
 | type | inherit |
 |:----:|:-------:|
-| type | object |
+| type | [AlgorithmBase] |
 
 The implementation of Differential Evolution algorithm.
 
@@ -45,30 +45,20 @@ The format of argument `settings`:
 + `CR`: Crossover rate
     + type: float (0.~1.)
     + default: 0.9
-+ `max_gen` or `min_fit` or `max_time`: Limitation of termination
-    + type: int / float / float
++ `max_gen` or `min_fit` or `max_time` or `slow_down`: Limitation of termination
+    + type: int / float / float / float
     + default: Raise `ValueError`
 + `report`: Report per generation
     + type: int
     + default: 10
 
+!!! note
+
+    The option `slow_down` is a percent value that
+    current fitnesses difference of two generation is divide by last one.
+
 The argument `progress_fun` will be called when update progress,
 and the argument `interrupt_fun` will check the interrupt status from GUI or subprocess.
-
-#### Differential.run()
-
-| self | return |
-|:----:|:------:|
-| | Tuple[Any, List[Tuple[int, float, float]]] |
-
-Run and return the result and convergence history.
-
-The first place of `return` is the result from calling [`Verification.result()`](pyslvs-api.md#verificationresult).
-
-The second place of `return` is a list of generation data,
-which type is `Tuple[int, float, float]]`.
-The first of them is generation,
-the second is fitenss, and the last one is time in second.
 
 ## Module `firefly`
 
@@ -76,7 +66,7 @@ the second is fitenss, and the last one is time in second.
 
 | type | inherit |
 |:----:|:-------:|
-| type | object |
+| type | [AlgorithmBase] |
 
 The implementation of Firefly algorithm.
 
@@ -113,23 +103,13 @@ The format of argument `settings`:
 
 Others arguments are same as [`Differential.__init__()`](#differential9595init__).
 
-#### Firefly.run()
-
-| self | return |
-|:----:|:------:|
-| | Tuple[Any, List[Tuple[int, float, float]]] |
-
-Run and return the result and convergence history.
-
-Same as [`Differential.run()`](#differentialrun).
-
 ## Module `rga`
 
 ### Genetic
 
 | type | inherit |
 |:----:|:-------:|
-| type | object |
+| type | [AlgorithmBase] |
 
 The implementation of Real-coded Genetic Algorithm.
 
@@ -166,16 +146,6 @@ The format of argument `settings`:
 
 Others arguments are same as [`Differential.__init__()`](#differential9595init__).
 
-#### Genetic.run()
-
-| self | return |
-|:----:|:------:|
-| | Tuple[Any, List[Tuple[int, float, float]]] |
-
-Run and return the result and convergence history.
-
-Same as [`Differential.run()`](#differentialrun).
-
 ## Module `verify`
 
 ### Reference
@@ -183,3 +153,4 @@ Same as [`Differential.run()`](#differentialrun).
 See the sections of [Pyslvs API](pyslvs-api.md#module-verify)
 
 [Verification]: pyslvs-api.md#verification
+[AlgorithmBase]: pyslvs-api.md#algorithmbase

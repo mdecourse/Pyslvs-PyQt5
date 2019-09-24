@@ -23,6 +23,7 @@ from core.QtModules import (
     QMessageBox,
     QInputDialog,
     QTextCursor,
+    QCloseEvent,
 )
 from core.info import ARGUMENTS, XStream, logger
 from .io import IOMethodInterface
@@ -51,18 +52,17 @@ class MainWindow(IOMethodInterface):
         super(MainWindow, self).__init__()
         self.restore_settings()
 
-        # Console widget.
+        # Console widget
         self.console_error_option.setChecked(ARGUMENTS.debug_mode)
         if not ARGUMENTS.debug_mode:
             self.__console_connect()
 
-        # Start first solve function calling.
+        # Start first solve function calling
         self.solve()
-
-        # Load workbook from argument.
+        # Load workbook from argument
         self.load_from_args()
 
-    def closeEvent(self, event):
+    def closeEvent(self, event: QCloseEvent):
         """Close event to avoid user close the window accidentally."""
         if self.check_file_changed():
             event.ignore()
@@ -113,7 +113,7 @@ class MainWindow(IOMethodInterface):
 
     @Slot(int, name='on_main_panel_currentChanged')
     @Slot(int, name='on_synthesis_tab_widget_currentChanged')
-    def __set_show_target_path(self, _: int):
+    def __set_show_target_path(self, _=None):
         """Dimensional synthesis information will show on the canvas."""
         panel_index = self.main_panel.currentIndex()
         synthesis_index = self.synthesis_tab_widget.currentIndex()
@@ -127,8 +127,7 @@ class MainWindow(IOMethodInterface):
         """Merge result function of dimensional synthesis."""
         if not self.ask_add_storage(expr):
             return
-
-        # Add the path.
+        # Add the path
         i = 0
         while f"Algorithm_{i}" in self.inputs_widget.path_data():
             i += 1

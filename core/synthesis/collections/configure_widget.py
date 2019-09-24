@@ -14,7 +14,6 @@ from typing import (
     List,
     Tuple,
     Sequence,
-    Set,
     Dict,
     Callable,
     Optional,
@@ -37,6 +36,7 @@ from core.QtModules import (
     QListWidgetItem,
     QLabel,
     QApplication,
+    QMouseEvent,
 )
 from core.graphics import PreviewCanvas
 from .dialogs import (
@@ -46,7 +46,6 @@ from .dialogs import (
     list_texts,
 )
 from .Ui_configure_widget import Ui_Form
-
 if TYPE_CHECKING:
     from core.widgets.main_base import MainWindowBase
 
@@ -69,7 +68,7 @@ class _ConfigureCanvas(PreviewCanvas):
         self.pressed = False
         self.get_joint_number = parent.joint_name.currentIndex
 
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QMouseEvent):
         """Check if get close to a joint."""
         mx = (event.x() - self.ox) / self.zoom
         my = (event.y() - self.oy) / -self.zoom
@@ -83,11 +82,11 @@ class _ConfigureCanvas(PreviewCanvas):
                 self.pressed = True
                 break
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: QMouseEvent):
         """Cancel the drag."""
         self.pressed = False
 
-    def mouseMoveEvent(self, event):
+    def mouseMoveEvent(self, event: QMouseEvent):
         """Drag to move the joint."""
         if not self.pressed:
             return
@@ -228,7 +227,7 @@ class ConfigureWidget(QWidget, Ui_Form):
         for link in links:
             self.grounded_list.addItem("(" + ", ".join(link) + ")")
 
-        # Point name as (P1, P2, P3, ...).
+        # Point name is (P1, P2, P3, ...)
         for node in pos:
             self.joint_name.addItem(f'P{node}')
 
@@ -379,8 +378,7 @@ class ConfigureWidget(QWidget, Ui_Form):
         same: Dict[int, int] = params['same']
         for node, ref in sorted(same.items()):
             pos_list.insert(node, pos_list[ref])
-        pos: Dict[int, _Coord] = dict(enumerate(pos_list))
-        if not self.set_graph(graph, pos):
+        if not self.set_graph(graph, {i: (x, y) for i, (x, y) in enumerate(pos_list)}):
             dlg.deleteLater()
             return
 
@@ -391,16 +389,8 @@ class ConfigureWidget(QWidget, Ui_Form):
         self.configure_canvas.same = same
 
         # Grounded setting
-        placement: Set[int] = set(params['Placement'])
-        links: List[Set[int]] = [set() for _ in range(len(graph.nodes))]
-        for joint, link in edges_view(graph):
-            for node in link:
-                links[node].add(joint)
-
-        for row, link in enumerate(links):
-            if placement == link - set(same):
-                self.__set_grounded(row)
-                break
+        for row in PreviewCanvas.grounded_detect(set(params['Placement']), graph, same):
+            self.__set_grounded(row)
 
         # Driver, Target
         input_list: List[Tuple[int, int]] = params['input']
@@ -437,13 +427,13 @@ class ConfigureWidget(QWidget, Ui_Form):
         _set_warning(self.target_label, self.target_list.count() == 0)
 
     @Slot(QListWidgetItem)
-    def __set_parm_bind(self, _: QListWidgetItem = None):
+    def __set_parm_bind(self, _=None):
         """Set parameters binding."""
         link_expr_list = []
         for row, gs in enumerate(list_texts(self.grounded_list)):
             try:
                 link_expr = []
-                # Links from grounded list.
+                # Links from grounded list
                 for name in gs.replace('(', '').replace(')', '').split(", "):
                     num = int(name.replace('P', ''))
                     if num in self.configure_canvas.same:
@@ -452,7 +442,7 @@ class ConfigureWidget(QWidget, Ui_Form):
             except KeyError:
                 continue
             else:
-                # Customize joints.
+                # Customize joints
                 for joint, link in self.configure_canvas.cus.items():
                     if row == link:
                         link_expr.append(f"P{joint}")

@@ -23,17 +23,18 @@ from core.QtModules import (
     Qt,
     QApplication,
     QRectF,
+    QPoint,
     QPointF,
     QSizeF,
     QCursor,
     QToolTip,
+    QWheelEvent,
 )
 from .main_canvas_method import (
     DynamicCanvasInterface,
     FreeMode,
     SelectMode,
 )
-
 if TYPE_CHECKING:
     from core.widgets import MainWindowBase
 
@@ -58,7 +59,7 @@ class DynamicCanvas(DynamicCanvasInterface):
         self.zoom_value = parent.zoom_bar.value
         self.zoom_factor = parent.scalefactor_option.value
         # Dependent functions to set selection mode.
-        self.set_selection_mode = parent.entities_tab.setCurrentIndex
+        self.selection_mode_wheel = parent.entities_tab.setCurrentIndex
         self.selection_mode = parent.entities_tab.currentIndex
 
     def update_figure(self, exprs: List[Tuple[str, ...]], path: List[_Coord]):
@@ -268,21 +269,27 @@ class DynamicCanvas(DynamicCanvasInterface):
                 self.vpoints[i].move(*c)
         self.update_preview_path()
 
-    def wheelEvent(self, event):
+    def wheelEvent(self, event: QWheelEvent):
         """Switch function by mouse wheel.
 
         + Set zoom bar value.
         + Set select mode.
         """
-        value = event.angleDelta().y()
-        if QApplication.keyboardModifiers() == Qt.ControlModifier:
-            self.set_selection_mode(self.selection_mode() + (-1 if value > 0 else 1))
-            i = self.selection_mode()
-            icons = ''.join(
-                f"<img width=\"{70 if i == j else 40}\" src=\":icons/{icon}.png\"/>"
-                for j, icon in enumerate(('bearing', 'link', 'configure'))
-            )
-            QToolTip.showText(event.globalPos(), f"<p style=\"background-color: # 77abff\">{icons}</p>", self)
+        p: QPoint = event.angleDelta()
+        value_x = p.x()
+        value_y = p.y()
+        if QApplication.keyboardModifiers() == Qt.ShiftModifier:
+            value = value_y
+        elif value_x != 0:
+            value = value_x
+        elif value_y != 0:
+            self.set_zoom_bar(self.zoom_value() + self.zoom_factor() * (1 if value_y > 0 else -1))
+            return
         else:
-            self.set_zoom_bar(self.zoom_value() + self.zoom_factor() * (1 if value > 0 else -1))
+            return
+
+        mode = self.selection_mode() + (-1 if value > 0 else 1)
+        self.selection_mode_wheel(1 if mode > 1 else mode)
+        mode = ["Points", "Links"][self.selection_mode()]
+        QToolTip.showText(event.globalPos(), f"Selection mode: {mode}", self)
         event.accept()

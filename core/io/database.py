@@ -45,12 +45,11 @@ from core.QtModules import (
     QLineEdit,
     QMessageBox,
     QTableWidgetItem,
+    QMouseEvent,
 )
 from core.info import logger
 from .overview import OverviewDialog
 from .Ui_database import Ui_Form
-nan = float('nan')
-
 if TYPE_CHECKING:
     from core.widgets import MainWindowBase
 
@@ -62,7 +61,7 @@ def _compress(obj: Any) -> bytes:
 
 def _decompress(obj: Union[bytes, BlobField]) -> Any:
     """Use to decode the Python script."""
-    return eval(decompress(obj).decode())
+    return eval(decompress(obj).decode(), {'nan': float('nan')})
 
 
 """Create a empty Sqlite database object."""
@@ -147,7 +146,7 @@ class LoadCommitButton(QPushButton):
         self.setToolTip(f"Reset to commit # {id_int}.")
         self.id = id_int
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: QMouseEvent):
         """Load the commit when release button."""
         super(LoadCommitButton, self).mouseReleaseEvent(event)
         self.loaded.emit(self.id)
@@ -446,8 +445,7 @@ class DatabaseWidget(QWidget, Ui_Form):
         button.loaded.connect(self.__load_commit_id)
         self.load_id.connect(button.set_loaded)
         self.CommitTable.setCellWidget(row, 0, button)
-
-        self.CommitTable.setItem(row, 2, QTableWidgetItem(commit.description))
+        self.CommitTable.setItem(row, 2, QTableWidgetItem(str(commit.description)))
 
         author_name = commit.author.name
         for row in range(self.AuthorList.count()):

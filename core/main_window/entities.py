@@ -11,20 +11,18 @@ from typing import (
     Tuple,
     List,
     Sequence,
+    FrozenSet,
     Dict,
     Union,
     Optional,
 )
-from abc import ABC, abstractmethod
-from math import hypot
+from abc import ABC
 from itertools import chain
 from pyslvs import (
     VJoint,
-    VPoint,
-    expr_solving,
     Graph,
     edges_view,
-    ExpressionStack,
+    SolverSystem,
 )
 from core.QtModules import (
     Slot,
@@ -34,7 +32,8 @@ from core.QtModules import (
     QLabel,
     QHBoxLayout,
     QVBoxLayout,
-    QWidget,
+    QComboBox,
+    QMessageBox,
 )
 from core.entities import EditPointDialog, EditLinkDialog
 from core.widgets import (
@@ -51,8 +50,9 @@ class _ScaleDialog(QDialog):
 
     """Scale mechanism dialog."""
 
-    def __init__(self, parent: QWidget):
+    def __init__(self, parent: MainWindowBase):
         super(_ScaleDialog, self).__init__(parent)
+        self.setWindowTitle("Scale Mechanism")
         self.main_layout = QVBoxLayout(self)
         self.enlarge = QDoubleSpinBox(self)
         self.shrink = QDoubleSpinBox(self)
@@ -63,11 +63,12 @@ class _ScaleDialog(QDialog):
         button_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
+        button_box.button(QDialogButtonBox.Ok).setEnabled(bool(parent.vpoint_list))
         self.main_layout.addWidget(button_box)
 
     def __add_option(self, name: str, option: QDoubleSpinBox):
         """Add widgets for option."""
-        layout = QHBoxLayout(self)
+        layout = QHBoxLayout()
         label = QLabel(name, self)
         option.setValue(1)
         option.setMaximum(10000)
@@ -79,6 +80,76 @@ class _ScaleDialog(QDialog):
     def factor(self) -> float:
         """Return scale value."""
         return self.enlarge.value() / self.shrink.value()
+
+
+class _LinkLengthDialog(QDialog):
+
+    """Link length dialog."""
+
+    def __init__(self, parent: MainWindowBase):
+        super(_LinkLengthDialog, self).__init__(parent)
+        self.setWindowTitle("Set Link Length")
+        self.main_layout = QVBoxLayout(self)
+        layout = QHBoxLayout()
+        self.leader = QComboBox(self)
+        self.follower = QComboBox(self)
+        self.length = QDoubleSpinBox(self)
+        layout.addWidget(self.leader)
+        layout.addWidget(self.follower)
+        layout.addWidget(self.length)
+        self.main_layout.addLayout(layout)
+
+        self.vpoints = parent.vpoint_list
+        self.vlinks: Dict[str, FrozenSet[int]] = {
+            vlink.name: frozenset(vlink.points) for vlink in parent.vlink_list
+        }
+        self.leader.currentTextChanged.connect(self.__set_follower)
+        self.follower.currentTextChanged.connect(self.__set_length)
+        self.leader.addItems([f"P{i}" for i in range(len(self.vpoints))])
+        self.leader.setCurrentIndex(0)
+        self.length.setMaximum(100000)
+
+        button_box = QDialogButtonBox(self)
+        button_box.setStandardButtons(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        button_box.accepted.connect(self.accept)
+        button_box.rejected.connect(self.reject)
+        button_box.button(QDialogButtonBox.Ok).setEnabled(bool(parent.vpoint_list))
+        self.main_layout.addWidget(button_box)
+
+    @Slot(str)
+    def __set_follower(self, leader: str):
+        """Set follower options."""
+        self.follower.clear()
+        n = int(leader.replace('P', ''))
+        options = set()
+        for name, points in self.vlinks.items():
+            if name == 'ground':
+                continue
+            if n in points:
+                options.update(points)
+        options.discard(n)
+        self.follower.addItems([f"P{i}" for i in options])
+
+    @Slot(str)
+    def __set_length(self, follower: str):
+        """Set the current length of two points."""
+        if not follower:
+            return
+        n1 = self.get_leader()
+        n2 = int(follower.replace('P', ''))
+        self.length.setValue(self.vpoints[n1].distance(self.vpoints[n2]))
+
+    def get_leader(self) -> int:
+        """Get current leader."""
+        return int(self.leader.currentText().replace('P', ''))
+
+    def get_follower(self) -> int:
+        """Get current follower."""
+        return int(self.follower.currentText().replace('P', ''))
+
+    def get_length(self) -> float:
+        """Get current length."""
+        return self.length.value()
 
 
 class EntitiesMethodInterface(MainWindowBase, ABC):
@@ -166,44 +237,11 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
 
     def __get_link_serial_number(self) -> str:
         """Return a new serial number name of link."""
-        names = {
-            self.entities_link.item(row, 0).text()
-            for row in range(self.entities_link.rowCount())
-        }
+        names = {vlink.name for vlink in self.vlink_list}
         i = 1
         while f"link_{i}" in names:
             i += 1
         return f"link_{i}"
-
-    @Slot(name='on_action_delete_link_triggered')
-    def delete_link(self, row: Optional[int] = None):
-        """Push delete link command to stack.
-
-        Remove link will not remove the points.
-        """
-        if row is None:
-            row = self.entities_link.currentRow()
-        if row < 1:
-            return
-        args = self.entities_link.row_data(row)
-        args[2] = ''
-        name = self.entities_link.item(row, 0).text()
-        self.command_stack.beginMacro(f"Delete {{Link: {name}}}")
-        self.command_stack.push(EditLinkTable(
-            row,
-            self.vpoint_list,
-            self.vlink_list,
-            self.entities_point,
-            self.entities_link,
-            args
-        ))
-        self.command_stack.push(DeleteTable(
-            row,
-            self.vlink_list,
-            self.entities_link,
-            is_rename=False
-        ))
-        self.command_stack.endMacro()
 
     @Slot(name='on_action_delete_point_triggered')
     def delete_point(self, row: Optional[int] = None):
@@ -241,6 +279,56 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
             is_rename=True
         ))
         self.inputs_widget.variable_excluding(row)
+        self.command_stack.endMacro()
+
+    @Slot(name='on_action_delete_link_triggered')
+    def delete_link(self, row: Optional[int] = None):
+        """Push delete link command to stack.
+
+        Remove link will not remove the points.
+        """
+        if row is None:
+            row = self.entities_link.currentRow()
+        if row < 1:
+            return
+        args = self.entities_link.row_data(row)
+        args[2] = ''
+        self.command_stack.beginMacro(f"Delete {{Link: {self.vlink_list[row].name}}}")
+        self.command_stack.push(EditLinkTable(
+            row,
+            self.vpoint_list,
+            self.vlink_list,
+            self.entities_point,
+            self.entities_link,
+            args
+        ))
+        self.command_stack.push(DeleteTable(
+            row,
+            self.vlink_list,
+            self.entities_link,
+            is_rename=False
+        ))
+        self.command_stack.endMacro()
+
+    def delete_points(self, points: Sequence[int]):
+        """Delete multiple points."""
+        if not points:
+            return
+        self.command_stack.beginMacro(f"Delete points: {sorted(points)}")
+        for row in sorted(points, reverse=True):
+            self.delete_point(row)
+        self.command_stack.endMacro()
+
+    def delete_links(self, links: Sequence[int]):
+        """Delete multiple links."""
+        if not links:
+            return
+        names = ", ".join(self.vlink_list[i].name for i in sorted(links))
+        self.command_stack.beginMacro(f"Delete links: [{names}]")
+        for row in sorted(links, reverse=True):
+            if row == 0:
+                continue
+            self.delete_link(row)
         self.command_stack.endMacro()
 
     @Slot(float, float)
@@ -354,22 +442,24 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
     def edit_point(self):
         """Edit a point with arguments."""
         row = self.entities_point.currentRow()
-        self.__edit_point(row if (row > -1) else 0)
+        self.__edit_point(row if row > -1 else 0)
 
     def lock_points(self):
         """Turn a group of points to fixed on ground or not."""
-        to_fixed = self.action_point_context_lock.isChecked()
-        for row in self.entities_point.selected_rows():
-            new_links = self.entities_point.item(row, 1).text().split(',')
+        to_fixed = self.action_p_lock.isChecked()
+        selected_rows = self.entities_point.selected_rows()
+        self.command_stack.beginMacro(
+            f"{'Grounded' if to_fixed else 'Ungrounded'} {sorted(selected_rows)}"
+        )
+        for row in selected_rows:
+            new_links = list(self.vpoint_list[row].links)
             if to_fixed:
                 if 'ground' not in new_links:
                     new_links.append('ground')
-            else:
-                if 'ground' in new_links:
-                    new_links.remove('ground')
+            elif 'ground' in new_links:
+                new_links.remove('ground')
             args = self.entities_point.row_data(row)
             args[0] = ','.join(s for s in new_links if s)
-            self.command_stack.beginMacro(f"Edit {{Point{row}}}")
             self.command_stack.push(EditPointTable(
                 row,
                 self.vpoint_list,
@@ -378,7 +468,7 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
                 self.entities_link,
                 args
             ))
-            self.command_stack.endMacro()
+        self.command_stack.endMacro()
 
     def clone_point(self):
         """Clone a point (with orange color)."""
@@ -424,6 +514,42 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
             ))
         self.command_stack.endMacro()
 
+    @Slot(name='on_action_set_link_length_triggered')
+    def __set_link_length(self):
+        """Set link length."""
+        dlg = _LinkLengthDialog(self)
+        dlg.show()
+        if not dlg.exec():
+            return
+        data = {(dlg.get_leader(), dlg.get_follower()): dlg.get_length()}
+        dlg.deleteLater()
+        system = SolverSystem(
+            self.vpoint_list,
+            {(b, d): a for b, d, a in self.inputs_widget.input_pairs()}
+        )
+        system.set_data(data)
+        try:
+            result = system.solve()
+        except ValueError:
+            QMessageBox.warning(self, "Solved error", "The condition is not valid.")
+            return
+        self.command_stack.beginMacro(f"Set link length:{set(data)}")
+        for row, c in enumerate(result):
+            args = self.entities_point.row_data(row)
+            if type(c[0]) is float:
+                args[3], args[4] = c
+            else:
+                (args[3], args[4]), _ = c
+            self.command_stack.push(EditPointTable(
+                row,
+                self.vpoint_list,
+                self.vlink_list,
+                self.entities_point,
+                self.entities_link,
+                args
+            ))
+        self.command_stack.endMacro()
+
     @Slot(tuple)
     def set_free_move(
         self,
@@ -447,63 +573,6 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
                 args
             ))
         self.command_stack.endMacro()
-
-    @Slot(int, name='on_link_free_move_base_currentIndexChanged')
-    def __reload_adjust_link_base(self, base: int):
-        """Set the base and other option."""
-        if base == -1:
-            return
-        self.link_free_move_other.clear()
-        for link in self.vpoint_list[base].links:
-            if link == 'ground':
-                continue
-            for i in self.vlink_list[self.entities_link.find_name(link)].points:
-                if i == base:
-                    continue
-                self.link_free_move_other.addItem(f"Point{i}")
-
-    @Slot(name='on_link_free_move_reset_clicked')
-    @Slot(int, name='on_link_free_move_other_currentIndexChanged')
-    def __reload_adjust_link_other(self, other: Optional[int] = None):
-        """Set the link length value."""
-        p = self.link_free_move_other.currentText()
-        if not p:
-            return
-
-        vpoint1 = self.vpoint_list[self.link_free_move_base.currentIndex()]
-        vpoint2 = self.vpoint_list[int(p.replace("Point", ""))]
-        distance = hypot(vpoint2.cx - vpoint1.cx, vpoint2.cy - vpoint1.cy)
-        self.link_free_move_spinbox.blockSignals(True)
-        self.link_free_move_spinbox.setValue(distance)
-        self.link_free_move_spinbox.blockSignals(False)
-        if other is None:
-            self.__adjust_link(distance)
-
-    @Slot(float, name='on_link_free_move_spinbox_valueChanged')
-    def __adjust_link(self, value: float):
-        """Preview the free move result."""
-        base = self.link_free_move_base.currentIndex()
-        p = self.link_free_move_other.currentText()
-        if not p:
-            return
-
-        other = int(p.replace("Point", ""))
-        if -1 in {base, other}:
-            return
-
-        mapping = {n: f'P{n}' for n in range(len(self.vpoint_list))}
-        mapping[base, other] = value
-        try:
-            result = expr_solving(
-                self.get_triangle(),
-                mapping,
-                self.vpoint_list,
-                tuple(v[-1] for v in self.inputs_widget.input_pairs())
-            )
-        except ValueError:
-            return
-
-        self.main_canvas.adjust_link(result)
 
     @Slot(name='on_action_new_link_triggered')
     def new_link(self):
@@ -593,16 +662,13 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
         """Turn a link to ground, then delete this link."""
         if row1 is None:
             row1 = self.entities_link.currentRow()
-        name = self.entities_link.item(row1, 0).text()
+        vlink1 = self.vlink_list[row1]
         link_args = self.entities_link.row_data(row1)
         link_args[2] = ''
-        new_points = sorted(
-            set(self.entities_link.item(0, 2).text().split(',')) |
-            set(self.entities_link.item(row1, 2).text().split(','))
-        )
+        new_points = sorted(set(self.vlink_list[0].points) | set(vlink1.points))
         base_args = self.entities_link.row_data(row2)
-        base_args[2] = ','.join(e for e in new_points if e)
-        self.command_stack.beginMacro(f"Constrain {{Link: {name}}} to ground")
+        base_args[2] = ','.join(f"Point{e}" for e in new_points if e)
+        self.command_stack.beginMacro(f"Constrain {{Link: {vlink1.name}}} to ground")
         # Turn to ground.
         self.command_stack.push(EditLinkTable(
             row2,
@@ -631,29 +697,21 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
 
     @Slot()
     def delete_selected_points(self):
-        """Delete the selected points.
-        Be sure that the points will has new position after deleted.
-        """
-        selections = self.entities_point.selected_rows()
-        for i, p in enumerate(selections):
-            if p > selections[i - 1]:
-                row = p - i
-            else:
-                row = p
-            self.delete_point(row)
+        """Delete the selected points."""
+        self.delete_points(self.entities_point.selected_rows())
 
     @Slot()
     def delete_selected_links(self):
-        """Delete the selected links.
-        Be sure that the links will has new position after deleted.
-        """
-        selections = self.entities_link.selected_rows()
-        selections = tuple(
-            p - i + int(0 in selections) if p > selections[i - 1] else p
-            for i, p in enumerate(selections)
-        )
-        for row in selections:
-            self.delete_link(row)
+        """Delete the selected links."""
+        self.delete_links(self.entities_link.selected_rows())
+
+    @Slot()
+    def delete_empty_links(self):
+        """Delete empty link names."""
+        self.delete_links([
+            i for i, vlink in enumerate(self.vlink_list)
+            if vlink.name != 'ground' and not vlink.points
+        ])
 
     def set_coords_as_current(self):
         """Update points position as current coordinate."""
@@ -661,7 +719,3 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
             (row, (vpoint.cx, vpoint.cy, vpoint.angle))
             for row, vpoint in enumerate(self.vpoint_list)
         ))
-
-    @abstractmethod
-    def get_triangle(self, vpoints: Optional[Tuple[VPoint]] = None) -> ExpressionStack:
-        ...

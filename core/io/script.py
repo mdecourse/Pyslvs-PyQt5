@@ -15,13 +15,12 @@ from typing import (
     List,
     Sequence,
 )
+import qrcode
+from PIL.ImageQt import ImageQt
 from pygments import highlight
 from pygments.lexer import RegexLexer
 from pygments.formatters.html import HtmlFormatter
-from pygments.styles import (
-    get_style_by_name,
-    get_all_styles,
-)
+from pygments.styles import get_style_by_name, get_all_styles
 from core.QtModules import (
     Slot,
     Qt,
@@ -29,9 +28,14 @@ from core.QtModules import (
     QDialog,
     QTextEdit,
     QWidget,
+    QPixmap,
+    QLabel,
+    QVBoxLayout,
+    QLineEdit,
+    QSizePolicy,
+    QWheelEvent,
 )
 from .Ui_script import Ui_Dialog
-
 if TYPE_CHECKING:
     from core.widgets import MainWindowBase
 
@@ -78,13 +82,14 @@ class _ScriptBrowser(QTextEdit):
         self.setReadOnly(True)
         self.zoomIn(3)
 
-    def wheelEvent(self, event):
+    def wheelEvent(self, event: QWheelEvent):
         super(_ScriptBrowser, self).wheelEvent(event)
-        if QApplication.keyboardModifiers() == Qt.ControlModifier:
-            if event.angleDelta().y() > 0:
-                self.zoomIn(1)
-            else:
-                self.zoomOut(1)
+        if QApplication.keyboardModifiers() != Qt.ControlModifier:
+            return
+        if event.angleDelta().y() > 0:
+            self.zoomIn(1)
+        else:
+            self.zoomOut(1)
 
 
 class ScriptDialog(QDialog, Ui_Dialog):
@@ -97,7 +102,9 @@ class ScriptDialog(QDialog, Ui_Dialog):
         lexer: RegexLexer,
         filename: str,
         file_format: List[str],
-        parent: MainWindowBase
+        parent: MainWindowBase,
+        *,
+        compressed_script: str = ""
     ):
         """Input parameters:
 
@@ -126,6 +133,22 @@ class ScriptDialog(QDialog, Ui_Dialog):
         self.style_option.addItems(styles)
         self.style_option.setCurrentIndex(0)
 
+        # Compressed script
+        self.compressed_script = compressed_script
+        if not self.compressed_script:
+            self.show_qrcode.setVisible(False)
+            self.image = None
+            return
+
+        line_edit = QLineEdit(self)
+        line_edit.setText(self.compressed_script)
+        line_edit.setReadOnly(True)
+        self.main_layout.insertWidget(2, line_edit)
+
+        # Image display
+        image = qrcode.make(self.compressed_script)
+        self.image: QPixmap = QPixmap.fromImage(ImageQt(image.resize((500, 500))))
+
     @Slot(str, name='on_style_option_currentIndexChanged')
     def __set_style(self, style: str):
         """Redefine the CSS script of the html."""
@@ -135,14 +158,20 @@ class ScriptDialog(QDialog, Ui_Dialog):
     @Slot(name='on_copy_clicked')
     def __copy(self):
         """Copy to clipboard."""
-        QApplication.clipboard().setText(self.script_view.toPlainText())
+        QApplication.clipboard().setText(
+            self.compressed_script if self.compressed_script else self.script_view.toPlainText()
+        )
 
-    @Slot(name='on_save_clicked')
-    def __save(self):
-        """Save to .py file."""
-        file_name = self.output_to(self.filename, self.file_format)
-        if not file_name:
-            return
-        with open(file_name, 'w', encoding='utf-8', newline='') as f:
-            f.write(self.script_view.toPlainText())
-        self.save_reply_box(self.filename, file_name)
+    @Slot(name='on_show_qrcode_clicked')
+    def __show_qrcode(self):
+        """Save to image file."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Mechanism QR code")
+        dlg.setModal(True)
+        layout = QVBoxLayout(dlg)
+        label = QLabel(dlg)
+        layout.addWidget(label)
+        label.setPixmap(self.image)
+        dlg.setFixedSize(self.image.size())
+        dlg.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        dlg.show()

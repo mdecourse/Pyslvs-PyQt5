@@ -28,10 +28,8 @@ from typing import (
 from pyslvs import (
     ExpressionStack,
     Coordinate,
-    VJoint,
     VPoint,
     VLink,
-    color_rgb,
 )
 from core.QtModules import (
     Signal,
@@ -48,9 +46,9 @@ from core.QtModules import (
     QLabel,
     QWidget,
     QABCMeta,
+    QKeyEvent,
 )
 from core.graphics import color_icon
-
 if TYPE_CHECKING:
     from core.widgets import MainWindowBase
 
@@ -158,7 +156,7 @@ class BaseTableWidget(QTableWidget, Generic[_Data], metaclass=QABCMeta):
             )
             self.scrollToItem(self.item(row, 0))
 
-    def keyPressEvent(self, event):
+    def keyPressEvent(self, event: QKeyEvent):
         """Hit the delete key,
         will emit delete signal from this table.
         """
@@ -386,7 +384,7 @@ class ExprTableWidget(BaseTableWidget[None]):
             row += 1
         self.exprs = exprs
 
-    def item_data(self, _: int) -> None:
+    def item_data(self, _=None) -> None:
         """Not used generator."""
         return None
 

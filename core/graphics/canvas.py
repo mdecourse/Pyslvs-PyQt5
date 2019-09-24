@@ -13,6 +13,7 @@ from typing import (
     Sequence,
     Set,
     Dict,
+    Iterator,
     Any,
     Union,
 )
@@ -50,6 +51,7 @@ from core.QtModules import (
     QFont,
     QPainterPath,
     QImage,
+    QPaintEvent,
 )
 from .color import (
     color_num,
@@ -129,25 +131,25 @@ class BaseCanvas(QWidget, metaclass=QABCMeta):
         self.setFocusPolicy(Qt.StrongFocus)
         self.painter = QPainter()
 
-        # Origin coordinate.
+        # Origin coordinate
         self.ox = self.width() / 2
         self.oy = self.height() / 2
-        # Canvas zoom rate.
+        # Canvas zoom rate
         self.rate = 2.
         self.zoom = 2. * self.rate
-        # Joint size.
+        # Joint size
         self.joint_size = 5
-        # Canvas line width.
+        # Canvas line width
         self.link_width = 3
         self.path_width = 3
-        # Font size.
+        # Font size
         self.font_size = 15
-        # Show point mark or dimension.
+        # Show point mark or dimension
         self.show_point_mark = True
         self.show_dimension = True
-        # Path track.
+        # Path track
         self.path = _PathOption()
-        # Path solving.
+        # Path solving
         self.ranges: Dict[str, QRectF] = {}
         self.target_path: Dict[str, Sequence[_Coord]] = {}
         self.show_target_path = False
@@ -159,8 +161,27 @@ class BaseCanvas(QWidget, metaclass=QABCMeta):
         # Monochrome mode
         self.monochrome = False
 
+    @staticmethod
+    def zoom_factor(
+        width: int,
+        height: int,
+        x_right: float,
+        x_left: float,
+        y_top: float,
+        y_bottom: float
+    ) -> float:
+        """Calculate the zoom factor."""
+        x_diff = x_left - x_right
+        y_diff = y_top - y_bottom
+        x_diff = x_diff if x_diff else 1.
+        y_diff = y_diff if y_diff else 1.
+        if width / x_diff < height / y_diff:
+            return width / x_diff
+        else:
+            return height / y_diff
+
     @abstractmethod
-    def paintEvent(self, event):
+    def paintEvent(self, event: QPaintEvent):
         """Using a QPainter under 'self',
         so just change QPen or QBrush before painting.
         """
@@ -172,9 +193,11 @@ class BaseCanvas(QWidget, metaclass=QABCMeta):
         if not self.background.isNull():
             rect = self.background.rect()
             self.painter.setOpacity(self.background_opacity)
-            img_origin: QPointF = self.background_offset * self.zoom
             self.painter.drawImage(
-                QRectF(img_origin, QSizeF(
+                QRectF(QPointF(
+                    self.background_offset.x() * self.zoom,
+                    self.background_offset.y() * self.zoom
+                ), QSizeF(
                     rect.width() * self.background_scale * self.zoom,
                     rect.height() * self.background_scale * self.zoom
                 )),
@@ -268,7 +291,7 @@ class BaseCanvas(QWidget, metaclass=QABCMeta):
             if rect.width():
                 self.painter.drawRect(QRectF(
                     QPointF(cx, cy),
-                    QSizeF(rect.width(), rect.height()) * self.zoom
+                    QSizeF(rect.width() * self.zoom, rect.height() * self.zoom)
                 ))
             else:
                 self.painter.drawEllipse(QPointF(cx, cy), 3, 3)
@@ -427,7 +450,7 @@ class BaseCanvas(QWidget, metaclass=QABCMeta):
                 continue
             else:
                 vpoint = pos[index]
-                tmp_list.append(QPointF(vpoint.cx, -vpoint.cy) * self.zoom)
+                tmp_list.append(QPointF(vpoint.cx * self.zoom, -vpoint.cy * self.zoom))
         return tmp_list, color
 
     def draw_solution(
@@ -510,20 +533,13 @@ class PreviewCanvas(BaseCanvas):
         self.target.clear()
         self.update()
 
-    def paintEvent(self, event):
+    def paintEvent(self, event: QPaintEvent):
         """Draw the structure."""
         width = self.width()
         height = self.height()
         if self.pos:
             x_right, x_left, y_top, y_bottom = self.__zoom_to_fit_limit()
-            x_diff = x_left - x_right
-            y_diff = y_top - y_bottom
-            x_diff = x_diff if x_diff else 1
-            y_diff = y_diff if y_diff else 1
-            if width / x_diff < height / y_diff:
-                factor = width / x_diff
-            else:
-                factor = height / y_diff
+            factor = self.zoom_factor(width, height, x_right, x_left, y_top, y_bottom)
             self.zoom = factor * 0.75
             self.ox = width / 2 - (x_left + x_right) / 2 * self.zoom
             self.oy = height / 2 + (y_top + y_bottom) / 2 * self.zoom
@@ -658,6 +674,19 @@ class PreviewCanvas(BaseCanvas):
         """Get status. If multiple joints, return true."""
         return self.status[point] or (point in self.same)
 
+    @staticmethod
+    def grounded_detect(placement: Set[int], graph: Graph, same: Dict[int, int]) -> Iterator[int]:
+        """Find the grounded link."""
+        links: List[Set[int]] = [set() for _ in range(len(graph.nodes))]
+        for joint, link in edges_view(graph):
+            for node in link:
+                links[node].add(joint)
+        for row, link in enumerate(links):
+            if placement == link - set(same):
+                # Return once
+                yield row
+                return
+
     def from_profile(self, params: Dict[str, Any]):
         """Simple load by dict object."""
         # Customize points and multiple joints
@@ -668,20 +697,11 @@ class PreviewCanvas(BaseCanvas):
         self.same: Dict[int, int] = params['same']
         for node, ref in sorted(self.same.items()):
             pos_list.insert(node, pos_list[ref])
-        pos: Dict[int, _Coord] = dict(enumerate(pos_list))
-        self.set_graph(graph, pos)
+        self.set_graph(graph, {i: (x, y) for i, (x, y) in enumerate(pos_list)})
 
         # Grounded setting
-        placement: Set[int] = set(params['Placement'])
-        links: List[Set[int]] = [set() for _ in range(len(graph.nodes))]
-        for joint, link in edges_view(graph):
-            for node in link:
-                links[node].add(joint)
-
-        for row, link in enumerate(links):
-            if placement == link - set(self.same):
-                self.set_grounded(row)
-                break
+        for row in self.grounded_detect(set(params['Placement']), graph, self.same):
+            self.set_grounded(row)
 
         # Driver setting
         input_list: List[Tuple[int, int]] = params['input']

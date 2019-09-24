@@ -1,5 +1,40 @@
 # Change Log
 
+## Version 19.08
+
+**Features**:
+
++ Update API documentation for kernel updated.
++ Remake "set link length" operation.
++ Generate a QR code for mechanism expression.
++ Error and Bugs:
+    + Fix the bug of variable list.
+    + Fix the bug of switching selection mode.
+    + Fix the error of deleting multiple points.
++ Improvements of switching selection mode:
+    + Changed function key from "Ctrl" to "Shift".
+    + Support horizontal wheel.
+    + Changed tooltips from icons to text.
+    + Only for "Points" and "Links" tabs.
++ Pack actions into a single action when:
+    + Deleting multiple points or links.
+    + Grounded / ungrounded multiple points.
++ Action "Add target point":
+    + It can now be used in link selection mode.
+    + It will only appear when there has target path required.
++ Add "Remove empty names" operation for link entities.
++ Add "Horse leg" example.
++ Enhancement of argument parsing.
+
+**Development**:
+
++ Many core performance improvements.
++ Settings correction of AppVeyor.
++ Reformat the actions for all of context menus.
++ Use pyenv instead of MacPorts in Travis CI.
++ Remove USER_MODE option in the Makefile.
++ Remove the period after the comment if not too long.
+
 ## Version 19.07
 
 **Features**:

@@ -63,7 +63,6 @@ from .dialogs import (
     ChartDialog,
 )
 from .Ui_dimension_widget import Ui_Form
-
 if TYPE_CHECKING:
     from core.widgets import MainWindowBase
 
@@ -142,9 +141,14 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         self.type2.setChecked(True)
         self.parameter_list.setRowCount(0)
         self.target_points.clear()
+        self.target_label.setVisible(self.has_target())
         self.expression_string.clear()
         self.update_range()
         self.__able_to_generate()
+
+    def has_target(self) -> bool:
+        """Return True if the panel is no target settings."""
+        return self.target_points.count() > 0
 
     @Slot(name='on_clear_button_clicked')
     def __user_clear(self):
@@ -180,7 +184,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         return self.path[int(item.text().replace('P', ''))]
 
     @Slot(str, name='on_target_points_currentTextChanged')
-    def __set_target(self, _: str):
+    def __set_target(self, _=None):
         """Switch to the current target path."""
         self.path_list.clear()
         for x, y in self.current_path():
@@ -259,7 +263,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         wb = load_workbook(file_name)
         ws = wb.get_sheet_by_name(wb.get_sheet_names()[0])
         data = []
-        # Keep finding until there is no value.
+        # Keep finding until there is no value
         i = 1
         while True:
             x = ws.cell(row=i, column=1).value
@@ -375,7 +379,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
 
     def __able_to_generate(self):
         """Set button enable if all the data are already."""
-        self.pointNum.setText(
+        self.point_num.setText(
             "<p><span style=\"font-size:12pt;"
             f"color:#00aa00;\">{self.path_list.count()}</span></p>"
         )
@@ -398,14 +402,14 @@ class DimensionalSynthesis(QWidget, Ui_Form):
                     "The length of target paths should be the same."
                 )
                 return
-        # Get the algorithm type.
+        # Get the algorithm type
         if self.type0.isChecked():
             type_num = AlgorithmType.RGA
         elif self.type1.isChecked():
             type_num = AlgorithmType.Firefly
         else:
             type_num = AlgorithmType.DE
-        # Deep copy it so the pointer will not the same.
+        # Deep copy it so the pointer will not the same
         mech_params = deepcopy(self.mech_params)
         mech_params['Expression'] = parse_vpoints(mech_params.pop('Expression', []))
         mech_params['Target'] = deepcopy(self.path)
@@ -426,7 +430,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
                 self.parameter_list.cellWidget(row, 4).value(),
             )
 
-        # Start progress dialog.
+        # Start progress dialog
         dlg = ProgressDialog(type_num, mech_params, self.alg_options, self)
         dlg.show()
         if not dlg.exec():
@@ -512,7 +516,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             button.setEnabled(enable)
 
     @Slot(QModelIndex, name='on_result_list_doubleClicked')
-    def __show_result(self, _: QModelIndex):
+    def __show_result(self, _=None):
         """Double click result item can show up preview dialog."""
         row = self.result_list.currentRow()
         if not row > -1:
@@ -658,8 +662,9 @@ class DimensionalSynthesis(QWidget, Ui_Form):
                 self.path[name] = path.copy()
             else:
                 self.path[name] = []
-        if self.target_points.count():
+        if self.has_target():
             self.target_points.setCurrentRow(0)
+        self.target_label.setVisible(self.has_target())
 
         # Parameter of link length and input angle.
         link_list = set()

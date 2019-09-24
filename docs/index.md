@@ -6,7 +6,7 @@ which is named from "Python" and "Solvers".
 The project is maintained on GitHub: <https://github.com/KmolYuan/Pyslvs-UI>
 
 See the Windows platform testing on AppVeyor:
-[![Build status](https://ci.appveyor.com/api/projects/status/d2rxv6psmuj5fco9?svg=true)](https://ci.appveyor.com/project/KmolYuan/Pyslvs-UI)
+[![Build status](https://ci.appveyor.com/api/projects/status/d2rxv6psmuj5fco9?svg=true)](https://ci.appveyor.com/project/KmolYuan/pyslvs-pyqt5)
 
 See the Ubuntu and MacOS platform testing on Travis CI:
 [![Build status](https://img.shields.io/travis/KmolYuan/Pyslvs-UI.svg?logo=travis)](https://travis-ci.org/KmolYuan/Pyslvs-UI)
@@ -40,8 +40,6 @@ git submodule update --init --recursive
 
 # Compile and install submodules
 make build-kernel
-# Install submodules without --user option
-make build-kernel USER_MODE=false
 
 # Open GUI by Python
 python launch_pyslvs.py
@@ -54,8 +52,6 @@ python launch_pyslvs.py --help
 
 # Pack into stand-alone executable file
 make
-# Without --user option
-make USER_MODE=false
 ```
 
 Python libraries has some dependencies with the compile environment,
