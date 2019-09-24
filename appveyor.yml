@@ -1,65 +1,65 @@
 # AppVeyor for Pyslvs-UI
-image: Visual Studio 2017
-
-platform:
-    - x64
+image: Visual Studio 2019
+platform: x64
 
 environment:
-    matrix:
-
-        - MINGW_DIR: &mingw C:\mingw-w64\x86_64-7.3.0-posix-seh-rt_v5-rev0
-          MSYS_DIR: &msys2 C:\msys64
-          PYTHON_DIR: C:\Python37-x64
+  MSYS_DIR: C:\msys64
+  matrix:
+    - PYTHON_DIR: C:\Python37-x64
 
 install:
-    # Environment variables
-    - set Path=%MINGW_DIR%\mingw64\bin;%MSYS_DIR%\usr\bin;%Path%
-    - set Path=%PYTHON_DIR%;%PYTHON_DIR%\Scripts;%Path%
-    - set PYTHON_CFG=%PYTHON_DIR%\Lib\distutils\distutils.cfg
-
-    # Show Python
-    - python --version
-    - pip --version
-
-    # Upgrade setuptools
-    - pip install setuptools -U
-
-    # Set Python compiler to MinGW
-    - echo [build]>> %PYTHON_CFG%
-    - echo compiler=mingw32>> %PYTHON_CFG%
-    - patch %PYTHON_DIR%\lib\distutils\cygwinccompiler.py platform\patch.diff
-    - copy %PYTHON_DIR%\vcruntime140.dll %PYTHON_DIR%\libs
-
-    # Install modules
-    - pip install -r requirements.txt
-    - pip install pyinstaller
-
-    # Show tool kits
-    - pyinstaller --version
-    - gcc --version
-    - mingw32-make --version
+  # Environment variables
+  - set Path=%MSYS_DIR%\mingw64\bin;%MSYS_DIR%\usr\bin;%Path%
+  - set Path=%PYTHON_DIR%;%PYTHON_DIR%\Scripts;%Path%
+  # Show Python
+  - python --version
+  - pip --version
+  # Upgrade setuptools
+  - pip install setuptools -U
+  # Set Python compiler to MinGW
+  - platform\set_pycompiler %PYTHON_DIR%
+  # Install modules
+  - pip install -r requirements.txt
+  - pip install pyinstaller
+  # Show tool kits
+  - pyinstaller --version
+  - gcc --version
+  - mingw32-make --version
 
 before_build:
-    # Clone submodules
-    - git submodule update --init --recursive
+  # Clone submodules
+  - git submodule update --init
+  - git submodule update --init --recursive depend/pyslvs
 
 build_script:
-    - mingw32-make
+  - mingw32-make
+  - python setup.py install
 
-test: off
+test_script:
+  - pyslvs --test
 
 artifacts:
-    - path: dist/pyslvs-*.exe
-      name: pyslvs
+  - path: dist\pyslvs-*.exe
+    name: pyslvs
+  - path: dist\*.whl
 
 deploy:
-    - release: Pyslvs $(APPVEYOR_REPO_TAG_NAME)
-      tag: $(APPVEYOR_REPO_TAG_NAME)
-      description: ""
-      provider: GitHub
-      auth_token: $(APPVEYOR_TOKEN)
-      artifacts: pyslvs
-      force_update: true
-      on:
-          appveyor_repo_tag: true
-          PYTHON_DIR: C:\Python37-x64
+  - provider: GitHub
+    release: Pyslvs $(APPVEYOR_REPO_TAG_NAME)
+    tag: $(APPVEYOR_REPO_TAG_NAME)
+    description: ""
+    auth_token: $(APPVEYOR_TOKEN)
+    artifacts: pyslvs
+    force_update: true
+    on:
+      appveyor_repo_tag: true
+      PYTHON_DIR: C:\Python37-x64
+
+deploy_script:
+  # PyPI deployment
+  - IF "%APPVEYOR_REPO_TAG%"=="true"
+    IF "%APPVEYOR_REPO_NAME%"=="KmolYuan/Pyslvs-UI" (
+    pip install twine &&
+    python setup.py bdist_wheel &&
+    twine upload dist\*.whl --skip-existing
+    )

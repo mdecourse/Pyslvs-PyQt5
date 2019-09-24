@@ -9,24 +9,43 @@ the programming script can be compiled as an executable file.
 In development state, Pyslvs including several dynamic libraries,
 which are need to be compiled first.
 
-## Dependency
+## Dependencies
 
-Actual testing platforms with CI:
+The actual test and deployment platforms on CI/CD service:
 
-+ ![w3.7](https://img.shields.io/badge/Windows%20x64-Python%203.7-blue.svg)
-+ ![m3.7](https://img.shields.io/badge/macOS%20Sierra-Python%203.7-ff69b4.svg)
-+ ![u3.7](https://img.shields.io/badge/Ubuntu%20x64-Python%203.7-orange.svg)
+| Platforms (64-bit) | Windows | macOS | Ubuntu |
+|:------------------:|:-------:|:-----:|:------:|
+| Service | [AppVeyor][ci1] | [Travis][ci2] | [Travis][ci3] |
+| OS version | Windows Server 2019 | Xcode 10.0 (10.13) | Xenial (16.04) |
+| Python 3.7 | O | O | O |
+| Python 3.8 (beta4) | X (Some of modules haven't upgraded) | $\Delta$ (PyInstaller) | O |
 
 **Please note that the other platforms may be available but I have not tested before.**
 
-**Mac OS and Ubuntu**:
+[ci1]: https://www.appveyor.com/docs/windows-images-software/
+[ci2]: https://docs.travis-ci.com/user/reference/osx/
+[ci3]: https://docs.travis-ci.com/user/reference/linux/
+
+Install dependencies:
 
 ```bash
-# Local Python
-pip3 install -r requirements.txt
+pip install -r requirements.txt
+```
 
-# Global Python
-sudo pip3 install -r requirements.txt
+**Ubuntu and macOS**:
+
+It is recommended to use [pyenv](https://github.com/pyenv/pyenv),
+which will be more easier to handle Python version instead of using system Python.
+So any operation about Python will not required `sudo` or `--user` option.
+
+```bash
+# Install supported version of Pyslvs
+# The devlopment tools need to prepare first (like openssl, sqlite3)
+pyenv install --list  # show all available versions
+pyenv install 3.7.4
+pyenv global 3.7.4
+python --version  # Python 3.7.4
+pip --version  # pip 19.2.2 from /home/user/.pyenv/versions/3.7.4/lib/python3.7/site-packages/pip (python 3.7)
 ```
 
 **Windows**:
@@ -35,19 +54,22 @@ Python 3: [Official Python] for Windows 64 bit.
 
 Makefile tool: [MinGW] or [Msys 2][msys].
 
-```bash
-pip install -r requirements.txt
-```
+### Qt Designer (Development)
 
-### PyQt Stuff (Development)
+PyQt5 and its additional modules are now packed into the wheel file that most of platform can install them directly.
 
-PyQt5 and QtChart are now pack into the wheel file that Windows and Ubuntu can install them directly.
-
-Qt tools can be used to design the *.ui files, they are not the requirement if you just want to run Pyslvs.
-
-**Mac OS and Ubuntu**:
+You need to get original Qt tools for development, which can be used to design the *.ui files,
+they are not the requirement if you just want to run Pyslvs.
 
 Download and install [Qt5] to get the tools.
+
+**Ubuntu**:
+
+Ubuntu users can obtain them via APT:
+
+```bash
+sudo apt install qttools5-dev-tools
+```
 
 **Windows**:
 
@@ -57,9 +79,21 @@ Windows user can get Qt tools by pip (maybe not newest version), without to inst
 pip install pyqt5-tools
 ```
 
+### Fcitx QIMPanel Plugins on Linux
+
+The Fcitx input method support is depanded on the plugins of PyQt.
+Copy the libraries from `/usr/lib/x86_64-linux-gnu/qt5/plugins/` into `python/site-packages/PyQt5/Qt/plugins/`.
+
+The plugins is `platforminputcontexts/libfcitxplatforminputcontextplugin.so`.
+
+!!! warning
+
+    Please note that some PyQt plugins are version depended,
+    so the AppImage distributions are exclude these supports.
+
 ## Kernels Requirement
 
-About the development tools, please see [Modules Requirement](#modules-requirement).
+About the development tools, please see [Dependencies](#dependencies).
 
 Make command:
 
@@ -68,6 +102,11 @@ make build-kernel
 ```
 
 This project including two kernels should build.
+
+!!! note
+
+    The kernels can also be installed from pip with specified version.
+    The Makefile command will build them from source.
 
 ### Pyslvs Kernel
 
@@ -79,50 +118,46 @@ Make command:
 make build-pyslvs
 ```
 
-#### Mac OS and Ubuntu
+#### Ubuntu and macOS
 
 User can compile the kernel by [Cython](http://cython.org/) directly.
 
 #### Windows
 
-There's two options to choose SDK:
+Use [Msys 2](http://www.msys2.org/) and [MinGW 64-bit](https://sourceforge.net/projects/mingw-w64/),
+they also can be installed by Windows package manager [Chocolatey](https://chocolatey.org/).
 
-1. Using Microsoft Visual Studio. You can get it from [here][visualstudio-link], then startup the Visual Studio Community and install Windows SDK.
-1. Using [Msys 2][msys]. It is based on MinGW 64-bit version.
-1. Just using [MinGW 64-bit][mingw64].
+```batch
+choco install msys2
+```
 
-[visualstudio-link]: https://www.visualstudio.com/downloads/
-[msys]: http://www.msys2.org/
-[mingw64]: https://sourceforge.net/projects/mingw-w64/
-
-When using Msys2, following command might be helpful:
+When you are using Msys2, following command might be helpful:
 
 ```bash
 # Install tools for Msys.
 # Open the "mingw64.exe" shell.
+
+# Install MinGW
 pacman -S mingw-w64-x86_64-gcc
-pacman -S mingw-w64-x86_64-toolchain
-# A list of tools will shown, choose "mingw-w64-x86_64-make".
-# The "make" command is named as "mingw32-make".
+# Install Make
+pacman -S mingw-w64-x86_64-make
+# The "make" command is named as "mingw32-make". You can rename it by:
+mv /mingw64/bin/mingw32-make /mingw64/bin/make
+
+# Install patch
 pacman -S patch
 ```
 
-Setup Python compiler as gcc / g++ of MinGW64:
+And the programs should be added in to environment variable (with administrator).
 
-```bash
-# Where %PYTHON_DIR% is the directory of your Python installation.
-# In Pyslvs project.
+```batch
+setx Path "C:\tools\msys64\usr\bin;%Path%" /M
+```
 
-# Create "distutils.cfg"
-echo [build]>> %PYTHON_DIR%\Lib\distutils\distutils.cfg
-echo compiler = mingw32>> %PYTHON_DIR%\Lib\distutils\distutils.cfg
+Setup Python compiler as GCC / G++ of MinGW64:
 
-# Apply the patch of "cygwinccompiler.py".
-# Unix "patch" command of Msys.
-patch %PYTHON_DIR%\lib\distutils\cygwinccompiler.py platform\patch.diff
-
-# Copy "vcruntime140.dll" to "libs".
-copy %PYTHON_DIR%\vcruntime140.dll %PYTHON_DIR%\libs
+```batch
+platform\set_pycompiler C:\Python37
 ```
 
 And it will be useful if Make tool in Msys can't find Windows command (such like `copy`, `rd` or `del`):
@@ -153,21 +188,27 @@ As your wish, it can be renamed or moved out and operate independently in no-Pyt
 #### Ubuntu
 
 Use shell command to build as [AppImage].
+Because of it is more suitable with PyQt module than [PyInstaller].
 
-After following operation, the executable file is in `out` folder.
+After following operation, the executable file is in a folder named `out`.
 
 Make command:
 
 ```bash
-sudo pip3 install virtualenv
+pip install virtualenv
 make
 ```
 
-#### Mac OS and Windows
+!!! warning
 
-Use PyInstaller to build.
+    Check the `glibc` version from `ldd --version`,
+    it must be equal or higher than package's.
 
-After following operation, the executable file is in `dist` folder.
+#### Windows and macOS
+
+Use [PyInstaller] to build.
+
+After following operation, the executable file is in a folder named `dist`.
 
 Make command:
 
@@ -176,7 +217,11 @@ pip install pyinstaller
 make
 ```
 
-On Mac OS, PyInstaller will generate two executable files (refer [here][pinstaller-mac]).
+!!! note
+
+    The Windows platform version requirement is same as the Python that packed.
+
+On macOS, PyInstaller will generate two executable files (refer [here][pinstaller-mac]).
 
 [pinstaller-mac]: https://pyinstaller.readthedocs.io/en/stable/usage.html#building-mac-os-x-app-bundles
 
@@ -185,10 +230,14 @@ On Mac OS, PyInstaller will generate two executable files (refer [here][pinstall
 # Can not run it directly in Finder.
 ./executable --use-arguments-here
 
-# Run Mac app file. (Can not use any arguments)
+# Run macOS app file. (Can not use any arguments)
 # Same as double click it in Finder.
 open ./executable.app
 ```
+
+!!! warning
+
+    The version of macOS must be equal or higher than executable's.
 
 ## Documentation
 
@@ -210,13 +259,13 @@ mkdocs serve
 The file `mkdocs.yml` and the contents of directory `docs` is a MkDocs project.
 The markdown files are the resources of this site.
 
+[PyInstaller]: https://www.pyinstaller.org/
 [Solvespace]: http://solvespace.com
 [Qt5]: https://www.qt.io/download/
 
 [Official Python]: https://www.python.org/
 [MinGW]: https://sourceforge.net/projects/mingw-w64/files/
-
-[AppImage]: https://github.com/AppImage/AppImages
+[AppImage]: http://appimage.org
 
 [Python-Solvespace]: https://github.com/KmolYuan/solvespace/tree/python
 [Pyslvs]: https://github.com/KmolYuan/pyslvs
