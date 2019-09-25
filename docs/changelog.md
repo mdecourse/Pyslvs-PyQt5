@@ -1,4 +1,46 @@
-# Change Log
+# Changelog
+
+## Version 19.09
+
+**Features**:
+
++ Provided PyPI install approach.
+    + Install Pyslvs-UI with "pip install pyslvs-ui" command.
+    + Use "pyslvs" command line script or "python -m pyslvs_ui" to startup.
++ "Project" page:
+    + Replaced database functions with YAML.
+    + Integrated "Project overview" and "Mechanism expression" button.
+    + Move "export" and "import" functions to project page.
+    + "History" page has been merged in this page.
++ Provided new file format "HDF5" as binary format.
++ Discard "MySQL" file format.
++ **YAML format has been changed.**
++ User options:
+    + Separate out "preferences" page as dialog.
+    + Add "open actions" setting for the opening macros.
+    + Add "file type" setting for YAML and HDF5 saving.
+    + Add "Tick mark" setting for main canvas.
+    + Add "Transparent background when capturing" setting for main canvas.
++ Use star sign as unsaved mark.
++ Show multiple joint with multiple circles.
++ Logical correction of checking update.
++ Selection mode can be scrolled infinitely.
++ Fix a solver bug of the stop button on inputs page.
++ Fix the error of path context menu.
+
+**Development**:
+
++ Remove pre-build requirement of Linux platform.
++ Use QtPy as Qt switcher, use `qt_patch` instead of `QtModules`.
++ Add return None annotations.
++ Peewee module requirement is removed.
++ Separate out the abstract methods of main window base into `main_abc`.
++ Show the startup time in none-debug mode.
++ Replace "time.time" with "time.perf_counter".
++ `platform` directory:
+    + `appimage_recipe.sh` has been moved to here.
+    + Add Windows patch script `set_pycompiler`.
++ Create GitHub action.
 
 ## Version 19.08
 
@@ -269,7 +311,7 @@
 + Change atlas algorithm "cancel" behavior to "skip":
     + Realized partial searching in atlas algorithm.
     + User can skip and keep partial result at each searching step.
-+ Add fully support for Mac OS platform:
++ Add fully support for macOS platform:
     + Standalone executable file compilation.
     + Automatic switch to fusion mode to avoid border too wide.
     + CI testing.
