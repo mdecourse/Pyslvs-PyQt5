@@ -3,7 +3,7 @@
 A no-GUI module of mechanism synthesis system and
 a 2D geometric constraint solver.
 
-The submodule is located at `pyslvs/core/libs/pyslvs`.
+The submodule is located at `pyslvs`.
 
 Pyslvs is now available on
 [![PyPI](https://img.shields.io/pypi/v/pyslvs.svg)](https://pypi.org/project/pyslvs/),
@@ -45,7 +45,7 @@ Most of classes and functions can be work with a generic Python format (just lik
 
 + **parser** module:
 
-    Analysis expression from strings, turn into symbols object. There also including highlighting function with [Pygments](http://pygments.org/).
+    Analysis expression from strings, turn into symbols object.
 
 + **expression** library:
 

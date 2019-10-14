@@ -37,10 +37,8 @@ pip --version
 
 # Install python dependencies into the virtualenv
 pip install -r "${BASEDIR}/requirements.txt"
-for d in "pyslvs" "solvespace/cython"; do
-  cd "${BASEDIR}/depend/${d}" || exit
-  python setup.py install && python tests
-done
+cd "${BASEDIR}/pyslvs" || exit
+python setup.py install && python tests
 cd "${APPDIR}" || exit
 
 # Copy all built-in scripts
@@ -103,7 +101,7 @@ EOF
 
 # Make the AppImage ask to "install" itself into the menu
 get_desktopintegration ${LOWERAPP}
-cp -n -v "${BASEDIR}/icons/main.png" "${LOWERAPP}.png"
+cp -n -v "${BASEDIR}/pyslvs_ui/icons/main.png" "${LOWERAPP}.png"
 
 ########################################################################
 # Bundle dependencies

@@ -1,6 +1,9 @@
 # Travis-CI for Pyslvs-UI
 language: python
 
+git:
+  depth: 1
+
 matrix:
   include:
     - &linux
@@ -9,32 +12,27 @@ matrix:
       python: "3.7"
       dist: xenial
       before_install:
-        - git submodule update --init
-        - git submodule update --init --recursive depend/pyslvs
         - python3 -m pip install -r requirements.txt -U
       install:
         - make
-        - cd depend/pyslvs; python3 setup.py install; cd -
-        - cd depend/solvespace/cython; python3 setup.py install; cd -
+        - cd pyslvs; python3 setup.py install; cd -
         - python3 setup.py install
+      after_success: &pypi-deploy
+        # PyPI deployment
+        - if [[ "$TRAVIS_REPO_SLUG" == "KmolYuan/Pyslvs-UI" && -n "$TRAVIS_TAG" ]]; then
+          python3 -m pip install twine;
+          python3 setup.py bdist_wheel;
+          python3 -m twine upload dist/*.whl --skip-existing;
+          fi
       deploy:
         - &executable-deploy
           provider: releases
           overwrite: true
           api_key: $TRAVIS_TOKEN
           file_glob: true
-          file: out/pyslvs-*.AppImage
+          file: out/pyslvs*.AppImage
           skip_cleanup: true
           on:
-            tags: true
-        - provider: pypi
-          user: $TWINE_USERNAME
-          password: $TWINE_PASSWORD
-          skip_cleanup: true
-          skip_existing: true
-          distributions: bdist_wheel
-          on:
-            repo: KmolYuan/Pyslvs-UI
             tags: true
 
     - <<: *linux
@@ -51,14 +49,14 @@ matrix:
       env: PYTHON=3.7.0
       before_install:
         - git submodule update --init
-        - git submodule update --init --recursive depend/pyslvs
+        - git submodule update --init --recursive pyslvs
         - brew update
         - brew upgrade pyenv
         - export PATH="/Users/travis/.pyenv/shims:${PATH}"
         - env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install ${PYTHON}
         - pyenv global ${PYTHON}
         - python3 -m pip install pip -U
-        - python3 -m pip install pyinstaller
+        - python3 -m pip install https://github.com/pyinstaller/pyinstaller/tarball/develop
         - pyenv rehash
         - python3 --version
         - python3 -m pip --version
@@ -68,19 +66,10 @@ matrix:
         - make
         - python3 setup.py install
         - pyenv rehash
-      after_success:
-        # PyPI deployment
-        - if [[ "$TRAVIS_REPO_SLUG" == "KmolYuan/Pyslvs-UI" && -n "$TRAVIS_TAG" ]]; then
-          python3 -m pip install twine;
-          python3 setup.py bdist_wheel;
-          python3 -m twine upload dist/*.whl --skip-existing;
-          fi
+      after_success: *pypi-deploy
       deploy:
         - <<: *executable-deploy
-          file: dist/pyslvs-*.app.zip
-
-git:
-  submodules: false
+          file: dist/pyslvs*.app.zip
 
 script:
   - pyslvs --test

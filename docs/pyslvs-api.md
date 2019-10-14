@@ -255,12 +255,18 @@ Enumeration values of Joint types.
 
 Mechanism expression class.
 
+#### Class attributes of VPoint
+
+| name | type | description |
+|:----:|:----:|:------------|
+| HOLDER | [VPoint] | A placeholder of VPoint type. |
+
 #### Object attributes of VPoint
 
 | name | type | description |
 |:----:|:----:|:------------|
-| links | Tuple[str, ...] | Link list of the joint. |
-| c | numpy.ndarray | Current coordinates of the joint. |
+| links | Sequence[str] | Link list of the joint. |
+| c | Tuple[Tuple[float, float], Tuple[float, float]] | Current coordinates of the joint. |
 | type | [VJoint] | The type of the joint. |
 | type_str | str | The type string of the joint. |
 | color | Optional[Tuple[int, int, int]] | The RGB color data of the joint. |
@@ -515,6 +521,13 @@ Over loaded method to print the objects.
 
 Mechanism expression class in link's view.
 
+#### Class attributes of VLink
+
+| name | type | description |
+|:----:|:----:|:------------|
+| HOLDER | [VLink] | A placeholder of VLink type. |
+| FRAME | str | The name of frame. ("ground") |
+
 #### Object attributes of VLink
 
 | name | type | description |
@@ -522,7 +535,7 @@ Mechanism expression class in link's view.
 | name | str | The name tag of the link. |
 | color | Optional[Tuple[int, int, int]] | The RGB color data of the joint. |
 | color_str | str | The color string of the joint. |
-| points | Tuple[int, ...] | The points of the link. |
+| points | Sequence[int] | The points of the link. |
 
 #### VLink.\_\_init__()
 
@@ -635,14 +648,6 @@ Transform `graph` into [VPoint] objects. The vertices are mapped to links.
 + `same`: Multiple joint setting. The joints are according to [`edges_view`](#edges_view).
 + `grounded`: The ground link of vertices.
 
-### PMKSLexer
-
-| type | inherit |
-|:----:|:-------:|
-| type | pygments.lexer.RegexLexer |
-
-The lexer class for [Pygments](http://pygments.org/) module.
-
 ## Module `graph`
 
 ### link_assortment()
@@ -681,8 +686,8 @@ The undirected graph class, support multigraph.
 
 | name | type | description |
 |:----:|:----:|:------------|
-| edges | Tuple[Tuple[int, int], ...] | The edges of graph. |
-| nodes | Tuple[int, ...] | The nodes of graph. |
+| edges | Tuple[Tuple[int, int], ...] | The edges of the graph. |
+| vertices | Tuple[int, ...] | The vertices of the graph. |
 
 #### Graph.\_\_init__()
 
@@ -700,13 +705,13 @@ Input edges of the graph. The vertices symbols are positive continuously integer
 
 Add edge `n1` to `n2`.
 
-#### Graph.add_nodes()
+#### Graph.add_vertices()
 
-| self | nodes | return |
+| self | vertices | return |
 |:----:|:-----:|:----:|
 | | Iterable[int] | None |
 
-Add nodes from iterable object `nodes`.
+Add vertices from iterable object `vertices`.
 
 #### Graph.dof()
 
@@ -733,6 +738,38 @@ Return DOF of the graph.
 | | int | Tuple[int, ...] |
 
 Return the neighbors of the vertex `n`.
+
+#### Graph.degrees()
+
+| self | return |
+|:----:|:------:|
+| | Dict[int, int] |
+
+Return the degrees of each vertex.
+
+#### Graph.degree_code()
+
+| self | return |
+|:----:|:------:|
+| | int |
+
+Generate a degree code.
+
+With a sorted vertices mapping by the degrees of each vertex,
+regenerate a new adjacency matrix.
+A binary code can be found by concatenating the upper right elements.
+The degree code is the maximum value of the permutation.
+
+#### Graph.adjacency_matrix()
+
+| self | return |
+|:----:|:------:|
+| | ndarray |
+
+Generate a adjacency matrix.
+
+Assume the matrix $A[i, j] = A[j, i]$.
+Where $A[i, j] = 1$ if edge `(i, j)` exist.
 
 #### Graph.is_connected()
 
@@ -770,11 +807,11 @@ Return `True` if the graph is isomorphic to `graph`.
 
 #### Graph.duplicate()
 
-| self | nodes | return |
+| self | vertices | return |
 |:----:|:-----:|:----:|
 | | Iterable[int] | [Graph] |
 
-Make the graph duplicate specific nodes (from `nodes`). Return a new graph.
+Make the graph duplicate specific vertices (from `vertices`). Return a new graph.
 
 #### Graph.copy()
 
