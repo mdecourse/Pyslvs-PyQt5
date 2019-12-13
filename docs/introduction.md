@@ -20,7 +20,7 @@ A GUI-based tool used to design 2D linkage mechanism.
     - Cross three platforms.
     - CAD-like user interface.
     - Auto layout of generalized chain.
-    - The code complies with PEP8.
+    - The code complies with [PEP 8] and [PEP 561].
 
 ## Previews
 
@@ -149,8 +149,7 @@ Pyslvs can support for following format.
 
 **Output formats**:
 
-+ Pyslvs [YAML] based workbook (*.pyslvs.yml).
-+ Pyslvs workbook database (*.pyslvs).
++ Pyslvs project database (*.pyslvs).
 + Expression (just a string).
 + [Solvespace] format (*.slvs).
 + DXF format (*.dxf).
@@ -160,12 +159,11 @@ Pyslvs can support for following format.
 
 **Input formats**:
 
-+ Pyslvs [YAML] based workbook (*.pyslvs.yml).
-+ Pyslvs workbook database (*.pyslvs).
++ Pyslvs project database (*.pyslvs).
 + Expression (just a string).
 + [Solvespace] format (*.slvs, only supports very few of constraints).
 
-The workbook mechanism will generate the sketch frame as \*.slvs format like follow:
+The project mechanism will generate the sketch frame as \*.slvs format like follow:
 
 ![](img/io-slvs-origin.png)
 
@@ -200,3 +198,5 @@ Here's the concepts that will shown in this manual:
 [Python-Solvespace]: https://github.com/KmolYuan/solvespace/tree/python
 [Pyslvs]: https://github.com/KmolYuan/pyslvs
 [Sketch Solve]: https://code.google.com/archive/p/sketchsolve/
+[PEP 8]: https://www.python.org/dev/peps/pep-0008
+[PEP 561]: https://www.python.org/dev/peps/pep-0561

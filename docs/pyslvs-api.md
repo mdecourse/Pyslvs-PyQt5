@@ -19,7 +19,7 @@ The modules are:
 + [`planar_linkage`](#module-planar_check)
 + [`tinycadlib`](#module-tinycadlib)
 + [`triangulation`](#module-triangulation)
-+ [`verify`](#module-verify)
++ [`utility`](#module-utility)
 
 ## Module `atlas`
 
@@ -98,7 +98,7 @@ The `data_dict` parameter will reformat its keys into `frozenset` type.
 |:----:|:------:|
 | | FrozenSet[Tuple[int, int]] |
 
-Show the current [input pairs] keys from original constructor.
+Show the current input pairs keys from original constructor.
 
 #### SolverSystem.show_data()
 
@@ -165,13 +165,26 @@ The format of each configuration is:
 + `same`: The multiple joints setting.
     + type: Dict[int, int]
 
+## Module `efd`
+
+### efd_fitting
+
+| path | n | return |
+|:----:|:---:|:----:|
+| Sequence[Tuple[float, float]] | int | ndarray |
+
+Curve fitting using Elliptical Fourier Descriptor.
+
+The path `path` will be translate to Fourier descriptor coefficients,
+then regenerate a new paths as a `n` x 4 NumPy array.
+
 ## Module `example`
 
 ### example_list
 
 | type |
 |:----:|
-| Dict[str, Tuple[str, Tuple[Tuple[int, int], ...]]] |
+| Dict[str, Tuple[str, Sequence[Tuple[int, int]]]] |
 
 The example data of mechanisms.
 
@@ -255,12 +268,18 @@ Enumeration values of Joint types.
 
 Mechanism expression class.
 
+#### Class attributes of VPoint
+
+| name | type | description |
+|:----:|:----:|:------------|
+| HOLDER | [VPoint] | A placeholder of VPoint type. |
+
 #### Object attributes of VPoint
 
 | name | type | description |
 |:----:|:----:|:------------|
-| links | Tuple[str, ...] | Link list of the joint. |
-| c | numpy.ndarray | Current coordinates of the joint. |
+| links | Sequence[str] | Link list of the joint. |
+| c | Tuple[Tuple[float, float], Tuple[float, float]] | Current coordinates of the joint. |
 | type | [VJoint] | The type of the joint. |
 | type_str | str | The type string of the joint. |
 | color | Optional[Tuple[int, int, int]] | The RGB color data of the joint. |
@@ -515,6 +534,13 @@ Over loaded method to print the objects.
 
 Mechanism expression class in link's view.
 
+#### Class attributes of VLink
+
+| name | type | description |
+|:----:|:----:|:------------|
+| HOLDER | [VLink] | A placeholder of VLink type. |
+| FRAME | str | The name of frame. ("ground") |
+
 #### Object attributes of VLink
 
 | name | type | description |
@@ -522,7 +548,7 @@ Mechanism expression class in link's view.
 | name | str | The name tag of the link. |
 | color | Optional[Tuple[int, int, int]] | The RGB color data of the joint. |
 | color_str | str | The color string of the joint. |
-| points | Tuple[int, ...] | The points of the link. |
+| points | Sequence[int] | The points of the link. |
 
 #### VLink.\_\_init__()
 
@@ -635,14 +661,6 @@ Transform `graph` into [VPoint] objects. The vertices are mapped to links.
 + `same`: Multiple joint setting. The joints are according to [`edges_view`](#edges_view).
 + `grounded`: The ground link of vertices.
 
-### PMKSLexer
-
-| type | inherit |
-|:----:|:-------:|
-| type | pygments.lexer.RegexLexer |
-
-The lexer class for [Pygments](http://pygments.org/) module.
-
 ## Module `graph`
 
 ### link_assortment()
@@ -681,8 +699,8 @@ The undirected graph class, support multigraph.
 
 | name | type | description |
 |:----:|:----:|:------------|
-| edges | Tuple[Tuple[int, int], ...] | The edges of graph. |
-| nodes | Tuple[int, ...] | The nodes of graph. |
+| edges | Tuple[Tuple[int, int], ...] | The edges of the graph. |
+| vertices | Tuple[int, ...] | The vertices of the graph. |
 
 #### Graph.\_\_init__()
 
@@ -700,13 +718,13 @@ Input edges of the graph. The vertices symbols are positive continuously integer
 
 Add edge `n1` to `n2`.
 
-#### Graph.add_nodes()
+#### Graph.add_vertices()
 
-| self | nodes | return |
+| self | vertices | return |
 |:----:|:-----:|:----:|
 | | Iterable[int] | None |
 
-Add nodes from iterable object `nodes`.
+Add vertices from iterable object `vertices`.
 
 #### Graph.dof()
 
@@ -733,6 +751,38 @@ Return DOF of the graph.
 | | int | Tuple[int, ...] |
 
 Return the neighbors of the vertex `n`.
+
+#### Graph.degrees()
+
+| self | return |
+|:----:|:------:|
+| | Dict[int, int] |
+
+Return the degrees of each vertex.
+
+#### Graph.degree_code()
+
+| self | return |
+|:----:|:------:|
+| | int |
+
+Generate a degree code.
+
+With a sorted vertices mapping by the degrees of each vertex,
+regenerate a new adjacency matrix.
+A binary code can be found by concatenating the upper right elements.
+The degree code is the maximum value of the permutation.
+
+#### Graph.adjacency_matrix()
+
+| self | return |
+|:----:|:------:|
+| | ndarray |
+
+Generate a adjacency matrix.
+
+Assume the matrix $A[i, j] = A[j, i]$.
+Where $A[i, j] = 1$ if edge `(i, j)` exist.
 
 #### Graph.is_connected()
 
@@ -767,14 +817,35 @@ Return `True` if the graph is degenerate.
 | | [Graph] | bool |
 
 Return `True` if the graph is isomorphic to `graph`.
+Default is using VF2 algorithm.
+
+#### Graph.is_isomorphic_vf2()
+
+| self | graph | return |
+|:----:|:-----:|:------:|
+| | [Graph] | bool |
+
+Return `True` if the graph is isomorphic to `graph`.
+Compare with VF2 algorithm, one of the high performance isomorphic algorithms.
+
+#### Graph.is_isomorphic_degree_code()
+
+| self | graph | return |
+|:----:|:-----:|:------:|
+| | [Graph] | bool |
+
+Return `True` if the graph is isomorphic to `graph`.
+Compare with degree code algorithm.
+
++ <https://doi.org/10.1115/1.2919236>
 
 #### Graph.duplicate()
 
-| self | nodes | return |
+| self | vertices | return |
 |:----:|:-----:|:----:|
 | | Iterable[int] | [Graph] |
 
-Make the graph duplicate specific nodes (from `nodes`). Return a new graph.
+Make the graph duplicate specific vertices (from `vertices`). Return a new graph.
 
 #### Graph.copy()
 
@@ -841,7 +912,7 @@ Return `True` if graph `g` is a planar graph.
 
 | type | inherit |
 |:----:|:-------:|
-| type | [Verification] |
+| type | [Objective] |
 
 #### Planar.\_\_init__()
 
@@ -849,7 +920,7 @@ Return `True` if graph `g` is a planar graph.
 |:----:|:-----------:|:------:|
 | | Dict[str, Any] | None |
 
-The constructor of verification object.
+The constructor of objective object.
 
 Options of `mech_params`:
 
@@ -1042,23 +1113,23 @@ Over loaded method to print the objects.
 
 Generate the Triangle solution stack by mechanism expression `vpoints_`.
 
-The argument `inputs` is a list of [input pairs].
+The argument `inputs` is a list of input pairs.
 
 The argument `status` will track the configuration of each point, which is optional.
 
-## Module `verify`
+## Module `utility`
 
-### Verification
+### Objective
 
 | type | inherit |
 |:----:|:-------:|
 | type | object |
 
-Verification function base class.
-It is used to build the verification function for Metaheuristic Random Algorithms.
-See the sections of [Adesign API](adesign-api.md).
+Objective function base class.
+It is used to build the objective function for Metaheuristic Random Algorithms.
+See the sections of [metaheuristics API](metaheuristics-api.md).
 
-#### Verification.fitness()
+#### Objective.fitness()
 
 **Cython `cdef` method**
 
@@ -1071,7 +1142,7 @@ See the sections of [Adesign API](adesign-api.md).
 Return the fitness from the variable list `v`.
 This function will be directly called in the algorithms.
 
-#### Verification.result()
+#### Objective.result()
 
 `@abstractmethod`
 
@@ -1089,16 +1160,16 @@ Return the result from the variable list `v`.
 
 Algorithm base class.
 It is used to build the Metaheuristic Random Algorithms.
-See the sections of [Adesign API](adesign-api.md).
+See the sections of [metaheuristics API](metaheuristics-api.md).
 
 #### AlgorithmBase.\_\_init__()
 
 | self | func | settings | progress_fun | interrupt_fun | return |
 |:----:|:----:|:--------:|:------------:|:-------------:|:------:|
-| | [Verification] | Dict[str, Any] | Optional[Callable[[int, str], None]] | Optional[Callable[[], bool]] | None |
+| | [Objective] | Dict[str, Any] | Optional[Callable[[int, str], None]] | Optional[Callable[[], bool]] | None |
 | | | | None | None | |
 
-The argument `func` is a object inherit from [Verification],
+The argument `func` is a object inherit from [Objective],
 and all abstract methods should be implemented.
 
 The format of argument `settings` can be customized.
@@ -1114,7 +1185,7 @@ and the argument `interrupt_fun` will check the interrupt status from GUI or sub
 
 Run and return the result and convergence history.
 
-The first place of `return` is came from calling [`Verification.result()`](#verificationresult).
+The first place of `return` is came from calling [`Objective.result()`](#objectiveresult).
 
 The second place of `return` is a list of generation data,
 which type is `Tuple[int, float, float]]`.
@@ -1122,11 +1193,10 @@ The first of them is generation,
 the second is fitness, and the last one is time in second.
 
 [SolverSystem]: #solversystem
-[input pairs]: #solversystem9595init__
 [Coordinate]: #coordinate
 [VJoint]: #vjoint
 [VPoint]: #vpoint
 [VLink]: #vlink
 [Graph]: #graph
-[Verification]: #verification
+[Objective]: #objective
 [ExpressionStack]: #expressionstack

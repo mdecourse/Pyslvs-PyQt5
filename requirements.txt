@@ -5,14 +5,12 @@ qtpy
 pyqt5
 pyqtchart
 ezdxf
-numpy; python_version < '3.8' or sys_platform != 'linux'
-numpy<1.17; python_version >= '3.8' and sys_platform == 'linux'
+numpy
 cython
+python-solvespace
 openpyxl
 psutil
 lark-parser
-pygments
 pyyaml
 h5py
-pillow
-qrcode[pil]
+qrcode

@@ -3,7 +3,7 @@
 A no-GUI module of mechanism synthesis system and
 a 2D geometric constraint solver.
 
-The submodule is located at `pyslvs/core/libs/pyslvs`.
+The submodule is located at `pyslvs`.
 
 Pyslvs is now available on
 [![PyPI](https://img.shields.io/pypi/v/pyslvs.svg)](https://pypi.org/project/pyslvs/),
@@ -45,7 +45,7 @@ Most of classes and functions can be work with a generic Python format (just lik
 
 + **parser** module:
 
-    Analysis expression from strings, turn into symbols object. There also including highlighting function with [Pygments](http://pygments.org/).
+    Analysis expression from strings, turn into symbols object.
 
 + **expression** library:
 
@@ -91,34 +91,34 @@ Most of classes and functions can be work with a generic Python format (just lik
 
     Graph combination algorithm.
 
-#### Adesign (Dimensional Synthesis)
+#### metaheuristics (Dimensional Synthesis)
 
-[Adesign](https://github.com/KmolYuan/Adesign) module: Cython algorithms libraries provide evolution designing.
+[metaheuristics](https://github.com/KmolYuan/metaheuristics) module: Cython algorithms libraries provide evolution designing.
 
-+ **verify** library:
++ **utility** library:
 
     Provide base fitness function class for algorithm.
 
 + **planar_linkage** library:
 
-    **preload**: `expression`, `triangulation`, `bfgs`, `tinycadlib`, `verify`
+    **preload**: `expression`, `triangulation`, `bfgs`, `tinycadlib`, `utility`
 
     Dimensional synthesis verification function objects.
 
 + **rga** library:
 
-    **preload**: `verify`
+    **preload**: `utility`
 
     Real-coded genetic algorithm for dimensional synthesis.
 
 + **firefly** library:
 
-    **preload**: `verify`
+    **preload**: `utility`
 
     Firefly algorithm for dimensional synthesis.
 
 + **de** library:
 
-    **preload**: `verify`
+    **preload**: `utility`
 
     Differential Evolution for dimensional synthesis.

@@ -1,5 +1,72 @@
 # Changelog
 
+## Version 19.12
+
+**Features**:
+
++ None
+
+**Development**:
+
++ None
+
+## Version 19.11
+
+**Features**:
+
++ UI adjustments.
++ Zooming:
+    + Redesign zoom button.
+    + Correction of zoom value.
+    + Add "default zoom value" option.
++ Add "reduce" function for synthesis target path.
++ Ensure close the QThread before accept the dialog.
++ Remove the QMutex lock, which caused crash on Windows platform.
++ Improve the pattern of path file format.
++ Add "save path" function.
++ Allow multiple cased file suffix.
++ Add TLBO Algorithm.
+
+**Development**:
+
++ Remove "*.run" file from macOS releases.
++ Projects are not backward compatible:
+    + All setting keys turn into lowercase.
++ Correction of the random seed in Cython module.
++ Several kernel API changes.
+
+## Version 19.10
+
+**Features**:
+
++ Show the degree code on graphs.
++ Pyslvs can only start one instance.
++ Add "points alignment" function. (github issue #21)
++ Add "navigation toolbar position" option.
++ Add "auto remove empty links after deleted points" option. (github issue #23)
++ Move background option into project file. (github issue #26)
++ The background image can be set by dragging in.
++ Consider the background when zoom to fit.
++ Show the current mechanism in the overview dialog.  (github issue #25)
++ Support Solvespace 3.x format.  (github issue #28)
++ Replace term "workbook" into "project".
++ Improvement of reading path from Excel projects.
+
+**Development**:
+
++ Change the term "nodes" to "vertices".
++ Create main window using `new` static method.
++ Remove `core` namespace.
++ Move `icons` folder into `pyslvs_ui/icons`.
++ Replace `*-pyslvs` command with `*-kernel` in Makefile.
++ Dependents:
+    + Treat `python-solvespace` as normal module.
+    + Moved `depend/pyslvs` into `pyslvs`.
++ Refactor `main_canvas` to `canvas`.
++ Add PyInstaller recipe instead of Makefile.
++ Add MyPy checking to GitHub workflow.
++ Support PEP 561.
+
 ## Version 19.09
 
 **Features**:

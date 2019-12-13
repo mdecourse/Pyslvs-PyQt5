@@ -1,13 +1,25 @@
 # AppVeyor for Pyslvs-UI
+version: '{build}'
 image: Visual Studio 2019
 platform: x64
-
+clone_depth: 1
 environment:
   MSYS_DIR: C:\msys64
   matrix:
     - PYTHON_DIR: C:\Python37-x64
+      COMPILER: mingw32
+      # Cython issue
+#    - PYTHON_DIR: C:\Python38
+#      COMPILER: mingw32
+    - PYTHON_DIR: C:\Python38-x64
+      COMPILER: msvc
+      DEPLOY: "true"
 
 install:
+  # Clone submodules
+  - git submodule update --init --recursive
+  # Install Python-dev
+  - IF DEFINED PYTHON_DEV choco install -y python --version %PYTHON_DEV%
   # Environment variables
   - set Path=%MSYS_DIR%\mingw64\bin;%MSYS_DIR%\usr\bin;%Path%
   - set Path=%PYTHON_DIR%;%PYTHON_DIR%\Scripts;%Path%
@@ -17,19 +29,12 @@ install:
   # Upgrade setuptools
   - pip install setuptools -U
   # Set Python compiler to MinGW
-  - platform\set_pycompiler %PYTHON_DIR%
+  - pyslvs\platform\set_pycompiler %PYTHON_DIR% %COMPILER%
   # Install modules
   - pip install -r requirements.txt
-  - pip install pyinstaller
   # Show tool kits
-  - pyinstaller --version
   - gcc --version
   - mingw32-make --version
-
-before_build:
-  # Clone submodules
-  - git submodule update --init
-  - git submodule update --init --recursive depend/pyslvs
 
 build_script:
   - mingw32-make
@@ -38,8 +43,17 @@ build_script:
 test_script:
   - pyslvs --test
 
+after_build:
+  # PyPI deployment
+  - IF "%APPVEYOR_REPO_TAG%"=="true"
+    IF "%APPVEYOR_REPO_NAME%"=="KmolYuan/Pyslvs-UI" (
+    pip install twine &&
+    python setup.py bdist_wheel &&
+    twine upload dist\*.whl --skip-existing
+    )
+
 artifacts:
-  - path: dist\pyslvs-*.exe
+  - path: dist\*.zip
     name: pyslvs
 
 deploy:
@@ -52,13 +66,4 @@ deploy:
     force_update: true
     on:
       appveyor_repo_tag: true
-      PYTHON_DIR: C:\Python37-x64
-
-after_build:
-  # PyPI deployment
-  - IF "%APPVEYOR_REPO_TAG%"=="true"
-    IF "%APPVEYOR_REPO_NAME%"=="KmolYuan/Pyslvs-UI" (
-    pip install twine &&
-    python setup.py bdist_wheel &&
-    twine upload dist\*.whl --skip-existing
-    )
+      DEPLOY: "true"
