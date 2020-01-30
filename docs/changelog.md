@@ -1,5 +1,30 @@
 # Changelog
 
+## Version 20.02
+
+**Features**:
+
++ None
+
+**Development**:
+
++ None
+
+## Version 20.01
+
+**Features**:
+
++ "Relocate" dialog options for editing point position.
++ Fix commas error of expression table on GUI.
++ Fix "Add Point" action on menu bar.
++ UI contraction of synthesis panels.
+
+**Development**:
+
++ Create QRotatableView API.
++ Fix dependencies compatibility.
++ Add utility modules for entities dialogs.
+
 ## Version 19.12
 
 **Features**:

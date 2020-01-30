@@ -2,7 +2,7 @@
 
 # Form implementation generated from reading ui file 'pyslvs_ui/entities/edit_link.ui'
 #
-# Created by: PyQt5 UI code generator 5.13.2
+# Created by: PyQt5 UI code generator 5.13.0
 #
 # WARNING! All changes made in this file will be lost!
 
@@ -56,12 +56,12 @@ class Ui_Dialog(object):
         self.verticalLayout.addWidget(self.points_label)
         self.horizontalLayout = QtWidgets.QHBoxLayout()
         self.horizontalLayout.setObjectName("horizontalLayout")
-        self.noSelected = QtWidgets.QListWidget(Dialog)
-        self.noSelected.setDragEnabled(True)
-        self.noSelected.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
-        self.noSelected.setDefaultDropAction(QtCore.Qt.MoveAction)
-        self.noSelected.setObjectName("noSelected")
-        self.horizontalLayout.addWidget(self.noSelected)
+        self.no_selected = QtWidgets.QListWidget(Dialog)
+        self.no_selected.setDragEnabled(True)
+        self.no_selected.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
+        self.no_selected.setDefaultDropAction(QtCore.Qt.MoveAction)
+        self.no_selected.setObjectName("no_selected")
+        self.horizontalLayout.addWidget(self.no_selected)
         self.label = QtWidgets.QLabel(Dialog)
         self.label.setObjectName("label")
         self.horizontalLayout.addWidget(self.label)

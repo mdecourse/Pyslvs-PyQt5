@@ -3,7 +3,7 @@
 """Painting function of NetworkX."""
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2019"
+__copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
@@ -27,7 +27,7 @@ from .canvas import convex_hull, LINK_COLOR
 _Pos = Dict[int, Tuple[float, float]]
 
 engines = (
-    "external loop",
+    "External Loop",
 )
 
 _font = QFont("Monospace")
@@ -37,7 +37,7 @@ _font.setStyleHint(QFont.TypeWriter)
 
 def engine_picker(g: Graph, engine: str, node_mode: bool) -> _Pos:
     """Generate a position dict."""
-    if engine == "external loop":
+    if engine == "External Loop":
         try:
             layout: _Pos = external_loop_layout(g, node_mode, scale=30)
         except ValueError as error:

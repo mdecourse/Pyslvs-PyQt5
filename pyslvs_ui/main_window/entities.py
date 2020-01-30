@@ -3,13 +3,12 @@
 """This module contains the functions that main window needed."""
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2019"
+__copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import cast, Tuple, Sequence, Set, FrozenSet, Dict, Union, Optional
+from typing import cast, Tuple, Sequence, Set, FrozenSet, Dict, Union, Optional, List
 from abc import ABC
-from itertools import chain
 from qtpy.QtCore import Slot
 from qtpy.QtWidgets import (
     QDialogButtonBox,
@@ -439,6 +438,7 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
         ))
         self.command_stack.endMacro()
 
+    @Slot(name='on_action_new_point_triggered')
     def new_point(self) -> None:
         """Create a point with arguments."""
         self.__edit_point()
@@ -585,16 +585,10 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
         """Create a link with arguments.
 
         + Last than one point:
-
-            - Create a new link
-
+            + Create a new link (Dialog)
         + Search method:
-
-            - Find the intersection between points that was
-                including any link.
-            - Add the points that is not in the intersection
-                to the link.
-
+            + Find the intersection between points that was including any link.
+            + Add the points that is not in the intersection to the link.
         + If no, just create a new link by selected points.
         """
         rows = self.entities_point.selected_rows()
@@ -602,9 +596,9 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
             self.__edit_link()
             return
 
-        links_all = list(chain(*(
-            self.entities_point.get_links(row) for row in rows
-        )))
+        links_all: List[str] = []
+        for vpoint in self.vpoint_list:
+            links_all.extend(vpoint.links)
         count_0 = False
         for p in set(links_all):
             if links_all.count(p) > 1:

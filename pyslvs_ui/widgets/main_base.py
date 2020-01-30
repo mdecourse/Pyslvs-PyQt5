@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 __author__ = "Yuan Chang"
-__copyright__ = "Copyright (C) 2016-2019"
+__copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
@@ -69,6 +69,8 @@ def _set_actions(actions: Sequence[QAction], state: bool) -> None:
 @unique
 class _Enable(Flag):
 
+    # Conditions
+    # No / One / Any / Multiple / Ground / Not ground
     P_NO = auto()
     P_ONE = auto()
     P_ANY = auto()
@@ -80,6 +82,8 @@ class _Enable(Flag):
     L_GND = auto()
     L_N_GND = auto()
 
+    # Menus
+    # Table / Context menu
     T_P = auto()
     T_L = auto()
     C_P = auto()
@@ -333,7 +337,7 @@ class MainWindowBase(MainWindowABC, ABC):
         clean_selection_action.triggered.connect(table_clear_selection)
         clean_selection_action.setShortcut("Esc")
         clean_selection_action.setShortcutContext(Qt.WindowShortcut)
-        self.main_canvas.noselected.connect(table_clear_selection)
+        self.main_canvas.no_selected.connect(table_clear_selection)
         self.addAction(clean_selection_action)
 
         self.main_canvas.free_moved.connect(self.set_free_move)
@@ -369,7 +373,7 @@ class MainWindowBase(MainWindowABC, ABC):
                 self.inputs_widget.set_selection(selections)
 
         self.main_canvas.selected.connect(inputs_selection)
-        self.main_canvas.noselected.connect(self.inputs_widget.clear_selection)
+        self.main_canvas.no_selected.connect(self.inputs_widget.clear_selection)
         self.inputs_widget.update_preview_button.clicked.connect(self.main_canvas.update_preview_path)
 
         # Synthesis collections
