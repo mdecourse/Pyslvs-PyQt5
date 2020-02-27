@@ -4,11 +4,27 @@
 
 **Features**:
 
-+ None
++ Fix file loader error during loading algorithm results.
++ Fix the touching area of target point moving.
++ Improve load target path function.
 
 **Development**:
 
-+ None
++ Renamed enum constant as uppercase.
++ Change Makefile command name:
+    + For package: suffix `pack`.
+        + `build` change to `pack`
+        + `clean` change to `clean-pack`
+        + `test` change to `test-pack`
+    + For kernel: no suffix.
+        + `build-kernel` change to `build`
+        + `clean-kernel` change to `clean`
+        + `test-kernel` change to `test`
+    + The default command `all` change to `build` only.
+      Use `make test-pack` instead of `make`.
++ Rewrite and fix file loader.
++ Use "apimd" module to generate the API doc.
+    + New Makefile command "doc".
 
 ## Version 20.01
 

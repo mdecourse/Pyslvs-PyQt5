@@ -6,6 +6,7 @@ dimensional synthesis functional interfaces.
 
 from __future__ import annotations
 
+__all__ = ['DimensionalSynthesis']
 __author__ = "Yuan Chang"
 __copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
@@ -18,6 +19,7 @@ from typing import (
     Tuple,
     Sequence,
     Dict,
+    Iterator,
     Iterable,
     Callable,
     Union,
@@ -27,7 +29,6 @@ from typing import (
 from math import hypot
 import pprint
 from copy import deepcopy
-from re import finditer
 from openpyxl import load_workbook
 from qtpy.QtCore import Slot, QModelIndex
 from qtpy.QtWidgets import (
@@ -43,6 +44,7 @@ from qtpy.QtWidgets import (
     QRadioButton,
 )
 from qtpy.QtGui import QIcon, QPixmap
+from lark.exceptions import LarkError
 from pyslvs import (
     VLink,
     vpoints_configure,
@@ -53,7 +55,7 @@ from pyslvs import (
     efd_fitting,
 )
 from pyslvs.metaheuristics import PARAMS, DEFAULT_PARAMS, AlgorithmType
-from pyslvs_ui.graphics import PreviewCanvas
+from pyslvs_ui.graphics import PreviewCanvas, parse_path
 from pyslvs_ui.synthesis import CollectionsDialog
 from .dialogs import (
     AlgorithmOptionDialog,
@@ -66,9 +68,7 @@ from .dimension_widget_ui import Ui_Form
 if TYPE_CHECKING:
     from pyslvs_ui.widgets import MainWindowBase
 
-__all__ = ['DimensionalSynthesis']
 _Coord = Tuple[float, float]
-_PATH_PATTERN = r"([+-]?\d+\.?\d*)[\t ]*[,/]?[\t ]*([+-]?\d+\.?\d*)[ji]?;?\s*"
 
 
 class DimensionalSynthesis(QWidget, Ui_Form):
@@ -99,6 +99,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         self.merge_result = parent.merge_result
         self.update_ranges = parent.main_canvas.update_ranges
         self.set_solving_path = parent.main_canvas.set_solving_path
+        self.get_zoom = parent.main_canvas.get_zoom
         self.prefer = parent.prefer
         # Data and functions
         self.mechanism_data: List[Dict[str, Any]] = []
@@ -231,8 +232,12 @@ class DimensionalSynthesis(QWidget, Ui_Form):
 
     def __read_path_from_csv(self, raw: str) -> None:
         """Turn string to float then add them to current target path."""
-        for m in finditer(_PATH_PATTERN, raw):
-            self.add_point(float(m.group(1) or 0), float(m.group(2) or 0))
+        try:
+            path = parse_path(raw)
+        except LarkError as e:
+            QMessageBox.warning(self, "Wrong format", f"{e}")
+        else:
+            self.set_path(path)
 
     @Slot(name='on_save_path_button_clicked')
     def __save_path(self):
@@ -261,25 +266,24 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         name, ok = QInputDialog.getItem(self, "Sheets", "Select a sheet:", sheets, 0)
         if not ok:
             return
-        ws = wb.get_sheet_by_name(sheets.index(name))
-        # Keep finding until there is no value
-        i = 1
-        while True:
-            sx = ws.cell(i, 1).value
-            sy = ws.cell(i, 2).value
-            if None in {sx, sy}:
-                break
-            try:
-                self.add_point(float(sx), float(sy))
-            except (IndexError, AttributeError):
-                QMessageBox.warning(
-                    self,
-                    "File error",
-                    "Wrong format.\n"
-                    "The data sheet seems to including non-digital cell."
-                )
-                break
-            i += 1
+
+        def get_path(sheet: str) -> Iterator[Tuple[float, float]]:
+            """Keep finding until there is no value"""
+            ws = wb.get_sheet_by_name(sheets.index(sheet))
+            i = 1
+            while True:
+                sx = ws.cell(i, 1).value
+                sy = ws.cell(i, 2).value
+                if None in {sx, sy}:
+                    break
+                try:
+                    yield float(sx), float(sy)
+                except Exception as e:
+                    QMessageBox.warning(self, "File error", f"{e}")
+                    return
+                i += 1
+
+        self.set_path(get_path(name))
 
     @Slot(name='on_edit_path_button_clicked')
     def __adjust_path(self) -> None:
@@ -331,7 +335,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         if not self.edit_target_point_button.isChecked():
             return
         for i, (cx, cy) in enumerate(self.current_path()):
-            if hypot(x - cx, y - cy) < 5:
+            if hypot(x - cx, y - cy) < 10 / self.get_zoom():
                 index = i
                 self.path_list.setCurrentRow(index)
                 break
