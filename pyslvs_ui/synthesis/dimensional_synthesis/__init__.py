@@ -12,73 +12,63 @@ __copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import (
-    cast,
-    TYPE_CHECKING,
-    List,
-    Tuple,
-    Sequence,
-    Dict,
-    Iterator,
-    Iterable,
-    Callable,
-    Union,
-    Optional,
-    Any,
-)
-from math import hypot
 import pprint
 from copy import deepcopy
-from openpyxl import load_workbook
-from qtpy.QtCore import Slot, QModelIndex
-from qtpy.QtWidgets import (
-    QWidget,
-    QApplication,
-    QMessageBox,
-    QHeaderView,
-    QListWidgetItem,
-    QInputDialog,
-    QDoubleSpinBox,
-    QTableWidgetItem,
-    QProgressDialog,
-    QRadioButton,
+from math import hypot
+from typing import (
+    Any, Callable, Dict, Mapping, Iterable, Iterator, List, Optional,
+    Sequence, TYPE_CHECKING, Tuple, Union, cast,
 )
-from qtpy.QtGui import QIcon, QPixmap
 from lark.exceptions import LarkError
+from openpyxl import load_workbook
 from pyslvs import (
-    VLink,
-    vpoints_configure,
-    expr_solving,
-    parse_pos,
-    parse_vpoints,
-    parse_vlinks,
-    efd_fitting,
+    expr_solving, norm_path, parse_pos, parse_vpoints, t_config,
 )
-from pyslvs.metaheuristics import PARAMS, DEFAULT_PARAMS, AlgorithmType
+from pyslvs.metaheuristics import AlgorithmType, DEFAULT_PARAMS, PARAMS
+from qtpy.QtCore import QModelIndex, Slot
+from qtpy.QtGui import QIcon, QPixmap
+from qtpy.QtWidgets import (
+    QApplication,
+    QDoubleSpinBox,
+    QHeaderView,
+    QInputDialog,
+    QListWidgetItem,
+    QMessageBox,
+    QRadioButton,
+    QTableWidgetItem,
+    QWidget,
+)
 from pyslvs_ui.graphics import PreviewCanvas, parse_path
 from pyslvs_ui.synthesis import CollectionsDialog
 from .dialogs import (
     AlgorithmOptionDialog,
-    EditPathDialog,
-    ProgressDialog,
-    PreviewDialog,
     ChartDialog,
+    EditPathDialog,
+    PreviewDialog,
+    ProgressDialog,
 )
 from .dimension_widget_ui import Ui_Form
+
 if TYPE_CHECKING:
     from pyslvs_ui.widgets import MainWindowBase
 
+_Pair = Tuple[int, int]
 _Coord = Tuple[float, float]
+_Range = Tuple[float, float, float]
 
 
 class DimensionalSynthesis(QWidget, Ui_Form):
-
     """Dimensional synthesis widget.
 
     User can run the dimensional synthesis here.
     """
+    mech: Dict[str, Any]
+    path: Dict[int, List[_Coord]]
+    mechanism_data: List[Dict[str, Any]]
+    alg_options: Dict[str, Union[int, float]]
+    algorithm_options: Dict[AlgorithmType, QRadioButton]
 
-    def __init__(self, parent: MainWindowBase) -> None:
+    def __init__(self, parent: MainWindowBase):
         """Reference names:
 
         + Iteration collections.
@@ -87,8 +77,8 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         """
         super(DimensionalSynthesis, self).__init__(parent)
         self.setupUi(self)
-        self.mech: Dict[str, Any] = {}
-        self.path: Dict[int, List[_Coord]] = {}
+        self.mech = {}
+        self.path = {}
         # Some reference of 'collections'
         self.collections = parent.collections.configure_widget.collections
         self.get_collection = parent.get_configure
@@ -102,8 +92,8 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         self.get_zoom = parent.main_canvas.get_zoom
         self.prefer = parent.prefer
         # Data and functions
-        self.mechanism_data: List[Dict[str, Any]] = []
-        self.alg_options: Dict[str, Union[int, float]] = {}
+        self.mechanism_data = []
+        self.alg_options = {}
         self.alg_options.update(DEFAULT_PARAMS)
         self.alg_options.update(PARAMS[AlgorithmType.DE])
         # Canvas
@@ -112,12 +102,12 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         # Splitter
         self.main_splitter.setStretchFactor(0, 10)
         self.main_splitter.setStretchFactor(1, 100)
-        self.up_splitter.setSizes([80, 100])
+        self.canvas_splitter.setSizes([80, 100])
         self.down_splitter.setSizes([20, 80])
         # Table widget column width
         header = self.parameter_list.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeToContents)
-        self.algorithm_options: Dict[AlgorithmType, QRadioButton] = {}
+        self.algorithm_options = {}
         for option in PARAMS:
             button = QRadioButton(option.value, self)
             button.clicked.connect(self.__set_algorithm_default)
@@ -149,7 +139,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         self.__able_to_generate()
 
     def has_target(self) -> bool:
-        """Return True if the panel is no target settings."""
+        """Return true if the panel is no target settings."""
         return self.target_points.count() > 0
 
     @Slot(name='on_clear_button_clicked')
@@ -163,17 +153,15 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         ) == QMessageBox.Yes:
             self.__clear_settings()
 
-    def load_results(self, mechanism_data: Sequence[Dict[str, Any]]) -> None:
+    def load_results(self, mechanism_data: Sequence[Mapping[str, Any]]) -> None:
         """Append results of project database to memory."""
         for e in mechanism_data:
-            self.mechanism_data.append(e)
+            self.mechanism_data.append(dict(e))
             self.__add_result(e)
 
     def __current_path_changed(self) -> None:
         """Call the canvas to update to current target path."""
-        self.set_solving_path({
-            f"P{name}": tuple(path) for name, path in self.path.items()
-        })
+        self.set_solving_path({n: tuple(p) for n, p in self.path.items()})
         self.__able_to_generate()
 
     def current_path(self) -> List[_Coord]:
@@ -209,7 +197,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
     def __copy_path(self) -> None:
         """Copy the current path coordinates to clipboard."""
         QApplication.clipboard().setText('\n'.join(
-            f"{x},{y}" for x, y in self.current_path()
+            f"[{x}, {y}]," for x, y in self.current_path()
         ))
 
     @Slot(name='on_path_paste_clicked')
@@ -230,14 +218,22 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             data = f.read()
         self.__read_path_from_csv(data)
 
-    def __read_path_from_csv(self, raw: str) -> None:
+    def __read_path_from_csv(self, raw: str, *, clear: bool = True) -> None:
         """Turn string to float then add them to current target path."""
         try:
             path = parse_path(raw)
         except LarkError as e:
             QMessageBox.warning(self, "Wrong format", f"{e}")
         else:
-            self.set_path(path)
+            self.set_path(path, clear=clear)
+
+    @Slot(name='on_append_path_button_clicked')
+    def __append_path(self):
+        """Append path from text."""
+        raw, ok = QInputDialog.getMultiLineText(self, "Append path",
+                                                "Path from csv format.")
+        if ok and raw:
+            self.__read_path_from_csv(raw, clear=False)
 
     @Slot(name='on_save_path_button_clicked')
     def __save_path(self):
@@ -263,11 +259,12 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             return
         wb = load_workbook(file_name)
         sheets = wb.get_sheet_names()
-        name, ok = QInputDialog.getItem(self, "Sheets", "Select a sheet:", sheets, 0)
+        name, ok = QInputDialog.getItem(self, "Sheets", "Select a sheet:",
+                                        sheets, 0)
         if not ok:
             return
 
-        def get_path(sheet: str) -> Iterator[Tuple[float, float]]:
+        def get_path(sheet: str) -> Iterator[_Coord]:
             """Keep finding until there is no value"""
             ws = wb.get_sheet_by_name(sheets.index(sheet))
             i = 1
@@ -296,35 +293,28 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         dlg.deleteLater()
         self.__current_path_changed()
 
-    @Slot(name='on_efd_button_clicked')
-    def __efd_path(self) -> None:
-        """Elliptical Fourier Descriptors."""
-        path = self.current_path()
-        n, ok = QInputDialog.getInt(
+    @Slot(name='on_norm_path_button_clicked')
+    def __norm_path(self) -> None:
+        """Normalize current path."""
+        scale, ok = QInputDialog.getDouble(
             self,
-            "Elliptical Fourier Descriptors",
-            "The number of points:",
-            len(path), 3
-        )
-        if not ok:
-            return
-        dlg = QProgressDialog("Path transform.", "Cancel", 0, 1, self)
-        dlg.setWindowTitle("Elliptical Fourier Descriptors")
-        dlg.show()
-        self.set_path(efd_fitting(path, n))
-        dlg.setValue(1)
-        dlg.deleteLater()
+            "Scale",
+            "Length of unit vector:",
+            60, 0.01, 1000, 2)
+        if ok:
+            self.set_path(norm_path(self.current_path(), scale))
 
     def add_point(self, x: float, y: float) -> None:
         """Add path data to list widget and current target path."""
         self.current_path().append((x, y))
-        self.path_list.addItem(f"({x:.04f}, {y:.04f})")
+        self.path_list.addItem(f"({x:.08f}, {y:.08f})")
         self.path_list.setCurrentRow(self.path_list.count() - 1)
         self.__current_path_changed()
 
-    def set_path(self, path: Iterable[Tuple[float, float]]) -> None:
+    def set_path(self, path: Iterable[_Coord], *, clear: bool = True) -> None:
         """Set the current path."""
-        self.clear_path(ask=False)
+        if clear:
+            self.clear_path(ask=False)
         for x, y in path:
             self.add_point(x, y)
         self.__current_path_changed()
@@ -344,13 +334,6 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         self.current_path()[index] = (x, y)
         self.path_list.item(index).setText(f"({x:.04f}, {y:.04f})")
         self.__current_path_changed()
-
-    @Slot(name='on_close_path_clicked')
-    def __close_path(self) -> None:
-        """Add a the last point same as first point."""
-        path = self.current_path()
-        if self.path_list.count() > 1 and path[0] != path[-1]:
-            self.add_point(*path[0])
 
     @Slot(name='on_point_up_clicked')
     def __move_up_point(self) -> None:
@@ -409,7 +392,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         for button in (
             self.save_path_button,
             self.edit_path_button,
-            self.efd_button,
+            self.norm_path_button,
             self.synthesis_button,
         ):
             button.setEnabled(n)
@@ -417,7 +400,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
     @Slot(name='on_synthesis_button_clicked')
     def __synthesis(self) -> None:
         """Start synthesis."""
-        # Check if the amount of the target points are same.
+        # Check if the amount of the target points are same
         length = -1
         for path in self.path.values():
             if length < 0:
@@ -437,6 +420,17 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         else:
             raise ValueError("no option")
         mech = deepcopy(self.mech)
+        mech['shape_only'] = self.shape_only_option.isChecked()
+        if mech['shape_only']:
+            if QMessageBox.question(
+                self,
+                "Elliptical Fourier Descriptor",
+                "An even distribution will make the comparison more accurate.\n"
+                "Do you make sure yet?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes
+            ) == QMessageBox.No:
+                return
         mech['expression'] = parse_vpoints(mech.pop('expression', []))
         mech['target'] = deepcopy(self.path)
 
@@ -461,11 +455,11 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         if not dlg.exec_():
             dlg.deleteLater()
             return
-        mechanisms_plot: List[Dict[str, Any]] = []
+        mechanisms_plot: List[Mapping[str, Any]] = []
         for data in dlg.mechanisms:
             mechanisms_plot.append({
                 'time_fitness': data.pop('time_fitness'),
-                'Algorithm': data['Algorithm'],
+                'algorithm': data['algorithm'],
             })
             self.mechanism_data.append(data)
             self.__add_result(data)
@@ -485,9 +479,9 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             f"</span></p></body></html>"
         )
 
-    def __add_result(self, result: Dict[str, Any]) -> None:
+    def __add_result(self, result: Mapping[str, Any]) -> None:
         """Add result items, except add to the list."""
-        item = QListWidgetItem(result['Algorithm'])
+        item = QListWidgetItem(result['algorithm'])
         interrupt = result['interrupted']
         if interrupt == 'False':
             interrupt_icon = "task_completed.png"
@@ -500,7 +494,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             interrupt_text = "No interrupt."
         else:
             interrupt_text = f"Interrupt at: {interrupt}"
-        text = f"{result['Algorithm']} ({interrupt_text})"
+        text = f"{result['algorithm']} ({interrupt_text})"
         if interrupt == 'N/A':
             text += "\n※Completeness is unknown."
         item.setToolTip(text)
@@ -541,7 +535,8 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         row = self.result_list.currentRow()
         if not row > -1:
             return
-        dlg = PreviewDialog(self.mechanism_data[row], self.__get_path(row), self)
+        dlg = PreviewDialog(self.mechanism_data[row], self.__get_path(row),
+                            self.preview_canvas.monochrome, self)
         dlg.show()
         dlg.exec_()
         dlg.deleteLater()
@@ -564,8 +559,8 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         """Using result data to generate paths of mechanism."""
         result = self.mechanism_data[row]
         expression: str = result['expression']
-        same: Dict[int, int] = result['same']
-        inputs: List[Tuple[Tuple[int, int], Tuple[float, float]]] = result['input']
+        same: Mapping[int, int] = result['same']
+        inputs: List[Tuple[_Pair, _Coord]] = result['input']
         input_list = []
         for (b, d), _ in inputs:
             for i in range(b):
@@ -576,18 +571,15 @@ class DimensionalSynthesis(QWidget, Ui_Form):
                     d -= 1
             input_list.append((b, d))
         vpoints = parse_vpoints(expression)
-        expr = vpoints_configure(vpoints, input_list)
+        expr = t_config(vpoints, input_list)
         b, d = input_list[0]
         base_angle = vpoints[b].slope_angle(vpoints[d])
         path: List[List[_Coord]] = [[] for _ in range(len(vpoints))]
+        input_pair = {(b, d): 0. for b, d in input_list}
         for angle in range(360 + 1):
+            input_pair[b, d] = base_angle + angle
             try:
-                result_list = expr_solving(
-                    expr,
-                    {i: f"P{i}" for i in range(len(vpoints))},
-                    vpoints,
-                    [base_angle + angle] + [0] * (len(input_list) - 1)
-                )
+                result_list = expr_solving(expr, vpoints, input_pair)
             except ValueError:
                 nan = float('nan')
                 for i in range(len(vpoints)):
@@ -595,10 +587,10 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             else:
                 for i in range(len(vpoints)):
                     coord = result_list[i]
-                    if type(coord[0]) is tuple:
-                        path[i].append(cast(_Coord, coord[1]))
+                    if isinstance(coord[0], tuple):
+                        path[i].append(coord[1])
                     else:
-                        path[i].append(cast(_Coord, coord))
+                        path[i].append(coord)
         return path
 
     @Slot(name='on_result_clipboard_clicked')
@@ -660,13 +652,14 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             return
         self.__set_profile(name, params)
 
-    def __set_profile(self, profile_name: str, params: Dict[str, Any]) -> None:
+    def __set_profile(self, profile_name: str,
+                      params: Mapping[str, Any]) -> None:
         """Set profile to sub-widgets."""
         self.__clear_settings()
-        self.mech = deepcopy(params)
+        self.mech = dict(deepcopy(params))
         expression: str = self.mech['expression']
         self.expression_string.setText(expression)
-        target: Dict[int, List[_Coord]] = self.mech['target']
+        target: Mapping[int, List[_Coord]] = self.mech['target']
         for p in sorted(target):
             self.target_points.addItem(f"P{p}")
             if target[p]:
@@ -676,27 +669,18 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         if self.has_target():
             self.target_points.setCurrentRow(0)
         self.target_label.setVisible(self.has_target())
-        # Parameter of link length and input angle.
-        link_list = []
-        for vlink in parse_vlinks(expression):
-            if len(vlink.points) < 2 or vlink.name == VLink.FRAME:
-                continue
-            a = vlink.points[0]
-            b = vlink.points[1]
-            link_list.append((a, b))
-            for c in vlink.points[2:]:
-                for d in (a, b):
-                    link_list.append((c, d))
-        link_count = len(link_list)
-        inputs: List[Tuple[Tuple[int, int], List[float]]] = self.mech['input']
-        self.parameter_list.setRowCount(0)
-        placement: Dict[int, Optional[Tuple[float, float, float]]] = self.mech['placement']
+        inputs: List[Tuple[_Pair, List[float]]] = self.mech.get('input', [])
+        self.mech['input'] = inputs
+        placement: Mapping[int, Optional[_Range]] = self.mech.get('placement',
+                                                                  {})
+        self.mech['placement'] = placement
         # Table settings
-        self.parameter_list.setRowCount(len(inputs) + len(placement) + link_count)
+        self.parameter_list.setRowCount(0)
+        self.parameter_list.setRowCount(len(inputs) + len(placement) + 1)
         row = 0
 
         def spinbox(
-            v: float,
+            v: float = 0.,
             *,
             minimum: float = 0.,
             maximum: float = 9999.,
@@ -712,9 +696,11 @@ class DimensionalSynthesis(QWidget, Ui_Form):
 
         def set_angle(index1: int, index2: int) -> Callable[[float], None]:
             """Return a slot function use to set angle value."""
+
             @Slot(float)
             def func(value: float) -> None:
                 inputs[index1][1][index2] = value
+
             return func
 
         # Angles
@@ -728,7 +714,6 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             s1.valueChanged.connect(set_angle(i, 0))
             s2.valueChanged.connect(set_angle(i, 1))
             row += 1
-
         # Grounded joints
         self.preview_canvas.from_profile(self.mech)
         pos_list = parse_pos(expression)
@@ -742,64 +727,35 @@ class DimensionalSynthesis(QWidget, Ui_Form):
             for i, s in enumerate([
                 spinbox(coord[0] if coord else x, minimum=-9999.),
                 spinbox(coord[1] if coord else y, minimum=-9999.),
-                spinbox(coord[2] if coord else 25., prefix=True),
+                spinbox(coord[2] if coord else 5., prefix=True),
             ]):
                 s.valueChanged.connect(self.update_range)
                 self.parameter_list.setCellWidget(row, i + 2, s)
             row += 1
         # Default value of upper and lower
-        upper_list: List[float] = self.mech.get('upper', [0.] * link_count)
-        lower_list: List[float] = self.mech.get('lower', [0.] * link_count)
-        self.mech['upper'] = upper_list
-        self.mech['lower'] = lower_list
+        self.mech['upper'] = self.mech.get('upper', 100)
+        self.mech['lower'] = self.mech.get('lower', 0)
 
-        def set_by_center(
-            index: int,
-            get_range: Callable[[], float]
-        ) -> Callable[[float], None]:
-            """Return a slot function use to set limit value by center."""
+        def set_link(opt: str) -> Callable[[float], None]:
+            """Set link length."""
+
             @Slot(float)
             def func(value: float) -> None:
-                range_value = get_range()
-                upper_list[index] = value + range_value
-                lower_list[index] = value - range_value
+                self.mech[opt] = value
+
             return func
 
-        def set_by_range(
-            index: int,
-            get_value: Callable[[], float]
-        ) -> Callable[[float], None]:
-            """Return a slot function use to set limit value by range."""
-            @Slot(float)
-            def func(value: float) -> None:
-                center = get_value()
-                upper_list[index] = center + value
-                lower_list[index] = center - value
-            return func
-
-        # Links
-        for i, (a, b) in enumerate(sorted(link_list)):
-            self.parameter_list.setItem(row, 0, QTableWidgetItem(f"P{a}<->P{b}"))
-            link_length = self.preview_canvas.distance(a, b)
-            self.parameter_list.setItem(row, 1, QTableWidgetItem('link'))
-            # Set values
-            if upper_list[i] == 0.:
-                upper_list[i] = link_length + 50
-            if lower_list[i] <= 0.:
-                lower_list[i] = link_length - 50
-                lower_list[i] = 0. if lower_list[i] < 0 else lower_list[i]
-            # Spinbox
-            error_range = (upper_list[i] - lower_list[i]) / 2
-            s1 = spinbox(error_range + lower_list[i])
-            s2 = spinbox(error_range, prefix=True)
-            self.parameter_list.setCellWidget(row, 2, s1)
-            self.parameter_list.setCellWidget(row, 4, s2)
-            s1.valueChanged.connect(set_by_center(i, s2.value))
-            s2.valueChanged.connect(set_by_range(i, s1.value))
-            row += 1
+        self.parameter_list.setItem(row, 0, QTableWidgetItem("L"))
+        self.parameter_list.setItem(row, 1, QTableWidgetItem('link'))
+        for i, (s, tag) in enumerate(
+            [(spinbox(), 'upper'), (spinbox(), 'lower')]):
+            s.setValue(self.mech[tag])
+            s.valueChanged.connect(set_link(tag))
+            self.parameter_list.setCellWidget(row, i + 2, s)
+        # Update previews
         self.update_range()
         self.profile_name.setText(profile_name)
-        # Default value of algorithm option.
+        # Default value of algorithm option
         if 'settings' in self.mech:
             self.alg_options.update(self.mech['settings'])
         else:
@@ -816,17 +772,18 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         self.__clear_settings()
         result = self.mechanism_data[row]
         for option, button in self.algorithm_options.items():
-            if result['Algorithm'] == option.value:
+            if result.get('algorithm', "") == option.value:
                 button.setChecked(True)
                 break
         else:
             raise ValueError("no option")
         # Copy to mechanism params
         self.__set_profile("External setting", result)
-        self.__set_time(result['time'])
+        self.__set_time(result.get('time', 0))
         # Load settings
         self.alg_options.clear()
-        self.alg_options.update(result['settings'])
+        self.alg_options.update(result.get('settings', {}))
+        self.shape_only_option.setChecked(result.get('shape_only', False))
 
     @Slot()
     def __set_algorithm_default(self) -> None:
@@ -860,7 +817,7 @@ class DimensionalSynthesis(QWidget, Ui_Form):
         elif dlg.min_fit_option.isChecked():
             self.alg_options['min_fit'] = dlg.min_fit.value()
         elif dlg.max_time_option.isChecked():
-            # Three spinbox value translate to second.
+            # Three spinbox value translate to second
             self.alg_options['max_time'] = (
                 dlg.max_time_h.value() * 3600
                 + dlg.max_time_m.value() * 60
@@ -885,10 +842,11 @@ class DimensionalSynthesis(QWidget, Ui_Form):
     @Slot()
     def update_range(self) -> None:
         """Update range values to main canvas."""
-        def t(x: int, y: int) -> Union[str, float]:
-            item = self.parameter_list.item(x, y)
+
+        def t(row: int, col: int) -> Union[str, float]:
+            item = self.parameter_list.item(row, col)
             if item is None:
-                w: QDoubleSpinBox = self.parameter_list.cellWidget(x, y)
+                w: QDoubleSpinBox = self.parameter_list.cellWidget(row, col)
                 return w.value()
             else:
                 return item.text()

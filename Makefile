@@ -17,7 +17,7 @@ else
 endif
 PIP = $(PY) -m pip
 
-.PHONY: all help doc install uninstall \
+.PHONY: all help doc ui qrc install uninstall \
     pack build test-pack test clean-pack clean clean-all
 
 all: build
@@ -29,20 +29,25 @@ help:
 	@echo   all: build kernel only.
 	@echo   help: show this help message.
 	@echo   doc: build the API documents.
-	@echo   build-pack: build Pyslvs executable file.
+	@echo   pack: build Pyslvs executable file.
 	@echo   build: build kernel only.
 	@echo   install: install Pyslvs by setuptools.
 	@echo   uninstall: uninstall Pyslvs by pip.
-	@echo   clean-pack: clean up executable file and PyInstaller items,
-	@echo          but not to delete kernel binary files.
+	@echo   test: run kernel unittest.
+	@echo   test-pack: run pack self-check.
 	@echo   clean: clean up kernel binary files.
+	@echo   clean-pack: clean up executable file and PyInstaller items,
+	@echo               but not to delete kernel binary files.
 	@echo   clean-all: clean every binary files and executable file.
 
-doc:
-ifeq (, $(shell which apimd > $(NULL)))
-	$(PIP) install apimd
-endif
+doc: build
 	apimd Pyslvs=pyslvs Python-Solvespace=python_solvespace
+
+ui:
+	$(PY) compile_resource.py --ui
+
+qrc:
+	$(PY) compile_resource.py --qrc
 
 build:
 	@echo Build libraries
@@ -70,16 +75,16 @@ uninstall:
 
 test:
 	@echo Test libraries
-	cd $(PYSLVS_PATH) && $(PY) setup.py test
+	cd $(PYSLVS_PATH) && $(PY) test
 	@echo Done
 
 test-pack: pack
 ifeq ($(OS), Windows_NT)
-	$(wildcard dist/*.exe) --test
+	$(wildcard dist/*.exe) test
 else ifeq ($(shell uname), Darwin)
-	$(wildcard dist/*.run) --test
+	$(wildcard dist/*.run) test
 else
-	$(wildcard out/*.AppImage) --test
+	$(wildcard out/*.AppImage) test
 endif
 
 clean:
@@ -88,17 +93,21 @@ clean:
 ifeq ($(OS), Windows_NT)
 	-rd "$(PYSLVS_PATH)/dist" /s /q
 	-rd "$(PYSLVS_PATH)/pyslvs.egg-info" /s /q
-	-cd "$(PYSLVS_PATH)/pyslvs" && del *.cpp /q
-	-cd "$(PYSLVS_PATH)/pyslvs" && del *.pyd /q
-	-cd "$(PYSLVS_PATH)/pyslvs" && del metaheuristics\*.cpp /q
-	-cd "$(PYSLVS_PATH)/pyslvs" && del metaheuristics\*.pyd /q
+	-cd "$(PYSLVS_PATH)" && del pyslvs\*.cpp /q
+	-cd "$(PYSLVS_PATH)" && del pyslvs\*.pyd /q
+	-cd "$(PYSLVS_PATH)" && del pyslvs\graph\*.cpp /q
+	-cd "$(PYSLVS_PATH)" && del pyslvs\graph\*.pyd /q
+	-cd "$(PYSLVS_PATH)" && del pyslvs\metaheuristics\*.cpp /q
+	-cd "$(PYSLVS_PATH)" && del pyslvs\metaheuristics\*.pyd /q
 else
-	-rm -fr $(PYSLVS_PATH)/dist
-	-rm -fr $(PYSLVS_PATH)/pyslvs.egg-info
-	-rm -f $(PYSLVS_PATH)/pyslvs/*.cpp
-	-rm -f $(PYSLVS_PATH)/pyslvs/*.so
-	-rm -f $(PYSLVS_PATH)/pyslvs/metaheuristics/*.cpp
-	-rm -f $(PYSLVS_PATH)/pyslvs/metaheuristics/*.so
+	-rm -fr "$(PYSLVS_PATH)"/dist
+	-rm -fr "$(PYSLVS_PATH)"/pyslvs.egg-info
+	-rm -f "$(PYSLVS_PATH)"/pyslvs/*.cpp
+	-rm -f "$(PYSLVS_PATH)"/pyslvs/*.so
+	-rm -f "$(PYSLVS_PATH)"/pyslvs/graph/*.cpp
+	-rm -f "$(PYSLVS_PATH)"/pyslvs/graph/*.so
+	-rm -f "$(PYSLVS_PATH)"/pyslvs/metaheuristics/*.cpp
+	-rm -f "$(PYSLVS_PATH)"/pyslvs/metaheuristics/*.so
 endif
 
 clean-pack:

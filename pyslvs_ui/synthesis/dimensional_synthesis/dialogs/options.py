@@ -24,7 +24,6 @@ _Value = Union[int, float]
 
 
 class AlgorithmOptionDialog(QDialog, Ui_Dialog):
-
     """Option dialog.
 
     Only edit the settings after closed.
@@ -39,8 +38,8 @@ class AlgorithmOptionDialog(QDialog, Ui_Dialog):
         """Load the settings to user interface."""
         super(AlgorithmOptionDialog, self).__init__(parent)
         self.setupUi(self)
-        flags = self.windowFlags()
-        self.setWindowFlags(flags & ~Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags()
+                            & ~Qt.WindowContextHelpButtonHint)
         self.setWindowTitle(f"{algorithm.value} Options")
 
         self.algorithm = algorithm

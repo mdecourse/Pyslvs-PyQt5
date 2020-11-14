@@ -9,8 +9,8 @@ __copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import TYPE_CHECKING, Dict, Union
-from qtpy.QtCore import Signal, Slot, QFileInfo, QDateTime
+from typing import TYPE_CHECKING, Mapping, Union
+from qtpy.QtCore import Slot, QFileInfo, QDateTime
 from qtpy.QtWidgets import (
     QUndoView,
     QVBoxLayout,
@@ -26,17 +26,15 @@ from .yaml import YamlEditor
 from .hdf5 import HDF5Editor
 from .project_ui import Ui_Form
 from .format_editor import PROJECT_FORMAT
+
 if TYPE_CHECKING:
     from pyslvs_ui.widgets import MainWindowBase
 
 
 class ProjectWidget(QWidget, Ui_Form):
-
     """The table that stored project data and changes."""
 
-    load_id = Signal(int)
-
-    def __init__(self, parent: MainWindowBase) -> None:
+    def __init__(self, parent: MainWindowBase):
         super(ProjectWidget, self).__init__(parent)
         self.setupUi(self)
         # Undo view
@@ -131,7 +129,7 @@ class ProjectWidget(QWidget, Ui_Form):
         return self.__file_name.suffix()
 
     def file_exist(self) -> bool:
-        """Return True if the file is exist."""
+        """Return true if the file is exist."""
         return self.__file_name.isFile()
 
     def set_changed(self, changed: bool) -> None:
@@ -209,7 +207,7 @@ class ProjectWidget(QWidget, Ui_Form):
         if file_name:
             self.background_option.setText(file_name)
 
-    def background_config(self) -> Dict[str, Union[str, float]]:
+    def background_config(self) -> Mapping[str, Union[str, float]]:
         """Return background config."""
         env = self.__file_name.absoluteDir()
         return {
@@ -220,7 +218,7 @@ class ProjectWidget(QWidget, Ui_Form):
             'background_opacity': self.background_opacity_option.value(),
         }
 
-    def set_background_config(self, config: Dict[str, Union[str, float]]) -> None:
+    def set_background_config(self, config: Mapping[str, Union[str, float]]) -> None:
         """Set background config by dict object."""
         env = self.__file_name.absoluteDir()
         file = QFileInfo(env, config.get('background', ""))

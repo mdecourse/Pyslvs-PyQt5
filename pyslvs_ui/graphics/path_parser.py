@@ -20,9 +20,7 @@ _EXP: ("e" | "E") SIGNED_INT
 FLOAT: INT _EXP | DECIMAL _EXP?
 NUMBER: FLOAT | INT
 SIGNED_NUMBER: ["+" | "-"] NUMBER
-COMPLEX: SIGNED_NUMBER ["i" | "j"]
 number: SIGNED_NUMBER
-complex: COMPLEX
 
 // White space and new line
 WS: /[ \t]+/
@@ -32,14 +30,14 @@ _NEWLINE: (CR? LF)+
 %ignore WS
 
 // Main grammar
-coord: number ","? (complex | number ","? number)
-line: (coord (";" | ",")? _NEWLINE*)+
+coord: number ","? number
+?coord_style: "[" coord "]" | "(" coord ")" | coord
+line: (coord_style (";" | ",")? _NEWLINE*)+
 ?start: line
 """, parser='lalr')
 
 
 class _Transformer(Transformer):
-
     """Transform into 2D coordinates data."""
 
     @staticmethod
@@ -52,12 +50,10 @@ class _Transformer(Transformer):
 
     @staticmethod
     def coord(n: Tuple[float, Union[float, Tree]]) -> Tuple[float, float]:
-        if len(n) == 3:
-            return n[0], n[1]
-        elif type(n[1]) is float:
+        if isinstance(n[1], float):
             return n[0], n[1]
         else:
-            return n[0], float(cast(Tree, n[1]).children[0])
+            return n[0], float(cast(str, n[1].children[0]))
 
     @staticmethod
     def line(n):

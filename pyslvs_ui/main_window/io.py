@@ -7,7 +7,9 @@ __copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import Tuple, List, Sequence, Dict, Callable, Iterator, Union
+from typing import (
+    Tuple, List, Sequence, Mapping, Callable, Iterator, Union, Type,
+)
 from abc import ABC
 from dataclasses import Field, fields
 from lark.exceptions import LarkError
@@ -41,6 +43,7 @@ from pyslvs_ui.io import (
     SlvsParser,
     SlvsOutputDialog,
     DxfOutputDialog,
+    OutputDialog,
     OverviewDialog,
     str_between,
 )
@@ -52,11 +55,11 @@ Settings = Union[int, float, bool, str]
 
 
 class IOMethodInterface(ActionMethodInterface, ABC):
-
     """Abstract class for action methods."""
 
     def __v_to_slvs(self) -> Callable[[], Iterator[Tuple[int, int]]]:
         """Solvespace edges."""
+
         def func() -> Iterator[Tuple[int, int]]:
             for vlink in self.vlink_list:
                 if vlink.name == VLink.FRAME:
@@ -64,9 +67,10 @@ class IOMethodInterface(ActionMethodInterface, ABC):
                 for i, p in enumerate(vlink.points):
                     if i == 0:
                         continue
-                    yield (vlink.points[0], p)
+                    yield vlink.points[0], p
                     if i > 1:
-                        yield (vlink.points[i - 1], p)
+                        yield vlink.points[i - 1], p
+
         return func
 
     def __read_slvs(self, file_name: str) -> None:
@@ -77,11 +81,13 @@ class IOMethodInterface(ActionMethodInterface, ABC):
         """
         parser = SlvsParser(file_name)
         if not parser.is_valid():
-            QMessageBox.warning(self, "Format error", "The format is not support.")
+            QMessageBox.warning(self, "Format error",
+                                "The format is not support.")
             return
         groups = parser.get_groups()
         if not groups:
-            QMessageBox.warning(self, "Format error", "The model file is empty.")
+            QMessageBox.warning(self, "Format error",
+                                "The model file is empty.")
             return
         group, ok = QInputDialog.getItem(
             self,
@@ -135,7 +141,8 @@ class IOMethodInterface(ActionMethodInterface, ABC):
             title = file_name.absoluteFilePath()
         else:
             title = file_name.completeBaseName()
-        self.setWindowTitle(f"Pyslvs - {title}{'*' if self.project_widget.changed() else ''}")
+        self.setWindowTitle(
+            f"Pyslvs - {title}{'*' if self.project_widget.changed() else ''}")
 
     def __open_url(self, url: str) -> None:
         """Use to open link."""
@@ -150,7 +157,7 @@ class IOMethodInterface(ActionMethodInterface, ABC):
     @Slot(name='on_action_pyslvs_com_triggered')
     def __show_pyslvs_com(self) -> None:
         """Open website: pyslvs.com"""
-        self.__open_url("http://www.pyslvs.com/blog/index.html")
+        self.__open_url("http://www.pyslvs.com/content/index.html")
 
     @Slot(name='on_action_github_repository_triggered')
     def __show_github(self) -> None:
@@ -244,7 +251,8 @@ class IOMethodInterface(ActionMethodInterface, ABC):
                 item = item[t:]
                 type_text = f"{item[0]}:{item[-1]}" if item[0] != 'R' else 'R'
                 links_text = ", ".join(links)
-                expr.append(f"J[{type_text}, P[{item[1]}, {item[2]}], L[{links_text}]]")
+                expr.append(
+                    f"J[{type_text}, P[{item[1]}, {item[2]}], L[{links_text}]]")
             expr = "M[" + ", ".join(expr) + "]"
         except (ValueError, IndexError):
             QMessageBox.warning(
@@ -289,7 +297,7 @@ class IOMethodInterface(ActionMethodInterface, ABC):
                 ))
                 self.command_stack.endMacro()
 
-    def add_empty_links(self, link_color: Dict[str, str]) -> None:
+    def add_empty_links(self, link_color: Mapping[str, str]) -> None:
         """Use to add empty link when loading database."""
         for name, color in link_color.items():
             if name != VLink.FRAME:
@@ -337,48 +345,34 @@ class IOMethodInterface(ActionMethodInterface, ABC):
     @Slot(name='on_action_save_as_triggered')
     def __save_as(self) -> None:
         """Save as action."""
-        file_name = self.output_to("Pyslvs project", ["Pyslvs project (*.pyslvs)"])
+        file_name = self.output_to("Pyslvs project",
+                                   ["Pyslvs project (*.pyslvs)"])
         if not file_name:
             return
         self.project_widget.save(file_name)
         self.project_saved()
         self.save_reply_box("YAML Profile", file_name)
 
-    @Slot()
-    def export_slvs(self) -> None:
-        """Solvespace 2d save function."""
-        dlg = SlvsOutputDialog(
-            self.env,
-            self.project_widget.base_file_name(),
-            self.vpoint_list,
-            self.__v_to_slvs(),
-            self
-        )
+    def __cad_export(self, dialog: Type[OutputDialog], title: str) -> None:
+        """Export to cad format."""
+        dlg = dialog(self.env, self.project_widget.base_file_name(),
+                     self.vpoint_list, self.__v_to_slvs(), self)
         dlg.show()
         if dlg.exec_():
             path = dlg.path_edit.text() or dlg.path_edit.placeholderText()
             self.set_locate(path)
-            self.save_reply_box("Solvespace sketch", path)
-
+            self.save_reply_box(title, path)
         dlg.deleteLater()
+
+    @Slot()
+    def export_slvs(self) -> None:
+        """Solvespace 2d save function."""
+        self.__cad_export(SlvsOutputDialog, "Solvespace sketch")
 
     @Slot()
     def export_dxf(self) -> None:
         """DXF 2d save function."""
-        dlg = DxfOutputDialog(
-            self.env,
-            self.project_widget.base_file_name(),
-            self.vpoint_list,
-            self.__v_to_slvs(),
-            self
-        )
-        dlg.show()
-        if dlg.exec_():
-            path = dlg.path_edit.text() or dlg.path_edit.placeholderText()
-            self.set_locate(path)
-            self.save_reply_box("Drawing Exchange Format", path)
-
-        dlg.deleteLater()
+        self.__cad_export(DxfOutputDialog, "Drawing Exchange Format")
 
     @Slot()
     def export_image(self) -> None:
@@ -498,7 +492,7 @@ class IOMethodInterface(ActionMethodInterface, ABC):
         elif reply == QMessageBox.Save:
             QApplication.clipboard().setText(url)
 
-    @Slot()
+    @Slot(name='on_action_screenshot_triggered')
     def save_picture_clipboard(self) -> None:
         """Capture the canvas image to clipboard."""
         if self.prefer.grab_no_background_option:
@@ -536,11 +530,12 @@ class IOMethodInterface(ActionMethodInterface, ABC):
             _PREFIX + f"\"{self.project_widget.base_file_name()}\"\n"
             + slvs_process_script(
                 tuple(vpoint.expr() for vpoint in self.vpoint_list),
-                tuple((b, d) for b, d, a in self.inputs_widget.input_pairs())
+                tuple((b, d) for b, d, _ in self.inputs_widget.input_pairs())
             ),
             "Python script",
             ["Python3 Script (*.py)"],
-            self
+            self,
+            exprs=self.get_triangle().as_list()
         )
         dlg.show()
         dlg.exec_()
@@ -569,6 +564,11 @@ class IOMethodInterface(ActionMethodInterface, ABC):
                 "Pyslvs is up to date",
                 "You are using the latest version of Pyslvs."
             )
+
+    @Slot(name='on_action_report_issue_triggered')
+    def __report_issue(self) -> None:
+        """Open website: Pyslvs issue page."""
+        self.__open_url("https://github.com/KmolYuan/Pyslvs-UI/issues")
 
     def check_file_changed(self) -> bool:
         """If the user has not saved the change.
@@ -599,18 +599,19 @@ class IOMethodInterface(ActionMethodInterface, ABC):
             setting = self.settings.value(field.name, field.default)
             setattr(prefer, field.name, setting)
         # Specified solver setting
-        if ARGUMENTS.kernel:
-            if ARGUMENTS.kernel == "python_solvespace":
+        kernel = ARGUMENTS.kernel
+        if kernel:
+            if kernel == "python_solvespace":
                 prefer.planar_solver_option = 1
-            elif ARGUMENTS.kernel == "sketch_solve":
+            elif kernel == "sketch_solve":
                 prefer.planar_solver_option = 2
-            elif ARGUMENTS.kernel == "pyslvs":
+            elif kernel == "pyslvs":
                 prefer.planar_solver_option = 0
             else:
                 QMessageBox.warning(
                     self,
                     "Kernel not found",
-                    f"No such kernel: {ARGUMENTS.kernel}"
+                    f"No such kernel: {kernel}"
                 )
         self.apply_preferences(prefer, force=True)
 
@@ -626,13 +627,14 @@ class IOMethodInterface(ActionMethodInterface, ABC):
             self.settings.setValue(field.name, getattr(self.prefer, field.name))
 
     def load_from_args(self) -> None:
-        if not ARGUMENTS.filepath:
+        filepath = ARGUMENTS.filepath
+        if not filepath:
             return
-        suffix = QFileInfo(ARGUMENTS.filepath).suffix().lower()
+        suffix = QFileInfo(filepath).suffix().lower()
         if suffix == 'pyslvs':
-            self.project_widget.read(ARGUMENTS.filepath)
+            self.project_widget.read(filepath)
         elif suffix == 'slvs':
-            self.__read_slvs(ARGUMENTS.filepath)
+            self.__read_slvs(filepath)
         else:
             QMessageBox.warning(
                 self,
@@ -657,7 +659,7 @@ class IOMethodInterface(ActionMethodInterface, ABC):
             self.get_expression(),
             self.get_storage(),
             [(b, d) for b, d, _ in self.inputs_widget.input_pairs()],
-            self.inputs_widget.path_data(),
+            self.inputs_widget.paths(),
             self.collections.collect_data(),
             self.collections.config_data(),
             self.dimensional_synthesis.mechanism_data,

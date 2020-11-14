@@ -10,13 +10,7 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from typing import (
-    TYPE_CHECKING,
-    List,
-    Tuple,
-    Sequence,
-    Dict,
-    Callable,
-    Optional,
+    TYPE_CHECKING, List, Tuple, Sequence, Dict, Mapping, Callable, Optional,
     Any,
 )
 from math import hypot
@@ -31,10 +25,12 @@ from qtpy.QtWidgets import (
     QApplication,
 )
 from qtpy.QtGui import QMouseEvent
-from pyslvs import Graph, edges_view, graph2vpoints, parse_pos
+from pyslvs import edges_view, graph2vpoints, parse_pos
+from pyslvs.graph import Graph
 from pyslvs_ui.graphics import PreviewCanvas
 from .dialogs import CollectionsDialog, CustomsDialog, TargetsDialog, list_texts
 from .configure_widget_ui import Ui_Form
+
 if TYPE_CHECKING:
     from pyslvs_ui.widgets.main_base import MainWindowBase
 
@@ -42,16 +38,14 @@ _Coord = Tuple[float, float]
 
 
 class _ConfigureCanvas(PreviewCanvas):
-
     """Customized preview window has some functions of mouse interaction.
 
     Emit signal call to change current point when pressed a dot.
     """
-
     edit_size = 1000
     set_joint_number = Signal(int)
 
-    def __init__(self, parent: ConfigureWidget) -> None:
+    def __init__(self, parent: ConfigureWidget):
         """Add a function use to get current point from parent."""
         super(_ConfigureCanvas, self).__init__(parent)
         self.pressed = False
@@ -61,11 +55,9 @@ class _ConfigureCanvas(PreviewCanvas):
         """Check if get close to a joint."""
         mx = (event.x() - self.ox) / self.zoom
         my = (event.y() - self.oy) / -self.zoom
-
         for node, (x, y) in self.pos.items():
             if node in self.same:
                 continue
-
             if hypot(x - mx, y - my) <= 5:
                 self.set_joint_number.emit(node)
                 self.pressed = True
@@ -113,17 +105,18 @@ def _set_warning(label: QLabel, warning: bool) -> None:
 
 
 class ConfigureWidget(QWidget, Ui_Form):
-
     """Configure widget.
 
     This interface use to modify structure profile.
     """
+    collections: Dict[str, Dict[str, Any]]
+    configure_canvas: _ConfigureCanvas
 
     def __init__(
         self,
         add_collection: Callable[[Sequence[Tuple[int, int]]], None],
         parent: MainWindowBase
-    ) -> None:
+    ):
         """We need some function from structure collections."""
         super(ConfigureWidget, self).__init__(parent)
         self.setupUi(self)
@@ -133,9 +126,9 @@ class ConfigureWidget(QWidget, Ui_Form):
         self.prefer = parent.prefer
         self.get_expression = parent.get_expression
         # Iteration data
-        self.collections: Dict[str, Dict[str, Any]] = {}
+        self.collections = {}
         # Customized preview canvas
-        self.configure_canvas = _ConfigureCanvas(self)  # type: _ConfigureCanvas
+        self.configure_canvas = _ConfigureCanvas(self)
         self.configure_canvas.set_joint_number.connect(
             self.joint_name.setCurrentIndex
         )
@@ -143,9 +136,10 @@ class ConfigureWidget(QWidget, Ui_Form):
         self.main_splitter.setSizes([300, 300])
         self.__clear_panel()
 
-    def add_collections(self, collections: Dict[str, Dict[str, Any]]) -> None:
+    def add_collections(self,
+                        collections: Mapping[str, Mapping[str, Any]]) -> None:
         """Update the new collections."""
-        self.collections.update(collections)
+        self.collections.update({n: dict(d) for n, d in collections.items()})
 
     def clear(self) -> None:
         """Clear all sub-widgets."""

@@ -7,7 +7,7 @@ __copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import Sequence, Dict, Optional
+from typing import Sequence, Dict, Mapping, Optional
 from abc import ABC
 from qtpy.QtCore import Slot
 from qtpy.QtWidgets import (
@@ -28,7 +28,6 @@ from .solver import SolverMethodInterface
 
 
 class StorageMethodInterface(SolverMethodInterface, ABC):
-
     """Abstract class for storage methods."""
 
     def __add_storage(self, name: str, expr: str) -> None:
@@ -71,7 +70,7 @@ class StorageMethodInterface(SolverMethodInterface, ABC):
 
     def ask_add_storage(self, expr: str) -> bool:
         try:
-            # Put the expression into parser to see if it is legal.
+            # Put the expression into parser to see if it is legal
             parse_params(expr)
         except Exception as error:
             logger.warn(error)
@@ -128,7 +127,7 @@ class StorageMethodInterface(SolverMethodInterface, ABC):
         name = item.text()
         self.command_stack.beginMacro(f"Restore from {{Mechanism: {name}}}")
 
-        # Clean all the item of two table widgets.
+        # Clean all the item of two table widgets
         for i in range(self.entities_point.rowCount()):
             self.delete_point(0)
         for i in range(self.entities_link.rowCount() - 1):
@@ -143,7 +142,7 @@ class StorageMethodInterface(SolverMethodInterface, ABC):
         self.command_stack.endMacro()
         self.main_canvas.zoom_to_fit()
 
-    def get_storage(self) -> Dict[str, str]:
+    def get_storage(self) -> Mapping[str, str]:
         """Get storage data."""
         storage: Dict[str, str] = {}
         for row in range(self.mechanism_storage.count()):
@@ -151,7 +150,7 @@ class StorageMethodInterface(SolverMethodInterface, ABC):
             storage[item.text()] = item.expr
         return storage
 
-    def add_multiple_storage(self, exprs: Dict[str, str]) -> None:
+    def add_multiple_storage(self, exprs: Mapping[str, str]) -> None:
         """Add storage data from database."""
         for name, expr in exprs.items():
             self.__add_storage(name, expr)

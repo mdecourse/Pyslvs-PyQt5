@@ -1,15 +1,11 @@
-setuptools
-wheel
+importlib-metadata; python_version < '3.8'
 requests
 qtpy
-pyqt5<5.14; sys_platform == 'linux'
-pyqt5; sys_platform != 'linux'
-pyqtchart<5.14; sys_platform == 'linux'
-pyqtchart; sys_platform != 'linux'
+pyqt5
 ezdxf
 numpy
-cython
-python-solvespace
+# https://github.com/pyinstaller/pyinstaller/issues/5004
+matplotlib < 3.3
 openpyxl
 psutil
 lark-parser

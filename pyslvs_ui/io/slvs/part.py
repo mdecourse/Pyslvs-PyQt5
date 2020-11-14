@@ -9,12 +9,34 @@ __email__ = "pyslvs@gmail.com"
 
 from typing import Sequence, List, Tuple, Iterator
 from math import radians, sin, cos, atan2
-from pyslvs import VPoint, Coordinate
+from pyslvs import VPoint, Coord
 from pyslvs_ui.graphics import convex_hull
 from .write import SlvsWriter2
 
 _Coord = Tuple[float, float]
-_CoordsPair = Tuple[Coordinate, Coordinate]
+_CoordsPair = Tuple[Coord, Coord]
+
+
+def _by_frame() -> Iterator[int]:
+    """Number code of frame."""
+    yield 0
+    yield 1
+    k = 2
+    while True:
+        for code in (0, 1):
+            yield code
+            yield k
+        k += 1
+
+
+def _by_boundary(length: int) -> Iterator[int]:
+    """Number code of boundary."""
+    k = 0
+    while True:
+        yield k
+        k += 1
+        k %= length
+        yield k
 
 
 def boundary_loop(
@@ -24,14 +46,14 @@ def boundary_loop(
     """Create boundary edges by pairs of coordinates."""
     boundary_tmp = []
     for i in range(len(boundary)):
-        p1 = Coordinate(*boundary[i])
-        p2 = Coordinate(*boundary[i + 1 if i + 1 < len(boundary) else 0])
+        p1 = Coord(*boundary[i])
+        p2 = Coord(*boundary[i + 1 if i + 1 < len(boundary) else 0])
         alpha = atan2(p2.y - p1.y, p2.x - p1.x) - radians(90)
         offset_x = radius * cos(alpha)
         offset_y = radius * sin(alpha)
         boundary_tmp.append((
-            Coordinate(p1.x + offset_x, p1.y + offset_y),
-            Coordinate(p2.x + offset_x, p2.y + offset_y),
+            Coord(p1.x + offset_x, p1.y + offset_y),
+            Coord(p2.x + offset_x, p2.y + offset_y),
         ))
     return boundary_tmp
 
@@ -43,7 +65,7 @@ def slvs2_part(vpoints: List[VPoint], radius: float, file_name: str) -> None:
     min_y = min(vpoint.cy for vpoint in vpoints)
     centers = [(vpoint.cx - min_x, vpoint.cy - min_y) for vpoint in vpoints]
     # Synchronous the point coordinates after using convex hull
-    centers_ch: List[_Coord] = convex_hull(centers)
+    centers_ch = convex_hull(centers)
     _boundary = centers_ch.copy()
     for x, y in centers:
         if (x, y) not in centers_ch:
@@ -53,12 +75,12 @@ def slvs2_part(vpoints: List[VPoint], radius: float, file_name: str) -> None:
 
     # Frame (p1, p2, p3) -> ((p1, p2), (p3, p1), (p3, p2))
     frame: List[_CoordsPair] = [(
-        Coordinate(centers[-2][0], centers[-2][1]),
-        Coordinate(centers[-1][0], centers[-1][1]),
+        Coord(centers[-2][0], centers[-2][1]),
+        Coord(centers[-1][0], centers[-1][1]),
     )]
     for x, y in centers[2:]:
-        frame.append((frame[0][0], Coordinate(x, y)))
-        frame.append((frame[0][1], Coordinate(x, y)))
+        frame.append((frame[0][0], Coord(x, y)))
+        frame.append((frame[0][1], Coord(x, y)))
 
     # Boundary
     boundary = boundary_loop(_boundary, radius)
@@ -116,59 +138,33 @@ def slvs2_part(vpoints: List[VPoint], radius: float, file_name: str) -> None:
         writer.param_shift16()
 
     # Group 2:
-
     point_count = len(centers)
     # The number of same points
     point_num: List[List[int]] = [[] for _ in range(point_count)]
     # The number of same lines
     line_num: List[List[int]] = [[] for _ in range(len(frame))]
 
-    def segment_processing(edges: Sequence[_CoordsPair]) -> None:
+    def segment_processing(edges: Sequence[_CoordsPair], *,
+                           is_frame: bool = True) -> None:
         """Add edges to work plane. (No any constraint.)"""
         # Add "Request"
         for _ in range(len(edges)):
             writer.request_line(writer.request_num)
             writer.request_num += 1
 
-        def edges_is_frame() -> Iterator[int]:
-            """Number code of frame."""
-            yield 0
-            yield 1
-            k = 2
-            while True:
-                for code in (0, 1):
-                    yield code
-                    yield k
-                k += 1
-
-        def edges_is_boundary() -> Iterator[int]:
-            """Number code of boundary."""
-            k = 0
-            while True:
-                yield k
-                k += 1
-                k %= len(point_num)
-                yield k
-
-        # Add "Entity".
-        if edges is frame:
-            p_count = edges_is_frame()
-        else:
-            p_count = edges_is_boundary()
-
+        # Add "Entity"
+        p_counter = _by_frame() if is_frame else _by_boundary(len(point_num))
         for index, edge in enumerate(edges):
             writer.entity_line(writer.entity_num)
             for j, coord in enumerate(edge):
                 writer.entity_num += 1
-                point_num[next(p_count)].append(writer.entity_num)
+                point_num[next(p_counter)].append(writer.entity_num)
                 writer.entity_point_2d(writer.entity_num, coord.x, coord.y)
                 line_num[index].append(writer.entity_num)
             writer.entity_shift16()
 
-    segment_processing(frame)
-
+    segment_processing(frame, is_frame=True)
     center_num = [nums[0] for nums in point_num]
-
     # Add "Constraint"
     # Same point constraint
     for p in point_num:
@@ -177,11 +173,12 @@ def slvs2_part(vpoints: List[VPoint], radius: float, file_name: str) -> None:
             writer.constraint_num += 1
     for i, (n1, n2) in enumerate(line_num):
         p1, p2 = frame[i]
-        writer.constraint_distance(writer.constraint_num, n1, n2, p1.distance(p2))
+        writer.constraint_distance(writer.constraint_num, n1, n2,
+                                   p1.distance(p2))
         writer.constraint_num += 1
     # Add "Constraint" of position
     for i, c in enumerate(frame[0]):
-        writer.constraint_fix(writer.constraint_num, point_num[i][0], c.x, c.y)
+        writer.constraint_grounded(writer.constraint_num, point_num[i][0], c.x, c.y)
         if i == 1:
             writer.script_constraint.pop()
             writer.constraint_num += 1
@@ -191,14 +188,13 @@ def slvs2_part(vpoints: List[VPoint], radius: float, file_name: str) -> None:
     # Group 3:
     writer.set_group(0x3)
 
-    # The number of same points.
+    # The number of same points
     point_num = [[] for _ in range(len(boundary))]
-    # The number of same lines.
+    # The number of same lines
     line_num = [[] for _ in range(len(boundary))]
-    # The number of circles.
-    circles = []
-
     segment_processing(boundary)
+    # The number of circles
+    circles = []
 
     def add_circle(index: int, _x: float, _y: float) -> None:
         """Add circle"""
@@ -223,9 +219,11 @@ def slvs2_part(vpoints: List[VPoint], radius: float, file_name: str) -> None:
         writer.constraint_num += 1
         # Add "Constraint" for diameter
         if index == 0:
-            writer.constraint_diameter(writer.constraint_num, circles[-1], radius)
+            writer.constraint_diameter(writer.constraint_num, circles[-1],
+                                       radius)
         else:
-            writer.constraint_equal_radius(writer.constraint_num, circles[-1], circles[0])
+            writer.constraint_equal_radius(writer.constraint_num, circles[-1],
+                                           circles[0])
         writer.constraint_num += 1
 
     def add_arc(index: int, _cx: float, _cy: float) -> None:
@@ -247,20 +245,18 @@ def slvs2_part(vpoints: List[VPoint], radius: float, file_name: str) -> None:
         # Add "Constraint" for three points
         num1 = point_num[index][0]
         num2 = point_num[index][1]
-        if (num1 % 16) < (num2 % 16):
+        if num1 % 16 < num2 % 16:
             num1, num2 = num2, num1
-        for j, num in enumerate((
-            center_num[index],
-            num1,
-            num2,
-        )):
+        for j, num in enumerate([center_num[index], num1, num2]):
             writer.constraint_point(writer.constraint_num, p3[j], num)
             writer.constraint_num += 1
         # Add "Constraint" for diameter
         if index == 0:
-            writer.constraint_diameter(writer.constraint_num, circles[-1], radius * 2)
+            writer.constraint_diameter(writer.constraint_num, circles[-1],
+                                       radius * 2)
         else:
-            writer.constraint_equal_radius(writer.constraint_num, circles[-1], circles[0])
+            writer.constraint_equal_radius(writer.constraint_num, circles[-1],
+                                           circles[0])
         writer.constraint_num += 1
         # Add "Constraint" for become tangent line
         for j, num in enumerate((num1 - num1 % 16, num2 - num2 % 16)):
@@ -278,6 +274,5 @@ def slvs2_part(vpoints: List[VPoint], radius: float, file_name: str) -> None:
     for i in range(len(boundary)):
         x, y = centers[i]
         add_arc(i, x, y)
-
     # Write file
     writer.save(file_name)

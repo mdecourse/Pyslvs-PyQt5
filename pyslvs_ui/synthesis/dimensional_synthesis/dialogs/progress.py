@@ -10,19 +10,19 @@ __email__ = "pyslvs@gmail.com"
 from typing import List, Dict, Any
 from qtpy.QtCore import Qt, QTimer, Signal, Slot
 from qtpy.QtWidgets import QDialog
+from pyslvs.metaheuristics import AlgorithmType
 from pyslvs_ui.info import logger
 from .progress_ui import Ui_Dialog
 from .thread import DimensionalThread
-from .options import AlgorithmType
 
 
 class ProgressDialog(QDialog, Ui_Dialog):
-
     """Progress dialog.
 
     + Batch execute function.
     + Interrupt function.
     """
+    mechanisms: List[Dict[str, Any]]
 
     stop_signal = Signal()
 
@@ -35,11 +35,11 @@ class ProgressDialog(QDialog, Ui_Dialog):
     ):
         super(ProgressDialog, self).__init__(parent)
         self.setupUi(self)
-        flags = self.windowFlags()
-        self.setWindowFlags(flags & ~Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags()
+                            & ~Qt.WindowContextHelpButtonHint)
         self.rejected.connect(self.__close_work)
 
-        self.mechanisms: List[Dict[str, Any]] = []
+        self.mechanisms = []
         # Batch label
         if 'max_gen' in setting:
             self.limit = setting['max_gen']
@@ -110,7 +110,7 @@ class ProgressDialog(QDialog, Ui_Dialog):
         loop = self.loopTime.value()
         self.progress_bar.setMaximum(self.limit * loop)
         if self.limit_mode in {'min_fit', 'max_time'} or self.limit == 0:
-            # Progress bar will show generations instead of percent.
+            # Progress bar will show generations instead of percent
             self.progress_bar.setFormat("%v generations")
         self.work.set_loop(loop)
         self.timer.start()

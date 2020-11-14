@@ -7,14 +7,14 @@ __copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import Tuple, Sequence, Callable, List
+from typing import Tuple, Sequence, Iterable, Callable, List
 from pyslvs import VPoint
 from .write import SlvsWriter2
 
 
 def slvs2_frame(
     vpoints: Sequence[VPoint],
-    v_to_slvs: Callable[[], Sequence[Tuple[int, int]]],
+    v_to_slvs: Callable[[], Iterable[Tuple[int, int]]],
     file_name: str
 ):
     """Generate frame sketch, ignore all points that was no any connection."""
@@ -40,7 +40,7 @@ def slvs2_frame(
 
     # The number of same points
     point_num: List[List[int]] = [[] for _ in range(len(vpoints))]
-    # The number of same lines.
+    # The number of same lines
     line_num: List[List[int]] = [[] for _ in range(len(edges))]
 
     # Add "Entity"
@@ -62,7 +62,7 @@ def slvs2_frame(
     # Position constraint
     for i, vpoint in enumerate(vpoints):
         if "ground" in vpoint.links and point_num[i]:
-            writer.constraint_fix(writer.constraint_num, point_num[i][0], vpoint.cx, vpoint.cy)
+            writer.constraint_grounded(writer.constraint_num, point_num[i][0], vpoint.cx, vpoint.cy)
             writer.constraint_num += 2
     # Distance constraint
     for i, (n1, n2) in enumerate(line_num):

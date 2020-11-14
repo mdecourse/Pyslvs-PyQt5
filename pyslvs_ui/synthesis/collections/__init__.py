@@ -23,15 +23,15 @@ from qtpy.QtGui import QIcon, QPixmap
 from .structure_widget import StructureWidget
 from .configure_widget import ConfigureWidget
 from .dialogs import CollectionsDialog
+
 if TYPE_CHECKING:
     from pyslvs_ui.widgets import MainWindowBase
 
 
 class Collections(QWidget):
-
     """Just a widget contains a sub tab widget."""
 
-    def __init__(self, parent: MainWindowBase) -> None:
+    def __init__(self, parent: MainWindowBase):
         """Create two widget page and using main window to make their parent."""
         super(Collections, self).__init__(parent)
         layout = QVBoxLayout(self)

@@ -22,7 +22,7 @@ pip install pyslvs
 Enter directory and execute the Makefile. Then, run the unit test script after compiling.
 
 ```bash
-python setup.py test
+python test
 ```
 
 ## Module parts
@@ -61,7 +61,7 @@ Most of classes and functions can be work with a generic Python format (just lik
 
     Particular solution takes more faster then constraint solving.
 
-+ **triangulation** library:
++ **topo_config** library:
 
     **preload**: `expression`, `tinycadlib`
 
@@ -69,39 +69,29 @@ Most of classes and functions can be work with a generic Python format (just lik
 
 ### Kinematic Graph Synthesis
 
-+ **number** library:
-
-    Number synthesis function for searching solutions of the number of joints and links.
-
 + **graph** library:
 
     Graph expression came from NetworkX. Also contains graph verification functions. 
 
-+ **planar_check** library:
++ **graph_planar** library:
 
     **preload**: `graph`
 
     Planar graph checking came from NetworkX.
 
-+ **atlas** library:
++ **structural** library:
 
-    **preload**: `number`, `graph`, `planar_check`
+    **preload**: `graph`, `graph_planar`
 
-    Graph combination algorithm.
+    Structural synthesis algorithm.
 
-#### metaheuristics (Dimensional Synthesis)
+#### Meta-heuristics Algorithm
 
 [metaheuristics](https://github.com/KmolYuan/metaheuristics) module: Cython algorithms libraries provide evolution designing.
 
 + **utility** library:
 
     Provide base fitness function class for algorithm.
-
-+ **planar_linkage** library:
-
-    **preload**: `expression`, `triangulation`, `bfgs`, `tinycadlib`, `utility`
-
-    Dimensional synthesis verification function objects.
 
 + **rga** library:
 
@@ -120,3 +110,11 @@ Most of classes and functions can be work with a generic Python format (just lik
     **preload**: `utility`
 
     Differential Evolution for dimensional synthesis.
+
+#### Dimensional Synthesis
+
++ **planar_linkage** library:
+
+    **preload**: `expression`, `topo_config`, `bfgs`, `tinycadlib`, `utility`
+
+    Dimensional synthesis verification function objects.

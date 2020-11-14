@@ -20,16 +20,8 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from typing import (
-    cast,
-    Sequence,
-    List,
-    Dict,
-    Tuple,
-    Iterator,
-    Iterable,
-    Generic,
-    Optional,
-    TypeVar,
+    cast, Type, Sequence, List, Dict, Mapping, Tuple, Iterator, Iterable,
+    Generic, Optional, TypeVar,
 )
 from abc import abstractmethod
 from qtpy.QtCore import Qt
@@ -46,7 +38,9 @@ from pyslvs import VJoint, VPoint, VLink, color_rgb, PointArgs, LinkArgs
 from pyslvs_ui.qt_patch import QABCMeta
 from .tables import BaseTableWidget, PointTableWidget, LinkTableWidget
 
-_Paths = Sequence[Sequence[Tuple[float, float]]]
+_Coord = Tuple[float, float]
+_Paths = Sequence[Sequence[_Coord]]
+_SliderPaths = Mapping[int, Sequence[_Coord]]
 _ITEM_FLAGS = Qt.ItemIsSelectable | Qt.ItemIsEnabled
 _Data = TypeVar('_Data', VPoint, VLink)
 _Args = TypeVar('_Args', PointArgs, LinkArgs)
@@ -83,8 +77,10 @@ def _args2vlink(args: LinkArgs) -> VLink:
 
 
 class _FusedTable(QUndoCommand, Generic[_Data], metaclass=QABCMeta):
-
     """Table command of fused type."""
+    entities_list: List[_Data]
+    table: BaseTableWidget
+    table_type: Type[BaseTableWidget]
 
     @abstractmethod
     def __init__(
@@ -94,13 +90,12 @@ class _FusedTable(QUndoCommand, Generic[_Data], metaclass=QABCMeta):
         parent: Optional[QWidget] = None
     ):
         super(_FusedTable, self).__init__(parent)
-        self.entities_list: List[_Data] = entities_list
+        self.entities_list = entities_list
         self.table = table
         self.table_type = type(table)
 
 
 class AddTable(_FusedTable[_Data]):
-
     """Add a row at last of the table."""
 
     def __init__(
@@ -131,7 +126,6 @@ class AddTable(_FusedTable[_Data]):
 
 
 class DeleteTable(_FusedTable[_Data]):
-
     """Delete the specified row of table.
 
     When this class has been called, the item must be empty.
@@ -172,7 +166,6 @@ class DeleteTable(_FusedTable[_Data]):
 
 
 class FixSequenceNumber(QUndoCommand):
-
     """Fix sequence number when deleting a point."""
 
     def __init__(
@@ -211,8 +204,8 @@ class FixSequenceNumber(QUndoCommand):
 
 
 class _EditFusedTable(QUndoCommand, Generic[_Args], metaclass=QABCMeta):
-
     """Edit table command of fused type."""
+    args: _Args
 
     @abstractmethod
     def __init__(
@@ -231,11 +224,10 @@ class _EditFusedTable(QUndoCommand, Generic[_Args], metaclass=QABCMeta):
         self.vlink_list = vlink_list
         self.point_table = point_table
         self.link_table = link_table
-        self.args: _Args = args_list
+        self.args = args_list
 
 
 class EditPointTable(_EditFusedTable[PointArgs]):
-
     """Edit Point table.
 
     Copy old data and put it back when called undo.
@@ -250,7 +242,7 @@ class EditPointTable(_EditFusedTable[PointArgs]):
         link_table: LinkTableWidget,
         args_list: PointArgs,
         parent: Optional[QWidget] = None
-    ) -> None:
+    ):
         super(EditPointTable, self).__init__(
             row,
             vpoint_list,
@@ -310,7 +302,6 @@ class EditPointTable(_EditFusedTable[PointArgs]):
 
 
 class EditLinkTable(_EditFusedTable[LinkArgs]):
-
     """Edit Link table.
 
     Copy old data and put it back when called undo.
@@ -325,7 +316,7 @@ class EditLinkTable(_EditFusedTable[LinkArgs]):
         link_table: LinkTableWidget,
         args_list: LinkArgs,
         parent: Optional[QWidget] = None
-    ) -> None:
+    ):
         super(EditLinkTable, self).__init__(
             row,
             vpoint_list,
@@ -353,11 +344,13 @@ class EditLinkTable(_EditFusedTable[LinkArgs]):
         self.vlink_list[self.row] = _args2vlink(self.args)
         self.link_table.edit_link(self.row, self.args)
         self.__rename(self.args.name, self.old_args)
-        self.__write_points(self.args.name, self.new_point_items, self.old_point_items)
+        self.__write_points(self.args.name, self.new_point_items,
+                            self.old_point_items)
 
     def undo(self) -> None:
         """Rewrite the dependents then write arguments."""
-        self.__write_points(self.old_args.name, self.old_point_items, self.new_point_items)
+        self.__write_points(self.old_args.name, self.old_point_items,
+                            self.new_point_items)
         self.__rename(self.old_args.name, self.args)
         self.link_table.edit_link(self.row, self.old_args)
         self.vlink_list[self.row] = _args2vlink(self.old_args)
@@ -376,7 +369,8 @@ class EditLinkTable(_EditFusedTable[LinkArgs]):
             self.point_table.setItem(row, 1, item)
             self.vpoint_list[row].replace_link(args.name, new_name)
 
-    def __write_points(self, name: str, add: Sequence[int], sub: Sequence[int]) -> None:
+    def __write_points(self, name: str, add: Sequence[int],
+                       sub: Sequence[int]) -> None:
         """Write table function.
 
         + Append the link that relate with these points.
@@ -400,70 +394,79 @@ class EditLinkTable(_EditFusedTable[LinkArgs]):
 
 
 class AddPath(QUndoCommand):
-
     """Append a new path."""
 
     def __init__(
         self,
         widget: QListWidget,
         name: str,
-        data: Dict[str, _Paths],
+        paths: Dict[str, _Paths],
+        slider_paths: Dict[str, _SliderPaths],
         path: _Paths,
+        slider_path: _SliderPaths,
         parent: Optional[QWidget] = None
-    ) -> None:
+    ):
         super(AddPath, self).__init__(parent)
         self.setText(f"Add {{Path: {name}}}")
         self.widget = widget
         self.name = name
-        self.data = data
+        self.paths = paths
+        self.slider_paths = slider_paths
         self.path = path
+        self.slider_path = slider_path
         self.targets = [i for i, p in enumerate(self.path) if len(set(p)) > 1]
 
     def redo(self) -> None:
         """Add new path data."""
-        self.data[self.name] = self.path
-        self.widget.addItem(f"{self.name}: " + ", ".join(f"[{i}]" for i in self.targets))
+        self.paths[self.name] = self.path
+        self.slider_paths[self.name] = self.slider_path
+        self.widget.addItem(
+            f"{self.name}: " + ", ".join(f"[{i}]" for i in self.targets))
 
     def undo(self) -> None:
         """Remove the last item."""
         self.widget.takeItem(self.widget.count() - 1)
-        self.data.pop(self.name)
+        self.paths.pop(self.name)
+        self.slider_paths.pop(self.name)
 
 
 class DeletePath(QUndoCommand):
-
     """"Delete the specified row of path."""
 
     def __init__(
         self,
         row: int,
         widget: QListWidget,
-        data: Dict[str, _Paths],
+        paths: Dict[str, _Paths],
+        slider_paths: Dict[str, _SliderPaths],
         parent: Optional[QWidget] = None
-    ) -> None:
+    ):
         super(DeletePath, self).__init__(parent)
         self.setText(f"Delete {{Path: {widget.item(row).text()}}}")
         self.row = row
         self.widget = widget
-        self.data = data
+        self.paths = paths
+        self.slider_paths = slider_paths
         self.old_item = self.widget.item(self.row)
         self.name = self.old_item.text().split(':')[0]
-        self.old_path = self.data[self.name]
+        self.old_path = self.paths[self.name]
+        self.old_slider_path = self.slider_paths[self.name]
 
     def redo(self) -> None:
         """Delete the path."""
         self.widget.takeItem(self.row)
-        self.data.pop(self.name)
+        self.paths.pop(self.name)
+        self.slider_paths.pop(self.name)
 
     def undo(self) -> None:
         """Append back the path."""
-        self.data[self.old_item.text().split(':')[0]] = self.old_path
+        self.paths[self.name] = self.old_path
+        self.slider_paths[self.name] = self.old_slider_path
         self.widget.addItem(self.old_item)
         self.widget.setCurrentRow(self.widget.row(self.old_item))
 
 
 class AddStorage(QUndoCommand):
-
     """Append a new storage."""
 
     def __init__(
@@ -472,7 +475,7 @@ class AddStorage(QUndoCommand):
         widget: QListWidget,
         mechanism: str,
         parent: Optional[QWidget] = None
-    ) -> None:
+    ):
         super(AddStorage, self).__init__(parent)
         self.setText(f"Add {{Mechanism: {name}}}")
         self.name = name
@@ -492,7 +495,6 @@ class AddStorage(QUndoCommand):
 
 
 class DeleteStorage(QUndoCommand):
-
     """Delete the specified row of storage."""
 
     def __init__(
@@ -500,7 +502,7 @@ class DeleteStorage(QUndoCommand):
         row: int,
         widget: QListWidget,
         parent: Optional[QWidget] = None
-    ) -> None:
+    ):
         super(DeleteStorage, self).__init__(parent)
         self.setText(f"Delete {{Mechanism: {widget.item(row).text()}}}")
         self.row = row
@@ -521,7 +523,6 @@ class DeleteStorage(QUndoCommand):
 
 
 class AddStorageName(QUndoCommand):
-
     """Update name of storage name."""
 
     def __init__(
@@ -529,7 +530,7 @@ class AddStorageName(QUndoCommand):
         name: str,
         widget: QLineEdit,
         parent: Optional[QWidget] = None
-    ) -> None:
+    ):
         super(AddStorageName, self).__init__(parent)
         self.name = name
         self.widget = widget
@@ -544,10 +545,9 @@ class AddStorageName(QUndoCommand):
 
 
 class ClearStorageName(QUndoCommand):
-
     """Clear the storage name"""
 
-    def __init__(self, widget: QLineEdit, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, widget: QLineEdit, parent: Optional[QWidget] = None):
         super(ClearStorageName, self).__init__(parent)
         self.name = widget.text() or widget.placeholderText()
         self.widget = widget
@@ -562,7 +562,6 @@ class ClearStorageName(QUndoCommand):
 
 
 class AddInput(QUndoCommand):
-
     """Add a variable to list widget."""
 
     def __init__(
@@ -570,7 +569,7 @@ class AddInput(QUndoCommand):
         name: str,
         widget: QListWidget,
         parent: Optional[QWidget] = None
-    ) -> None:
+    ):
         super(AddInput, self).__init__(parent)
         self.setText(f"Add variable of {name}")
         self.item = QListWidgetItem(name)
@@ -587,7 +586,6 @@ class AddInput(QUndoCommand):
 
 
 class DeleteInput(QUndoCommand):
-
     """Remove the variable item."""
 
     def __init__(
@@ -595,7 +593,7 @@ class DeleteInput(QUndoCommand):
         row: int,
         widget: QListWidget,
         parent: Optional[QWidget] = None
-    ) -> None:
+    ):
         super(DeleteInput, self).__init__(parent)
         self.setText(f"Remove variable of {{Point{row}}}")
         self.item = widget.item(row)

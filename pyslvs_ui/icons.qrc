@@ -49,11 +49,12 @@
     <file>icons/dimensional_synthesis.png</file>
     <file>icons/disconnect.png</file>
     <file>icons/edges_to_atlas.png</file>
-    <file>icons/efd.png</file>
+    <file>icons/fitting.png</file>
     <file>icons/example.png</file>
     <file>icons/exit.png</file>
     <file>icons/fullscreen.png</file>
     <file>icons/guide.png</file>
+    <file>icons/grid.png</file>
     <file>icons/interrupted.png</file>
     <file>icons/konsole.png</file>
     <file>icons/link.png</file>
@@ -64,6 +65,7 @@
     <file>icons/new_file.png</file>
     <file>icons/new_window.png</file>
     <file>icons/normal_size.png</file>
+    <file>icons/normalization.png</file>
     <file>icons/number.png</file>
     <file>icons/paste.png</file>
     <file>icons/pause.png</file>

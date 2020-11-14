@@ -10,7 +10,7 @@ __email__ = "pyslvs@gmail.com"
 from typing import Sequence, Dict, List
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QWidget, QTreeWidgetItem
-from pyslvs import (
+from pyslvs.graph import (
     link_synthesis,
     contracted_link_synthesis,
     contracted_graph,
@@ -28,14 +28,13 @@ def assortment_eval(links_expr: str) -> Assortment:
 
 
 class LinkThread(BaseThread):
-
     """Link assortment synthesis thread."""
 
     progress_update = Signal(int)
     result = Signal(dict)
     size_update = Signal(int)
 
-    def __init__(self, nl: int, nj: int, parent: QWidget) -> None:
+    def __init__(self, nl: int, nj: int, parent: QWidget):
         super(LinkThread, self).__init__(parent)
         self.nl = nl
         self.nj = nj
@@ -62,14 +61,12 @@ class LinkThread(BaseThread):
 
 
 class GraphThread(BaseThread):
-
     """Graphs enumeration thread."""
-
     progress_update = Signal(int)
     count_update = Signal(QTreeWidgetItem, int)
     result = Signal(list)
 
-    def __init__(self, jobs: Sequence[QTreeWidgetItem], degenerate: int, parent: QWidget) -> None:
+    def __init__(self, jobs: Sequence[QTreeWidgetItem], degenerate: int, parent: QWidget):
         super(GraphThread, self).__init__(parent)
         self.jobs = jobs
         self.degenerate = degenerate

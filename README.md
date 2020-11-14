@@ -4,14 +4,18 @@
 [![GitHub repo size in bytes](https://img.shields.io/github/repo-size/KmolYuan/Pyslvs-UI.svg)](https://github.com/KmolYuan/Pyslvs-UI/releases)
 [![Downloads](https://img.shields.io/github/downloads/KmolYuan/Pyslvs-UI/total.svg)](https://github.com/KmolYuan/Pyslvs-UI/releases)
 
+[![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/KmolYuan/Pyslvs-UI.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/KmolYuan/Pyslvs-UI/context:python)
 [![PyPI](https://img.shields.io/pypi/v/pyslvs-ui.svg)](https://pypi.org/project/pyslvs-ui/)
 [![sourceforge](https://img.shields.io/badge/site-sourceforge-green.svg)](https://sourceforge.net/projects/pyslvs/)
-[![kernel](https://img.shields.io/badge/kernel-python--solvespace-orange.svg)](https://github.com/KmolYuan/solvespace)
+
 [![kernel](https://img.shields.io/badge/kernel-pyslvs-orange.svg)](https://github.com/KmolYuan/pyslvs)
+[![kernel](https://img.shields.io/badge/kernel-python--solvespace-orange.svg)](https://github.com/KmolYuan/solvespace)
 
 # <img width="7%" src="https://github.com/KmolYuan/Pyslvs-UI/raw/master/docs/img/favicon.png" alt="pyslvs-icon"/> Pyslvs-UI
 
 A GUI-based ([PyQt5]) tool used to design 2D linkage mechanism.
+
+<img width="50%" src="https://raw.githubusercontent.com/KmolYuan/Pyslvs-UI/master/docs/img/main-win.png"/>
 
 + **Planar Linkages Simulation**
     + Python-Solvespace: Kernel from [Solvespace] with Cython bundle.
@@ -64,6 +68,28 @@ python setup.py install
 ```
 
 Or, build `master` branch step by step follow the documentation.
+
+## Libraries
+
+Pyslvs has a solver backend that can works without the GUI:
+
+```python
+from pyslvs import example_list, parse_vpoints, t_config
+
+# Get example with name
+expr, inputs = example_list("Jansen's linkage (Single)")
+# Parse the mechanism expression into a list of joint data
+vpoints = parse_vpoints(expr)
+# Config joint data and control data for the solver
+exprs = t_config(vpoints, inputs)
+# Solve the position
+result = expr_solving(exprs, vpoints, {pair: 0. for pair in inputs})
+# Get the result from joint 7
+x, y = result[7]
+print(x, y)  # -43.170055 -91.753226
+```
+
+Please see [the documentation](https://pyslvs-ui.readthedocs.io/en/stable/pyslvs-lib/) for more information.
 
 # Documentation
 

@@ -14,15 +14,8 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from typing import (
-    cast,
-    TypeVar,
-    Tuple,
-    List,
-    Sequence,
-    Iterator,
-    Callable,
-    Union,
-    Optional,
+    cast, TypeVar, Tuple, List, Sequence, Iterator, Callable,
+    Union, Optional, Type,
 )
 from abc import abstractmethod, ABC
 from enum import Flag, auto, unique
@@ -38,7 +31,7 @@ from qtpy.QtWidgets import (
 )
 from qtpy.QtGui import QIcon, QPixmap
 from pyslvs import VPoint, VLink, color_rgb
-from pyslvs_ui.info import ARGUMENTS, logger, kernel_list
+from pyslvs_ui.info import ARGUMENTS, logger, Kernel
 from pyslvs_ui.io import ProjectWidget
 from pyslvs_ui.synthesis import (
     StructureSynthesis,
@@ -58,6 +51,7 @@ from .tables import (
 from .inputs import InputsWidget
 
 _N = TypeVar('_N')
+_Action = Union[List[QAction], QMenu]
 
 
 def _set_actions(actions: Sequence[QAction], state: bool) -> None:
@@ -68,7 +62,6 @@ def _set_actions(actions: Sequence[QAction], state: bool) -> None:
 
 @unique
 class _Enable(Flag):
-
     # Conditions
     # No / One / Any / Multiple / Ground / Not ground
     P_NO = auto()
@@ -81,7 +74,6 @@ class _Enable(Flag):
     L_MUL = auto()
     L_GND = auto()
     L_N_GND = auto()
-
     # Menus
     # Table / Context menu
     T_P = auto()
@@ -92,9 +84,7 @@ class _Enable(Flag):
 
 @dataclass(repr=False, eq=False)
 class _Context:
-
     """Context menu actions."""
-
     p_no: List[QAction] = field(default_factory=list)
     p_one: List[QAction] = field(default_factory=list)
     p_any: List[QAction] = field(default_factory=list)
@@ -132,22 +122,20 @@ class _Context:
             for action in actions:
                 action.setVisible(action.isVisible() and state)
 
-    def __getitem__(self, key: _Enable) -> Tuple[Union[List[QAction], QMenu], ...]:
+    def __getitem__(self, key: _Enable) -> Tuple[_Action, ...]:
         meta = []
         for enable in _Enable:  # type: _Enable
             if enable in key:
                 meta.append(getattr(self, enable.name.lower()))
         return tuple(meta)
 
-    def __setitem__(self, key: _Enable, value: Union[List[QAction], QMenu]) -> None:
+    def __setitem__(self, key: _Enable, value: _Action) -> None:
         self.__setattr__(key.name.lower(), value)
 
 
 @dataclass(repr=False)
 class Preferences:
-
     """The settings of Pyslvs."""
-
     line_width_option: int = 3
     font_size_option: int = 14
     path_width_option: int = 3
@@ -167,7 +155,7 @@ class Preferences:
     open_project_actions_option: int = 1
     file_type_option: int = 0
     planar_solver_option: int = 0
-    path_preview_option: int = len(kernel_list)
+    path_preview_option: int = Kernel.SAME_AS_SOLVING
     auto_remove_link_option: bool = True
     title_full_path_option: bool = False
     console_error_option: bool = ARGUMENTS.debug_mode
@@ -194,18 +182,21 @@ class Preferences:
 
 
 class MainWindowBase(MainWindowABC, ABC):
-
     """External UI settings."""
+    vpoint_list: List[VPoint]
+    vlink_list: List[VLink]
+
+    __tables: Sequence[BaseTableWidget]
 
     @abstractmethod
-    def __init__(self) -> None:
+    def __init__(self):
         super(MainWindowBase, self).__init__()
         # Environment path
         self.env = ""
         # Alignment mode
         self.alignment_mode = 0
         # Entities list
-        self.vpoint_list: List[VPoint] = []
+        self.vpoint_list = []
         self.vlink_list = [VLink(VLink.FRAME, 'White', (), color_rgb)]
         # Condition list of context menus
         self.context = _Context()
@@ -279,13 +270,13 @@ class MainWindowBase(MainWindowABC, ABC):
         self.entities_link_layout.addWidget(self.entities_link)
         self.entities_expr = ExprTableWidget(self.EntitiesExpr_widget)
         self.entities_expr_layout.insertWidget(0, self.entities_expr)
-        self.__tables: Sequence[BaseTableWidget] = (
+        self.__tables = (
             self.entities_point,
             self.entities_link,
             self.entities_expr,
         )
 
-        # Select all button on the Point and Link tab as corner widget.
+        # Select all button on the Point and Link tab as corner widget
         select_all_button = QPushButton()
         select_all_button.setIcon(QIcon(QPixmap(":/icons/select_all.png")))
         select_all_button.setToolTip("Select all")
@@ -306,7 +297,8 @@ class MainWindowBase(MainWindowABC, ABC):
 
         # QPainter canvas window
         self.main_canvas = MainCanvas(self)
-        self.entities_tab.currentChanged.connect(self.main_canvas.set_selection_mode)
+        self.entities_tab.currentChanged.connect(
+            self.main_canvas.set_selection_mode)
         select_tips = QLabel(self, Qt.ToolTip)
 
         @Slot(QPoint, str)
@@ -325,7 +317,8 @@ class MainWindowBase(MainWindowABC, ABC):
             self.__tables[index].set_selections(selection, check_key)
 
         self.main_canvas.selected.connect(table_selection)
-        self.entities_point.row_selection_changed.connect(self.main_canvas.set_selection)
+        self.entities_point.row_selection_changed.connect(
+            self.main_canvas.set_selection)
 
         @Slot()
         def table_clear_selection() -> None:
@@ -345,13 +338,15 @@ class MainWindowBase(MainWindowABC, ABC):
         self.main_canvas.doubleclick_edit.connect(self.edit_point)
         self.main_canvas.zoom_changed.connect(self.zoom_bar.setValue)
         self.main_canvas.tracking.connect(self.set_mouse_pos)
-        self.canvas_splitter.insertWidget(0, self.main_canvas)
+        self.canvas_layout.insertWidget(0, self.main_canvas)
         self.canvas_splitter.setSizes([600, 10, 30])
 
         # Selection label on status bar right side
         selection_label = SelectionLabel(self)
-        self.entities_point.selectionLabelUpdate.connect(selection_label.update_select_point)
-        self.main_canvas.browse_tracking.connect(selection_label.update_mouse_position)
+        self.entities_point.selectionLabelUpdate.connect(
+            selection_label.update_select_point)
+        self.main_canvas.browse_tracking.connect(
+            selection_label.update_mouse_position)
         self.status_bar.addPermanentWidget(selection_label)
 
         # FPS label on status bar right side
@@ -362,7 +357,8 @@ class MainWindowBase(MainWindowABC, ABC):
         # Inputs widget
         self.inputs_widget = InputsWidget(self)
         self.inputs_tab_layout.addWidget(self.inputs_widget)
-        self.free_move_button.toggled.connect(self.inputs_widget.variable_value_reset)
+        self.free_move_button.toggled.connect(
+            self.inputs_widget.variable_value_reset)
         self.inputs_widget.about_to_resolve.connect(self.resolve)
 
         @Slot(tuple, bool)
@@ -374,7 +370,8 @@ class MainWindowBase(MainWindowABC, ABC):
 
         self.main_canvas.selected.connect(inputs_selection)
         self.main_canvas.no_selected.connect(self.inputs_widget.clear_selection)
-        self.inputs_widget.update_preview_button.clicked.connect(self.main_canvas.update_preview_path)
+        self.inputs_widget.update_preview_button.clicked.connect(
+            self.main_canvas.update_preview_path)
 
         # Synthesis collections
         self.collections = Collections(self)
@@ -388,7 +385,8 @@ class MainWindowBase(MainWindowABC, ABC):
 
         # Dimensional synthesis
         self.dimensional_synthesis = DimensionalSynthesis(self)
-        self.main_canvas.set_target_point.connect(self.dimensional_synthesis.set_point)
+        self.main_canvas.set_target_point.connect(
+            self.dimensional_synthesis.set_point)
         self.synthesis_tab_widget.addTab(
             self.dimensional_synthesis,
             self.dimensional_synthesis.windowIcon(),
@@ -406,11 +404,13 @@ class MainWindowBase(MainWindowABC, ABC):
         # File widget settings
         self.project_widget = ProjectWidget(self)
         self.project_layout.addWidget(self.project_widget)
-        # Console dock will hide when startup
+        # Zooming and console dock will hide when startup
+        self.zoom_widget.hide()
         self.console_widget.hide()
         # Connect to GUI button
-        self.console_disconnect_button.setEnabled(not ARGUMENTS.debug_mode)
-        self.console_connect_button.setEnabled(ARGUMENTS.debug_mode)
+        debug_mode = ARGUMENTS.debug_mode
+        self.console_disconnect_button.setEnabled(not debug_mode)
+        self.console_connect_button.setEnabled(debug_mode)
         # Splitter stretch factor
         self.main_splitter.setStretchFactor(0, 4)
         self.main_splitter.setStretchFactor(1, 15)
@@ -422,11 +422,13 @@ class MainWindowBase(MainWindowABC, ABC):
 
     def __alignment(self) -> None:
         """Menu of alignment function."""
+
         def switch_icon(m: int, icon_name: str) -> Callable[[], None]:
             @Slot()
             def func() -> None:
                 self.alignment_mode = m
                 self.alignment_button.setIcon(QIcon(QPixmap(icon_name)))
+
             return func
 
         menu = QMenu(self)
@@ -443,6 +445,7 @@ class MainWindowBase(MainWindowABC, ABC):
 
     def __free_move(self) -> None:
         """Menu of free move mode."""
+
         def free_move_mode_func(j: int, icon_qt: QIcon) -> Callable[[], None]:
             @Slot()
             def func() -> None:
@@ -450,6 +453,7 @@ class MainWindowBase(MainWindowABC, ABC):
                 self.main_canvas.set_free_move(j)
                 self.entities_tab.setCurrentIndex(0)
                 self.inputs_widget.variable_stop.click()
+
             return func
 
         menu = QMenu(self)
@@ -478,8 +482,10 @@ class MainWindowBase(MainWindowABC, ABC):
         """
         # While value change, update the canvas widget
         self.zoom_bar.valueChanged.connect(self.main_canvas.set_zoom)
-        self.action_show_point_mark.toggled.connect(self.main_canvas.set_point_mark)
-        self.action_show_dimensions.toggled.connect(self.main_canvas.set_show_dimension)
+        self.action_show_point_mark.toggled.connect(
+            self.main_canvas.set_point_mark)
+        self.action_show_dimensions.toggled.connect(
+            self.main_canvas.set_show_dimension)
 
     def __action(
         self,
@@ -487,12 +493,13 @@ class MainWindowBase(MainWindowABC, ABC):
         slot: Optional[Callable[..., None]] = None,
         enable: Optional[_Enable] = None,
         *,
-        is_menu: bool = False
-    ) -> Union[QAction, QMenu]:
+        cast_to: Type[_N]
+    ) -> _N:
         """New action or menu."""
-        if type(name) is QAction:
-            menu = None
-            action: QAction = name
+        is_menu = cast_to is QMenu
+        if isinstance(name, QAction):
+            menu: Optional[QMenu] = None
+            action = name
         elif is_menu:
             menu = QMenu(name, self)
             action = menu.menuAction()
@@ -503,28 +510,31 @@ class MainWindowBase(MainWindowABC, ABC):
             action.triggered.connect(slot)
         if enable is not None:
             for target in self.context[enable]:
-                if type(target) is QMenu:
+                if isinstance(target, QMenu):
                     if is_menu:
-                        cast(QMenu, target).addMenu(menu)
+                        target.addMenu(menu)
                     else:
-                        cast(QMenu, target).addAction(action)
-                elif type(target) is list:
-                    cast(List[QAction], target).append(action)
+                        target.addAction(action)
+                elif isinstance(target, list):
+                    target.append(action)
                 else:
                     raise ValueError("not a list or menu")
         if is_menu:
-            return menu
+            return cast(QMenu, menu)
         else:
             return action
 
     def __context_menu(self) -> None:
         """Context menu settings."""
-        self.entities_point_widget.customContextMenuRequested.connect(self.point_context_menu)
+        self.entities_point_widget.customContextMenuRequested.connect(
+            self.point_context_menu)
         self.pop_point = QMenu(self)
-        self.entities_link_widget.customContextMenuRequested.connect(self.link_context_menu)
+        self.entities_link_widget.customContextMenuRequested.connect(
+            self.link_context_menu)
         self.pop_link = QMenu(self)
         self.main_canvas.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.main_canvas.customContextMenuRequested.connect(self.canvas_context_menu)
+        self.main_canvas.customContextMenuRequested.connect(
+            self.canvas_context_menu)
         self.pop_canvas_p = QMenu(self)
         self.pop_canvas_l = QMenu(self)
         for enable, menu in (
@@ -538,35 +548,61 @@ class MainWindowBase(MainWindowABC, ABC):
         # EntitiesPoint
         two_menus_p = _Enable.T_P | _Enable.C_P
         two_menus_l = _Enable.T_L | _Enable.C_L
-        self.__action("&Add", self.new_point, _Enable.T_P | _Enable.P_NO)
-        self.__action("&Add", self.add_normal_point, _Enable.C_P | _Enable.P_NO)
-        self.__action("Add to [ground]", self.add_fixed_point, _Enable.C_P | _Enable.P_NO)
-        self.action_c_add_target: QAction = self.__action(
+        self.__action("&Add", self.new_point, _Enable.T_P | _Enable.P_NO,
+                      cast_to=QAction)
+        self.__action("&Add", self.add_normal_point, _Enable.C_P | _Enable.P_NO,
+                      cast_to=QAction)
+        self.__action("Add to [ground]", self.add_fixed_point,
+                      _Enable.C_P | _Enable.P_NO, cast_to=QAction)
+        self.action_c_add_target = self.__action(
             "Add &Target Point",
             self.add_target_point,
-            _Enable.C_P | _Enable.C_L | _Enable.P_NO | _Enable.L_NO
+            _Enable.C_P | _Enable.C_L | _Enable.P_NO | _Enable.L_NO,
+            cast_to=QAction
         )
-        self.__action(self.action_new_link, enable=two_menus_p | two_menus_l | _Enable.P_MUL | _Enable.L_NO)
-        self.__action("&Edit", self.edit_point, two_menus_p | _Enable.P_ONE)
-        self.action_p_lock: QAction = self.__action("&Grounded", self.lock_points, two_menus_p | _Enable.P_ANY)
+        self.__action(self.action_new_link,
+                      enable=two_menus_p | two_menus_l | _Enable.P_MUL |
+                             _Enable.L_NO,
+                      cast_to=QAction)
+        self.__action("&Edit", self.edit_point, two_menus_p | _Enable.P_ONE,
+                      cast_to=QAction)
+        self.action_p_lock = self.__action("&Grounded", self.lock_points,
+                                           two_menus_p | _Enable.P_ANY,
+                                           cast_to=QAction)
         self.action_p_lock.setCheckable(True)
-        self.pop_point_m: QMenu = self.__action("Multiple joint", enable=two_menus_p | _Enable.P_MUL, is_menu=True)
-        self.__action("&Copy Table Data", self.copy_points_table, _Enable.T_P | _Enable.P_ONE)
-        self.__action("Copy Coordinate", self.copy_coord, _Enable.T_P | _Enable.P_ONE)
-        self.__action("C&lone", self.clone_point, two_menus_p | _Enable.P_ONE)
+        self.pop_point_m = self.__action("Multiple joint",
+                                         enable=two_menus_p | _Enable.P_MUL,
+                                         cast_to=QMenu)
+        self.__action("&Copy Table Data", self.copy_points_table,
+                      _Enable.T_P | _Enable.P_ONE, cast_to=QAction)
+        self.__action("Copy Coordinate", self.copy_coord,
+                      _Enable.T_P | _Enable.P_ONE, cast_to=QAction)
+        self.__action("C&lone", self.clone_point, two_menus_p | _Enable.P_ONE,
+                      cast_to=QAction)
         self.pop_point.addSeparator()
         self.pop_canvas_p.addSeparator()
-        self.__action("&Delete", self.delete_selected_points, two_menus_p | _Enable.P_ANY)
+        self.__action("&Delete", self.delete_selected_points,
+                      two_menus_p | _Enable.P_ANY, cast_to=QAction)
         # EntitiesLink
-        self.__action("&Edit", self.edit_link, two_menus_l | _Enable.L_ONE)
-        self.pop_link_m = self.__action("Merge Links", enable=two_menus_l | _Enable.L_MUL, is_menu=True)
-        self.__action("&Copy Table Data", self.copy_links_table, _Enable.T_L | _Enable.L_ONE)
-        self.__action("&Release", self.release_ground, two_menus_l | _Enable.L_ONE | _Enable.L_GND)
-        self.__action("C&onstrain", self.constrain_link, two_menus_l | _Enable.L_ONE | _Enable.L_N_GND)
+        self.__action("&Edit", self.edit_link, two_menus_l | _Enable.L_ONE,
+                      cast_to=QAction)
+        self.pop_link_m = self.__action("Merge Links",
+                                        enable=two_menus_l | _Enable.L_MUL,
+                                        cast_to=QMenu)
+        self.__action("&Copy Table Data", self.copy_links_table,
+                      _Enable.T_L | _Enable.L_ONE, cast_to=QAction)
+        self.__action("&Release", self.release_ground,
+                      two_menus_l | _Enable.L_ONE | _Enable.L_GND,
+                      cast_to=QAction)
+        self.__action("C&onstrain", self.constrain_link,
+                      two_menus_l | _Enable.L_ONE | _Enable.L_N_GND,
+                      cast_to=QAction)
         self.pop_link.addSeparator()
         self.pop_canvas_l.addSeparator()
-        self.__action("Remove &Empty Names", self.delete_empty_links, _Enable.T_L)
-        self.__action("&Delete", self.delete_selected_links, two_menus_l | _Enable.L_ANY)
+        self.__action("Remove &Empty Names", self.delete_empty_links,
+                      _Enable.T_L, cast_to=QAction)
+        self.__action("&Delete", self.delete_selected_links,
+                      two_menus_l | _Enable.L_ANY, cast_to=QAction)
 
     @Slot(int, name='on_entities_tab_currentChanged')
     def __set_selection_mode(self, index: int) -> None:
@@ -577,7 +613,8 @@ class MainWindowBase(MainWindowABC, ABC):
                 table.row_selection_changed.disconnect()
         except TypeError:
             pass
-        self.__tables[index].row_selection_changed.connect(self.main_canvas.set_selection)
+        self.__tables[index].row_selection_changed.connect(
+            self.main_canvas.set_selection)
         # Double click signal
         try:
             self.main_canvas.doubleclick_edit.disconnect()

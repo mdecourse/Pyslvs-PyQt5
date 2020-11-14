@@ -10,115 +10,80 @@ __email__ = "pyslvs@gmail.com"
 from math import isnan
 from itertools import chain
 from typing import Tuple, List, Dict, Sequence, Any
+from numpy import linspace, concatenate
 from qtpy.QtCore import Slot, Qt, QTimer, QPointF, QRectF, QSizeF
 from qtpy.QtWidgets import QDialog, QWidget
 from qtpy.QtGui import QPen, QFont, QPaintEvent
-from pyslvs import color_rgb, get_vlinks, VPoint, VLink, parse_vpoints
-from pyslvs_ui.graphics import BaseCanvas, color_qt, LINK_COLOR
+from pyslvs import (color_rgb, get_vlinks, VPoint, VLink, parse_vpoints,
+                    norm_path, efd_fitting, curvature, cross_correlation,
+                    path_signature)
+from pyslvs_ui.graphics import (AnimationCanvas, color_qt, LINK_COLOR,
+                                DataChartDialog)
 from .preview_ui import Ui_Dialog
 
+_Coord = Tuple[float, float]
+_Range = Tuple[float, float, float]
+_TargetPath = Dict[int, Sequence[_Coord]]
+_U = 0.1
 
-class _DynamicCanvas(BaseCanvas):
 
+class _DynamicCanvas(AnimationCanvas):
     """Custom canvas for preview algorithm result."""
+    pos: List[_Coord]
 
     def __init__(
         self,
         mechanism: Dict[str, Any],
-        path: Sequence[Sequence[Tuple[float, float]]],
-        vpoints: List[VPoint],
-        vlinks: List[VLink],
-        parent: QWidget
+        path: Sequence[Sequence[_Coord]],
+        vpoints: List[VPoint] = None,
+        vlinks: List[VLink] = None,
+        parent: QWidget = None
     ):
         """Input link and path data."""
         super(_DynamicCanvas, self).__init__(parent)
         self.mechanism = mechanism
-        self.path.path = path
-        self.vpoints = vpoints
-        self.vlinks = vlinks
-        ranges: Dict[int, Tuple[float, float, float]] = self.mechanism['placement']
+        self.vpoints = vpoints or []
+        self.vlinks = vlinks or []
+        self.no_mechanism = not self.vpoints or not self.vlinks
+        use_norm = self.no_mechanism and self.mechanism.get('shape_only', False)
+        # Target path
+        same: Dict[int, int] = self.mechanism['same']
+        target_path: _TargetPath = self.mechanism['target']
+        for i, p in target_path.items():
+            for j in range(i):
+                if j in same:
+                    i -= 1
+            self.target_path[i] = norm_path(p) if use_norm else p
+        self.path.path = []
+        for i, p in enumerate(path):
+            if i in self.target_path and use_norm:
+                self.path.path.append(norm_path(efd_fitting(p)))
+            else:
+                self.path.path.append(p)
+        self.__index = 0
+        self.__interval = 1
+        self.__path_count = max(len(path) for path in self.path.path) - 1
+        self.pos = []
+        # Error
+        self.error = False
+        self.__no_error = 0
+        if self.no_mechanism:
+            return
+        # Ranges
+        ranges: Dict[int, _Range] = self.mechanism['placement']
         self.ranges.update({f"P{i}": QRectF(
             QPointF(values[0] - values[2], values[1] + values[2]),
             QSizeF(values[2] * 2, values[2] * 2)
         ) for i, values in ranges.items()})
-        same: Dict[int, int] = self.mechanism['same']
-        target_path: Dict[int, List[Tuple[float, float]]] = self.mechanism['target']
-        for i, path in target_path.items():
-            for j in range(i):
-                if j in same:
-                    i -= 1
-            self.target_path[f"P{i}"] = path
-        self.__index = 0
-        self.__interval = 1
-        self.__path_count = max(len(path) for path in self.path.path) - 1
-        self.pos: List[Tuple[float, float]] = []
-
-        # Error
-        self.error = False
-        self.__no_error = 0
-
-        # Timer start.
+        # Timer
         self.__timer = QTimer()
         self.__timer.timeout.connect(self.__change_index)
         self.__timer.start(18)
 
-    def __zoom_to_fit_limit(self) -> Tuple[float, float, float, float]:
-        """Limitations of four side."""
-        inf = float('inf')
-        x_right = -inf
-        x_left = inf
-        y_top = -inf
-        y_bottom = inf
-        # Paths
-        for i, path in enumerate(self.path.path):
-            for x, y in path:
-                if x > x_right:
-                    x_right = x
-                if x < x_left:
-                    x_left = x
-                if y < y_bottom:
-                    y_bottom = y
-                if y > y_top:
-                    y_top = y
-        # Solving paths
-        for path in self.target_path.values():
-            for x, y in path:
-                if x > x_right:
-                    x_right = x
-                if x < x_left:
-                    x_left = x
-                if y < y_bottom:
-                    y_bottom = y
-                if y > y_top:
-                    y_top = y
-        # Ranges
-        for rect in self.ranges.values():
-            if rect.right() > x_right:
-                x_right = rect.right()
-            if rect.left() < x_left:
-                x_left = rect.left()
-            if rect.bottom() < y_bottom:
-                y_bottom = rect.bottom()
-            if rect.top() > y_top:
-                y_top = rect.top()
-        return x_right, x_left, y_top, y_bottom
-
     def paintEvent(self, event: QPaintEvent) -> None:
-        """Drawing functions."""
-        width = self.width()
-        height = self.height()
-        x_right, x_left, y_top, y_bottom = self.__zoom_to_fit_limit()
-        x_diff = x_right - x_left or 1.
-        y_diff = y_top - y_bottom or 1.
-        if width / x_diff < height / y_diff:
-            self.zoom = width / x_diff * 0.95
-        else:
-            self.zoom = height / y_diff * 0.95
-        self.ox = width / 2 - (x_left + x_right) / 2 * self.zoom
-        self.oy = height / 2 + (y_top + y_bottom) / 2 * self.zoom
+        """Drawing function."""
         super(_DynamicCanvas, self).paintEvent(event)
-
-        # First check.
+        # First check
         for path in self.path.path:
             if not path:
                 continue
@@ -128,30 +93,28 @@ class _DynamicCanvas(BaseCanvas):
             self.__index, self.__no_error = self.__no_error, self.__index
             self.error = True
             self.__interval = -self.__interval
-
-        # Points that in the current angle section.
+        # Points that in the current angle section
         self.pos.clear()
         for i in range(len(self.vpoints)):
             if i in self.mechanism['placement']:
-                self.pos.append(self.vpoints[i].c[0])
+                vpoint = self.vpoints[i]
+                x = vpoint.c[0, 0]
+                y = vpoint.c[0, 1]
+                self.pos.append((x, y))
             else:
                 x, y = self.path.path[i][self.__index]
                 self.pos.append((x, y))
-
-        # Draw links.
+        # Draw links
         for vlink in self.vlinks:
             if vlink.name == VLink.FRAME:
                 continue
             self.__draw_link(vlink.name, vlink.points)
-
-        # Draw path.
+        # Draw path
         self.__draw_path()
-
-        # Draw solving path.
+        # Draw solving path
         self.draw_target_path()
-        self.draw_slvs_ranges()
-
-        # Draw points.
+        self.draw_ranges()
+        # Draw points
         for i in range(len(self.vpoints)):
             if not self.pos[i]:
                 continue
@@ -172,12 +135,12 @@ class _DynamicCanvas(BaseCanvas):
             if j in self.mechanism['same']:
                 k += 1
         x, y = self.pos[i]
-        color = color_rgb('Green')
+        color = color_rgb('green')
         fixed = False
-        if f"P{i}" in self.target_path:
-            color = color_rgb('Dark-Orange')
+        if i in self.target_path:
+            color = color_rgb('dark-orange')
         elif k in self.mechanism['placement']:
-            color = color_rgb('Blue')
+            color = color_rgb('blue')
             fixed = True
         self.draw_point(i, x, y, fixed, color)
 
@@ -186,11 +149,10 @@ class _DynamicCanvas(BaseCanvas):
 
         The link color will be the default color.
         """
-        color = color_qt('Blue')
-        pen = QPen(color)
+        pen = QPen(Qt.black if self.monochrome else color_qt('blue'))
         pen.setWidth(self.link_width)
         self.painter.setPen(pen)
-        brush = LINK_COLOR
+        brush = color_qt('dark-gray') if self.monochrome else LINK_COLOR
         brush.setAlphaF(0.70)
         self.painter.setBrush(brush)
         qpoints = tuple(
@@ -204,10 +166,12 @@ class _DynamicCanvas(BaseCanvas):
             pen.setColor(Qt.darkGray)
             self.painter.setPen(pen)
             self.painter.setFont(QFont('Arial', self.font_size))
-            text = f"[{name}]"
             cen_x = sum(self.pos[i][0] for i in points if self.pos[i])
             cen_y = sum(self.pos[i][1] for i in points if self.pos[i])
-            self.painter.drawText(QPointF(cen_x, -cen_y) * self.zoom / len(points), text)
+            self.painter.drawText(
+                QPointF(cen_x, -cen_y) * self.zoom / len(points),
+                f"[{name}]"
+            )
 
     def __draw_path(self) -> None:
         """Draw a path.
@@ -215,12 +179,21 @@ class _DynamicCanvas(BaseCanvas):
         A simple function than main canvas.
         """
         pen = QPen()
+        pen.setWidth(self.path_width)
         for i, path in enumerate(self.path.path):
-            color = color_qt('Green')
-            if f"P{i}" in self.target_path:
-                color = color_qt('Dark-Orange')
+            if self.no_mechanism and i not in self.target_path:
+                continue
+            if i in self.target_path:
+                if self.monochrome:
+                    color = color_qt('black')
+                else:
+                    color = color_qt('dark-orange')
+            else:
+                if self.monochrome:
+                    color = color_qt('gray')
+                else:
+                    color = color_qt('green')
             pen.setColor(color)
-            pen.setWidth(self.path_width)
             self.painter.setPen(pen)
             self.draw_curve(path)
 
@@ -232,9 +205,16 @@ class _DynamicCanvas(BaseCanvas):
             self.__index = 0
         self.update()
 
+    def get_target(self) -> _TargetPath:
+        """Return target paths."""
+        return self.target_path
+
+    def get_path(self) -> _TargetPath:
+        """Return ans path."""
+        return {i: self.path.path[i] for i in self.target_path}
+
 
 class PreviewDialog(QDialog, Ui_Dialog):
-
     """Preview dialog has some information.
 
     We will not be able to change result settings here.
@@ -243,38 +223,46 @@ class PreviewDialog(QDialog, Ui_Dialog):
     def __init__(
         self,
         mechanism: Dict[str, Any],
-        path: Sequence[Sequence[Tuple[float, float]]],
+        path: Sequence[Sequence[_Coord]],
+        monochrome: bool,
         parent: QWidget
     ):
         """Show the information of results, and setup the preview canvas."""
         super(PreviewDialog, self).__init__(parent)
         self.setupUi(self)
         self.setWindowTitle(
-            f"Preview: {mechanism['Algorithm']} "
+            f"Preview: {mechanism['algorithm']} "
             f"(max {mechanism['last_gen']} generations)"
         )
         self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint)
-        self.main_splitter.setSizes([400, 150])
+        for splitter in (self.geo_splitter, self.path_cmp_splitter):
+            splitter.setSizes([400, 150])
         self.splitter.setSizes([100, 100, 100])
         vpoints = parse_vpoints(mechanism['expression'])
         vlinks = get_vlinks(vpoints)
-        preview_widget = _DynamicCanvas(mechanism, path, vpoints, vlinks, self)
-        self.left_layout.insertWidget(0, preview_widget)
-
+        self.canvas1 = _DynamicCanvas(mechanism, path, vpoints, vlinks, self)
+        self.canvas2 = _DynamicCanvas(mechanism, path, parent=self)
+        for c in (self.canvas1, self.canvas2):
+            c.update_pos.connect(self.__set_mouse_pos)
+            c.set_monochrome_mode(monochrome)
+        self.left_layout.insertWidget(0, self.canvas1)
+        self.path_cmp_layout.addWidget(self.canvas2)
+        self.plot_joint.addItems(f"P{i}" for i in self.canvas2.get_target())
         labels = []
         for tag, data in chain(
-            [('Algorithm', mechanism['Algorithm']), ('time', mechanism['time'])],
-            [(f"P{i}", vpoints[i].c[0]) for i in mechanism['placement']]
+            [(tag, mechanism.get(tag, 'N/A')) for tag in (
+                'algorithm', 'time', 'shape_only')],
+            [(f"P{i}", (vpoints[i].c[0, 0], vpoints[i].c[0, 1]))
+             for i in mechanism['placement']]
         ):
-            if type(data) is tuple:
+            if isinstance(data, tuple):
                 label = f"({data[0]:.02f}, {data[1]:.02f})"
-            elif type(data) is float:
+            elif isinstance(data, float):
                 label = f"{data:.02f}"
             else:
                 label = f"{data}"
             labels.append(f"{tag}: {label}")
         self.basic_label.setText("\n".join(labels))
-
         # Algorithm information
         inter = mechanism.get('interrupted', 'N/A')
         if inter == 'False':
@@ -296,9 +284,49 @@ class PreviewDialog(QDialog, Ui_Dialog):
         for k, v in mechanism['settings'].items():
             text_list.append(f"{k}: {v}")
         text = "<br/>".join(text_list)
-        self.algorithm_label.setText(f"<html><head/><body><p>{text}</p></body></html>")
-
+        self.algorithm_label.setText(f"<html><p>{text}</p></html>")
         # Hardware information
         self.hardware_label.setText("\n".join([
-            f"{tag}: {mechanism['hardware_info'][tag]}" for tag in ('os', 'memory', 'cpu')
+            f"{tag}: {mechanism['hardware_info'][tag]}"
+            for tag in ('os', 'memory', 'cpu')
         ]))
+
+    @Slot(float, float)
+    def __set_mouse_pos(self, x: float, y: float) -> None:
+        """Set mouse position."""
+        self.mouse_pos.setText(f"({x:.04f}, {y:.04f})")
+
+    @Slot(name='on_cc_plot_button_clicked')
+    def __cc_plot(self):
+        """Plot cross correlation."""
+        p = int(self.plot_joint.currentText().replace('P', ''))
+        target = self.canvas2.get_target()
+        c1 = curvature(self.canvas2.get_path()[p])
+        c2 = curvature(target[p])
+        p1 = path_signature(c1)
+        p2 = path_signature(c2, 100 - 100 / (len(target[p]) + 1))
+        cc = cross_correlation(p1, p2, _U)
+        cc_argmax = cc.argmax()
+        p2[:, 0] += cc_argmax * _U
+        m_p1 = p1.copy()
+        m_p1[:, 0] += p1.max()
+        p1 = concatenate((p1, m_p1), axis=0)
+        del m_p1
+        dlg = DataChartDialog(self, "Cross Correlation", 3)
+        ax = dlg.ax()
+        ax[0].set_title("Curvature")
+        ax[0].plot(c1, label=f"Point{p}")
+        ax[0].plot(c2, label=f"Target Path")
+        ax[0].legend()
+        ax[1].set_title("Path Signature")
+        ax[1].plot(p1[:, 0], p1[:, 1], label=f"Point{p}")
+        ax[1].plot(p2[:, 0], p2[:, 1], label=f"Target Path")
+        ax[1].plot(cc_argmax * _U, p2[0, 1], 'ro', label=f"Shift Origin")
+        ax[1].legend()
+        ax[2].set_title(f"Cross Correlation of Point{p}")
+        ax[2].plot(linspace(0, len(cc) * _U, len(cc)), cc)
+        ax[2].plot(cc_argmax * _U, cc[cc_argmax], 'ro')
+        dlg.set_margin(0.2)
+        dlg.show()
+        dlg.exec_()
+        dlg.deleteLater()

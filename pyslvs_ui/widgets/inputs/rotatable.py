@@ -12,12 +12,10 @@ from qtpy.QtWidgets import QWidget, QDial, QGraphicsView, QGraphicsScene
 
 
 class QRotatableView(QGraphicsView):
-
     """Rotate QDial widget."""
-
     value_changed = Signal(float)
 
-    def __init__(self, parent: QWidget) -> None:
+    def __init__(self, parent: QWidget):
         super(QRotatableView, self).__init__(parent)
         scene = QGraphicsScene(self)
         self.setScene(scene)
@@ -33,7 +31,7 @@ class QRotatableView(QGraphicsView):
         self.set_maximum(360)
         graphics_item = scene.addWidget(self.dial)
         graphics_item.setRotation(-90)
-        # make the QGraphicsView invisible.
+        # Make the QGraphicsView invisible
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setFixedHeight(self.dial.height())

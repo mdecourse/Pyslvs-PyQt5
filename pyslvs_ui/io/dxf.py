@@ -11,7 +11,7 @@ __copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import Tuple, Sequence, Callable, Dict, List
+from typing import Tuple, Sequence, Iterable, Callable, Dict, List
 from math import degrees, atan2
 import ezdxf
 from ezdxf.lldxf.const import versions_supported_by_new, acad_release
@@ -26,7 +26,7 @@ DXF_VERSIONS_MAP = acad_release
 
 def dxf_frame(
     vpoints: Sequence[VPoint],
-    v_to_slvs: Callable[[], Sequence[Tuple[int, int]]],
+    v_to_slvs: Callable[[], Iterable[Tuple[int, int]]],
     version: str,
     file_name: str
 ):
@@ -65,14 +65,14 @@ def dxf_boundary(
     interval += radius * 2
     x_max = -interval
 
-    # Draw link boundaries.
+    # Draw link boundaries
     for name in sorted(
         vlinks,
         key=lambda n: min(vpoints[p].cx for p in vlinks[n])
     ):
         if name == VLink.FRAME:
             continue
-        # Draw joint holes.
+        # Draw joint holes
         x_min = min(vpoints[p].cx for p in vlinks[name])
 
         centers = [(
@@ -84,7 +84,7 @@ def dxf_boundary(
             msp.add_circle(coord, radius / 2)
 
         x_max = max(coord[0] for coord in centers)
-        # Sort the centers.
+        # Sort the centers
         centers_ch = convex_hull(centers)
         boundary = centers_ch.copy()
         for c in centers:
@@ -92,12 +92,12 @@ def dxf_boundary(
                 centers_ch.append(c)
         centers = centers_ch
 
-        # Draw boundary edges.
+        # Draw boundary edges
         boundary = boundary_loop(boundary, radius)
         for c1, c2 in boundary:
             msp.add_line((c1.x, c1.y), (c2.x, c2.y))
 
-        # Draw fillets.
+        # Draw fillets
         for i in range(len(boundary)):
             x, y = centers[i]
             c1 = boundary[i - 1][1]

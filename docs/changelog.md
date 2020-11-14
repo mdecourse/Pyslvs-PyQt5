@@ -1,5 +1,133 @@
 # Changelog
 
+## Version 20.11
+
+**Features**:
+
++ Fix slider input function. (github issue #40)
+
+**Development**:
+
++ None.
+
+## Version 20.10
+
+**Features**:
+
++ Improve performance of meta-heuristic algorithms.
++ New solver backend.
+
+**Development**:
+
++ Unify "true" and "false" to lowercase in docstring.
++ Use "isinstance" instead of "type" for checking types.
++ Test suite enhancement.
++ Parallelism synthesis.
+
+**Known issue**:
+
++ Slider input is not finished yet.
+
+## Version 20.09
+
+**Development**:
+
++ This version has been skipped.
+
+## Version 20.08
+
+**Features**:
+
++ Fix the error of Yaml dumper.
++ Change the definition of Path Signature: The mapping of stroke and curvature.
+
+**Development**:
+
++ Raise NotImplementedError instead of ellipse on abstract methods.
+
+## Version 20.07
+
+**Features**:
+
++ Fix canvas selection and display error.
++ Generate calculation script after parser script. (github issue #35)
++ Support parallel linkage. (github issue #36)
++ Skip auto preview paths when saving file.
++ Implement plotting function for slider paths.
++ Implement final vector animation.
++ Remove wavelet function.
++ Add extra curve fitting function powered by SciPy.
++ Some corrections of the main canvas.
+
+**Development**:
+
++ Extra SciPy requirement.
++ Remove unessential `__all__` list.
+
+## Version 20.06
+
+**Features**:
+
++ Polar plotting function and joint viewer.
++ Animation function for the paths of inputs page.
++ "Append path" function for the path of dimensional synthesis page.
++ Remove deprecated "show solutions" buttons.
++ Fix GUI crash on AppImage. (github issue #34)
+
+**Development**:
+
++ Support MSVC versions `1910`~`1916` and `1920`~`1926`.
++ Improvement of UI and QRC file generating.
++ Annotated object attributes are placed in class definition uniformly instead of method blocks.
++ Use immutable "Mapping" replace "Dict" when no need to change the content.
+
+## Version 20.05
+
+**Features**:
+
++ Remove context menu of record list. The functions replaced with buttons.
++ Support incomplete path works with derivative function.
+
+**Development**:
+
++ Make "python-solvespace" as an extra requirement.
++ Remove "return none" annotation from all typing.
+
+## Version 20.04
+
+**Features**:
+
++ Fix relocate function and increase accuracy of its spinbox.
++ The zoom bar has been isolated.
++ Add grid mode toggle button at the main window.
++ Remove not useful functions.
++ Add "report issue" action on the main menubar.
++ UI improvement for "inputs" page.
+
+**Development**:
+
++ Use Matplotlib instead of PyQtChart.
++ Fix the error of auto preview path.
++ Fix the bug of topological algorithm. (github issue #33)
+
+## Version 20.03
+
+**Features**:
+
++ Dimensional synthesis result preview:
+    + Add path comparison page.
+    + Support monochrome mode.
++ Change color of target path.
++ More clearer command line interface.
++ Fix incorrect "new link" conditions.
++ Add ordered simples option of planar linkage synthesis.
+
+**Development**:
+
++ New graph searching method for polygon link from kernel.
++ Remove docstring gap between class definition.
++ Remove one instance limit.
+
 ## Version 20.02
 
 **Features**:
@@ -7,6 +135,8 @@
 + Fix file loader error during loading algorithm results.
 + Fix the touching area of target point moving.
 + Improve load target path function.
++ "Shape only" synthesis mode.
++ DWT synthesis mode. (alpha)
 
 **Development**:
 
@@ -49,7 +179,7 @@
 
 **Development**:
 
-+ None
++ None.
 
 ## Version 19.11
 

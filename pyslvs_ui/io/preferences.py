@@ -9,7 +9,6 @@ __email__ = "pyslvs@gmail.com"
 
 from typing import Optional
 from dataclasses import fields, Field
-from pyslvs_ui.widgets import MainWindowBase
 from qtpy.QtCore import Slot
 from qtpy.QtWidgets import (
     QDialog,
@@ -22,22 +21,22 @@ from qtpy.QtWidgets import (
     QMessageBox,
 )
 from qtpy.QtGui import QCloseEvent
-from pyslvs_ui.info import kernel_list
-from pyslvs_ui.widgets import Preferences
+from pyslvs_ui.info import KERNELS, Kernel
+from pyslvs_ui.widgets import Preferences, MainWindowBase
 from .format_editor import PROJECT_FORMAT
 from .preference_ui import Ui_Dialog
 
 
 class PreferencesDialog(QDialog, Ui_Dialog):
-
     """Preference dialog."""
 
     def __init__(self, parent: MainWindowBase):
         super(PreferencesDialog, self).__init__(parent)
         self.setupUi(self)
         self.file_type_option.addItems(PROJECT_FORMAT)
-        self.planar_solver_option.addItems(kernel_list)
-        self.path_preview_option.addItems(kernel_list + ("Same as solver kernel",))
+        kernels = [s.title for s in KERNELS]
+        self.planar_solver_option.addItems(kernels)
+        self.path_preview_option.addItems(kernels + [Kernel.SAME_AS_SOLVING.title])
         self.prefer = parent.prefer.copy()
         self.prefer_applied = parent.prefer.copy()
 
@@ -61,13 +60,13 @@ class PreferencesDialog(QDialog, Ui_Dialog):
         for field in fields(self.prefer):  # type: Field
             widget = getattr(self, field.name)
             value = getattr(self.prefer, field.name)
-            if type(widget) is QSpinBox or type(widget) is QDoubleSpinBox:
+            if isinstance(widget, (QSpinBox, QDoubleSpinBox)):
                 widget.setValue(value)
-            elif type(widget) is QLineEdit:
+            elif isinstance(widget, QLineEdit):
                 widget.setText(value)
-            elif type(widget) is QCheckBox:
+            elif isinstance(widget, QCheckBox):
                 widget.setChecked(value)
-            elif type(widget) is QComboBox:
+            elif isinstance(widget, QComboBox):
                 widget.setCurrentIndex(value)
 
     @Slot()
@@ -77,13 +76,13 @@ class PreferencesDialog(QDialog, Ui_Dialog):
             prefer = self.prefer_applied
         for field in fields(prefer):  # type: Field
             widget = getattr(self, field.name)
-            if type(widget) is QSpinBox or type(widget) is QDoubleSpinBox:
+            if isinstance(widget, (QSpinBox, QDoubleSpinBox)):
                 setattr(prefer, field.name, widget.value())
-            elif type(widget) is QLineEdit:
+            elif isinstance(widget, QLineEdit):
                 setattr(prefer, field.name, widget.text())
-            elif type(widget) is QCheckBox:
+            elif isinstance(widget, QCheckBox):
                 setattr(prefer, field.name, widget.isChecked())
-            elif type(widget) is QComboBox:
+            elif isinstance(widget, QComboBox):
                 setattr(prefer, field.name, widget.currentIndex())
 
     @Slot()

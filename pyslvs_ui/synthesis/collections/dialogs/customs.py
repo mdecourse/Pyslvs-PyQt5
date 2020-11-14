@@ -13,12 +13,12 @@ from typing import TYPE_CHECKING
 from qtpy.QtCore import Slot, Qt
 from qtpy.QtWidgets import QDialog
 from .customs_ui import Ui_Dialog
+
 if TYPE_CHECKING:
     from pyslvs_ui.synthesis import ConfigureWidget
 
 
 class CustomsDialog(QDialog, Ui_Dialog):
-
     """Option dialog.
 
     name: str = 'P1', 'P2', ...
@@ -27,13 +27,12 @@ class CustomsDialog(QDialog, Ui_Dialog):
     Settings will be edited in each operation.
     """
 
-    def __init__(self, parent: ConfigureWidget) -> None:
-        """Add data and widget references from parent."""
+    def __init__(self, parent: ConfigureWidget):
+        """Add data and widget references from the parent."""
         super(CustomsDialog, self).__init__(parent)
         self.setupUi(self)
-        flags = self.windowFlags()
-        self.setWindowFlags(flags & ~Qt.WindowContextHelpButtonHint)
-
+        self.setWindowFlags(self.windowFlags()
+                            & ~Qt.WindowContextHelpButtonHint)
         canvas = parent.configure_canvas
         self.cus = canvas.cus
         self.same = canvas.same

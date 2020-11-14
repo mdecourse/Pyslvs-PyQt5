@@ -14,18 +14,13 @@ import sys
 from os import remove
 from os.path import join, expanduser
 from platform import system
-from logging import (
-    DEBUG,
-    INFO,
-    basicConfig,
-    getLogger,
-    Handler,
-    StreamHandler,
-    LogRecord,
-)
+from logging import (DEBUG, INFO, ERROR, basicConfig, getLogger, Handler,
+                     StreamHandler, LogRecord)
 from qtpy.QtCore import QObject, Signal
 from .info import ARGUMENTS, SYS_INFO
 
+logger = getLogger('matplotlib')
+logger.setLevel(ERROR)
 logger = getLogger()
 _SYS_STDOUT = sys.stdout
 _SYS_STDERR = sys.stderr
@@ -50,10 +45,9 @@ def _sign_in_logger() -> None:
 
 
 class _QtHandler(Handler):
-
     """Logging handle."""
 
-    def __init__(self) -> None:
+    def __init__(self):
         super(_QtHandler, self).__init__()
 
     def emit(self, record: LogRecord) -> None:
@@ -69,9 +63,7 @@ class _QtHandler(Handler):
 
 
 class XStream(QObject):
-
     """Stream object to imitate Python output."""
-
     __stdout: ClassVar[Optional[XStream]] = None
     __stderr: ClassVar[Optional[XStream]] = None
     message_written = Signal(str)

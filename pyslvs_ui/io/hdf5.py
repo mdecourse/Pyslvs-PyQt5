@@ -4,7 +4,7 @@ from __future__ import annotations
 
 """HDF5 format processing function."""
 
-from typing import Dict, Union, Any
+from typing import Mapping, Union, Any
 from zlib import compress, decompress
 from h5py import File, Dataset, Group
 from numpy import ndarray, array, int8, void
@@ -22,20 +22,20 @@ def _decompress(b: ndarray) -> bytes:
     return decompress(b.tobytes())
 
 
-def _h5py_dump(f: File, d: Dict[str, Any], *, prefix: str = ''):
+def _h5py_dump(f: File, d: Mapping[str, Any], *, prefix: str = ''):
     """Dump function for h5py."""
     for k, v in d.items():
         if prefix:
             key = prefix + '/' + k
         else:
             key = k
-        if type(v) is dict:
+        if isinstance(v, dict):
             _h5py_dump(f, v, prefix=key)
-        elif type(v) is bytes:
+        elif isinstance(v, bytes):
             f[key] = _compress(v)
-        elif type(v) is str:
+        elif isinstance(v, str):
             f[key] = _compress(b's' + v.encode('utf-8'))
-        elif type(v) in {int, float}:
+        elif isinstance(v, (int, float)):
             f[key] = v
         else:
             try:
@@ -47,15 +47,15 @@ def _h5py_dump(f: File, d: Dict[str, Any], *, prefix: str = ''):
                 f[key] = a
 
 
-def _h5py_load(f: Group) -> Dict[str, Any]:
+def _h5py_load(f: Group) -> Mapping[str, Any]:
     """Load function for h5py."""
     data = {}
     for k, v in f.items():  # type: str, Union[Group, Dataset]
-        if type(v) is Group:
+        if isinstance(v, Group):
             data[k] = _h5py_load(v)
-        elif type(v) is Dataset:
+        elif isinstance(v, Dataset):
             value = v[()]
-            if type(value) is void:
+            if isinstance(value, void):
                 value = _decompress(value)
                 if value.startswith(b's'):
                     value = value.decode('utf-8')[1:]
@@ -66,7 +66,6 @@ def _h5py_load(f: Group) -> Dict[str, Any]:
 
 
 class HDF5Editor(FormatEditor):
-
     """HDF5 reader and writer."""
 
     def __init__(self, *args):
@@ -86,17 +85,17 @@ class HDF5Editor(FormatEditor):
         """Save HDF5 file."""
         data = self.save_data()
         with File(file_name, 'w') as f:
-            _h5py_dump(f, data)
+            try:
+                _h5py_dump(f, data)
+            except Exception as e:
+                QMessageBox.warning(self._parent, "Save error", f"{e}")
 
     def load(self, file_name: str) -> None:
         """Load HDF5 file."""
         with File(file_name, 'r') as f:
-            if 'pyslvs_ver' not in f:
-                QMessageBox.warning(
-                    self,
-                    "Invalid file format",
-                    f"The file {file_name} is not a Pyslvs project."
-                )
+            try:
+                data = _h5py_load(f)
+            except Exception as e:
+                QMessageBox.warning(self._parent, "Load error", f"{e}")
                 return
-            data = _h5py_load(f)
         self.load_data(file_name, data)

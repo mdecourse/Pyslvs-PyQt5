@@ -14,17 +14,14 @@ from psutil import virtual_memory
 from numpy.distutils.cpuinfo import cpu
 from qtpy.QtCore import Signal
 from qtpy.QtWidgets import QWidget
-from pyslvs import Planar
-from pyslvs.metaheuristics import ALGORITHM
+from pyslvs import FMatch
+from pyslvs.metaheuristics import ALGORITHM, AlgorithmType
 from pyslvs_ui.info import logger
 from pyslvs_ui.synthesis.thread import BaseThread
-from .options import AlgorithmType
 
 
 class DimensionalThread(BaseThread):
-
     """The QThread class to handle algorithm."""
-
     progress_update = Signal(int, str)
     result = Signal(dict)
 
@@ -38,7 +35,7 @@ class DimensionalThread(BaseThread):
         super(DimensionalThread, self).__init__(parent)
         self.algorithm = algorithm
         self.mech = mech
-        self.planar = Planar(self.mech)
+        self.planar = FMatch(self.mech)
         self.settings = settings
         self.loop = 1
 
@@ -80,7 +77,7 @@ class DimensionalThread(BaseThread):
         my_cpu = info.get("model name", info.get('ProcessorNameString', ''))
         last_gen = tf[-1][0]
         mechanism = {
-            'Algorithm': self.algorithm.value,
+            'algorithm': self.algorithm.value,
             'time': time_spend,
             'last_gen': last_gen,
             'last_fitness': tf[-1][1],

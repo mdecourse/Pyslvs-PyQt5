@@ -11,21 +11,16 @@ from re import match
 from typing import List, Union
 from qtpy.QtCore import Slot, Qt
 from qtpy.QtWidgets import (
-    QDialog,
-    QListWidgetItem,
-    QDialogButtonBox,
-    QColorDialog,
-    QWidget,
+    QDialog, QListWidgetItem, QDialogButtonBox, QColorDialog, QWidget,
 )
 from qtpy.QtGui import QIcon, QPixmap
-from pyslvs import VPoint, VLink
-from pyslvs_ui.graphics import color_names, color_qt, color_icon
+from pyslvs import VPoint, VLink, color_names
+from pyslvs_ui.graphics import color_qt, color_icon
 from .utility import set_custom_color, add_custom_color
 from .edit_link_ui import Ui_Dialog
 
 
 class EditLinkDialog(QDialog, Ui_Dialog):
-
     """Option dialog."""
 
     def __init__(
@@ -42,10 +37,8 @@ class EditLinkDialog(QDialog, Ui_Dialog):
         """
         super(EditLinkDialog, self).__init__(parent)
         self.setupUi(self)
-        self.setWindowFlags(
-            self.windowFlags()
-            & ~Qt.WindowContextHelpButtonHint
-        )
+        self.setWindowFlags(self.windowFlags()
+                            & ~Qt.WindowContextHelpButtonHint)
         self.vpoints = vpoints
         self.vlinks = vlinks
         icon = self.windowIcon()
@@ -64,7 +57,7 @@ class EditLinkDialog(QDialog, Ui_Dialog):
             self.name_edit.setText(name)
             self.name_box.setEnabled(False)
             self.name_box.addItem(icon, "New link")
-            self.color_box.setCurrentIndex(self.color_box.findText('Blue'))
+            self.color_box.setCurrentIndex(self.color_box.findText('blue'))
         else:
             for i, vlink in enumerate(self.vlinks):
                 self.name_box.insertItem(i, icon, vlink.name)

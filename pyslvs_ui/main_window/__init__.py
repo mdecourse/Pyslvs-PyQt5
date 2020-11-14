@@ -23,12 +23,11 @@ from typing import Tuple, Sequence
 from qtpy.QtCore import Slot
 from qtpy.QtWidgets import QMessageBox, QInputDialog
 from qtpy.QtGui import QTextCursor, QCloseEvent
-from pyslvs_ui.info import ARGUMENTS, XStream, logger
+from pyslvs_ui.info import XStream, logger
 from .io import IOMethodInterface
 
 
 class MainWindow(IOMethodInterface):
-
     """The main window of Pyslvs.
 
     Inherited from QMainWindow.
@@ -38,7 +37,7 @@ class MainWindow(IOMethodInterface):
     to wrapper function in 'main_window' module.
     """
 
-    def __init__(self) -> None:
+    def __init__(self):
         """Notes:
 
         + Input command line arguments object from Python parser.
@@ -60,8 +59,6 @@ class MainWindow(IOMethodInterface):
         m = MainWindow()
         m.show()
         m.main_canvas.zoom_to_fit()
-        if not ARGUMENTS.debug_mode:
-            m.console_connect()
         return m
 
     def closeEvent(self, event: QCloseEvent) -> None:
@@ -81,7 +78,7 @@ class MainWindow(IOMethodInterface):
         """Reset the text when zoom bar changed."""
         self.zoom_button.setText(f'{value}px')
 
-    @Slot(name='on_zoom_button_clicked')
+    @Slot(name='on_zoom_cus_button_clicked')
     def __customize_zoom(self) -> None:
         """Customize zoom value."""
         value, ok = QInputDialog.getInt(
@@ -141,9 +138,9 @@ class MainWindow(IOMethodInterface):
             return
         # Add the path
         i = 0
-        while f"Algorithm_{i}" in self.inputs_widget.path_data():
+        while f"Algorithm_{i}" in self.inputs_widget.paths():
             i += 1
-        self.inputs_widget.add_path(f"Algorithm_{i}", path)
+        self.inputs_widget.add_path(f"Algorithm_{i}", path, {})
 
     @Slot(name='on_console_connect_button_clicked')
     def console_connect(self) -> None:

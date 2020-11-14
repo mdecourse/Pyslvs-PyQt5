@@ -8,7 +8,7 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from typing import cast, Sequence, Callable, Union
-from abc import ABC, abstractmethod
+from abc import ABC
 from qtpy.QtCore import Slot, QPoint
 from qtpy.QtWidgets import QAction, QApplication, QTableWidget
 from pyslvs import VLink
@@ -31,14 +31,7 @@ def _copy_table_data(table: QTableWidget) -> None:
 
 
 class ActionMethodInterface(StorageMethodInterface, ABC):
-
     """Abstract class for action methods."""
-
-    @abstractmethod
-    def __init__(self) -> None:
-        super(ActionMethodInterface, self).__init__()
-        self.mouse_pos_x = 0.
-        self.mouse_pos_y = 0.
 
     def __enable_point_context(self) -> None:
         """Adjust the status of QActions.
@@ -265,9 +258,16 @@ class ActionMethodInterface(StorageMethodInterface, ABC):
 
     def __set_nav_toolbar_pos(self, pos: int) -> None:
         """Set the position of toolbar. (0: top, 1: bottom)"""
-        if pos in {0, 1}:
-            if self.canvas_splitter.indexOf(self.nav_toolbar) == pos:
-                return
-            self.canvas_splitter.insertWidget(pos, self.nav_toolbar)
-        else:
+        if pos not in {0, 1}:
             raise ValueError("invalid toolbar position.")
+        if pos == 1:
+            pos = 2
+        if self.canvas_layout.indexOf(self.nav_toolbar) == pos:
+            return
+        self.canvas_layout.insertWidget(pos, self.nav_toolbar)
+        self.canvas_layout.insertWidget(1, self.zoom_widget)
+
+    @Slot(bool, name='on_grid_mode_button_toggled')
+    def __set_grid_mode(self, enabled: bool) -> None:
+        """Return grid mode state."""
+        self.main_canvas.set_snap(self.prefer.snap_option if enabled else 0.)

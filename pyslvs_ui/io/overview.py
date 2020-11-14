@@ -7,7 +7,7 @@ __copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import Tuple, List, Sequence, Dict, Any
+from typing import Tuple, Sequence, Mapping, Any
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import QWidget, QDialog, QListWidgetItem
 from qtpy.QtGui import QPixmap
@@ -18,7 +18,6 @@ _Pairs = Sequence[Tuple[int, int]]
 
 
 class OverviewDialog(QDialog, Ui_Dialog):
-
     """Put all the data into this dialog!!
 
     User cannot change anything in this interface.
@@ -29,19 +28,19 @@ class OverviewDialog(QDialog, Ui_Dialog):
         parent: QWidget,
         title: str,
         main_expr: str,
-        storage_data: Dict[str, str],
+        storage_data: Mapping[str, str],
         input_data: Sequence[Tuple[int, int]],
-        path_data: Dict[str, _Paths],
-        collection_data: List[_Pairs],
-        config_data: Dict[str, Dict[str, Any]],
-        algorithm_data: List[Dict[str, Any]],
+        path_data: Mapping[str, _Paths],
+        collection_data: Sequence[_Pairs],
+        config_data: Mapping[str, Mapping[str, Any]],
+        algorithm_data: Sequence[Mapping[str, Any]],
         background_path: str
     ):
         """Data come from commit."""
         super(OverviewDialog, self).__init__(parent)
         self.setupUi(self)
-        flags = self.windowFlags()
-        self.setWindowFlags(flags & ~Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags()
+                            & ~Qt.WindowContextHelpButtonHint)
         self.setWindowTitle(f"Project: {title}")
 
         # Expression of storage data
@@ -74,7 +73,7 @@ class OverviewDialog(QDialog, Ui_Dialog):
         self.__set_item_text(2, len(collection_data), len(config_data))
         # Dimensional synthesis
         for data in algorithm_data:
-            self.results_list.addItem(data['Algorithm'])
+            self.results_list.addItem(data['algorithm'])
         self.__set_item_text(3, len(algorithm_data))
         # Background image
         self.image_path.setText(background_path)

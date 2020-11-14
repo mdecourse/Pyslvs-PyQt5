@@ -7,8 +7,10 @@ __copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-from typing import cast, Tuple, Sequence, Set, FrozenSet, Dict, Union, Optional, List
-from abc import ABC
+from typing import (cast, Tuple, Sequence, Set, FrozenSet, Dict,
+                    Counter as Counter_t, Union, Optional)
+from abc import abstractmethod, ABC
+from collections import Counter
 from qtpy.QtCore import Slot
 from qtpy.QtWidgets import (
     QDialogButtonBox,
@@ -21,15 +23,8 @@ from qtpy.QtWidgets import (
     QMessageBox,
     QInputDialog,
 )
-from pyslvs import (
-    VJoint,
-    VLink,
-    Graph,
-    edges_view,
-    SolverSystem,
-    PointArgs,
-    LinkArgs,
-)
+from pyslvs import VJoint, VLink, edges_view, SolverSystem, PointArgs, LinkArgs
+from pyslvs.graph import Graph
 from pyslvs_ui.entities import EditPointDialog, EditLinkDialog
 from pyslvs_ui.widgets import (
     AddTable,
@@ -44,10 +39,9 @@ _Coord = Tuple[float, float]
 
 
 class _ScaleDialog(QDialog):
-
     """Scale mechanism dialog."""
 
-    def __init__(self, parent: MainWindowBase) -> None:
+    def __init__(self, parent: MainWindowBase):
         super(_ScaleDialog, self).__init__(parent)
         self.setWindowTitle("Scale Mechanism")
         self.main_layout = QVBoxLayout(self)
@@ -80,10 +74,10 @@ class _ScaleDialog(QDialog):
 
 
 class _LinkLengthDialog(QDialog):
-
     """Link length dialog."""
+    vlinks: Dict[str, FrozenSet[int]]
 
-    def __init__(self, parent: MainWindowBase) -> None:
+    def __init__(self, parent: MainWindowBase):
         super(_LinkLengthDialog, self).__init__(parent)
         self.setWindowTitle("Set Link Length")
         self.main_layout = QVBoxLayout(self)
@@ -97,7 +91,7 @@ class _LinkLengthDialog(QDialog):
         self.main_layout.addLayout(layout)
 
         self.vpoints = parent.vpoint_list
-        self.vlinks: Dict[str, FrozenSet[int]] = {
+        self.vlinks = {
             vlink.name: frozenset(vlink.points) for vlink in parent.vlink_list
         }
         self.leader.currentTextChanged.connect(self.__set_follower)
@@ -150,8 +144,14 @@ class _LinkLengthDialog(QDialog):
 
 
 class EntitiesMethodInterface(MainWindowBase, ABC):
-
     """Abstract class for entities methods."""
+
+    @abstractmethod
+    def __init__(self):
+        """Defined mouse position value on main canvas."""
+        super(EntitiesMethodInterface, self).__init__()
+        self.mouse_pos_x = 0.
+        self.mouse_pos_y = 0.
 
     def __edit_point(self, row: Union[int, bool] = False) -> None:
         """Edit point function."""
@@ -247,7 +247,7 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
         args.links = ''
         self.command_stack.beginMacro(f"Delete {{Point{row}}}")
         for i in reversed([
-            i for i, (b, d, a) in enumerate(self.inputs_widget.input_pairs())
+            i for i, (b, d, _) in enumerate(self.inputs_widget.input_pairs())
             if row in {b, d}
         ]):
             self.inputs_widget.remove_var(i)
@@ -379,7 +379,7 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
     def add_points(
         self,
         p_attr: Sequence[Tuple[float, float, str, str, int, float]]
-    ):
+    ) -> None:
         """Add multiple points."""
         for attr in p_attr:
             self.add_point(*attr)
@@ -389,7 +389,7 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
         graph: Graph,
         pos: Dict[int, Tuple[float, float]],
         ground_link: Optional[int]
-    ):
+    ) -> None:
         """Add points by NetworkX graph and position dict."""
         base_count = self.entities_point.rowCount()
         self.command_stack.beginMacro(
@@ -541,10 +541,10 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
         self.command_stack.beginMacro(f"Set link length:{set(data)}")
         for row, c in enumerate(result):
             args = self.entities_point.row_data(row)
-            if type(c[0]) is float:
-                args.x, args.y = cast(_Coord, c)
+            if isinstance(c[0], float):
+                args.x, args.y = c
             else:
-                (args.x, args.y), _ = cast(Tuple[_Coord, _Coord], c)
+                (args.x, args.y), _ = c
             self.command_stack.push(EditPointTable(
                 row,
                 self.vpoint_list,
@@ -595,20 +595,13 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
         if not len(rows) > 1:
             self.__edit_link()
             return
-
-        links_all: List[str] = []
-        for vpoint in self.vpoint_list:
-            links_all.extend(vpoint.links)
-        count_0 = False
-        for p in set(links_all):
-            if links_all.count(p) > 1:
-                count_0 = True
-                break
-        if not links_all or not count_0:
+        inter: Counter_t[str] = Counter()
+        for p in rows:
+            inter.update(self.vpoint_list[p].links)
+        name = inter.most_common(1)[0][0] if inter else ""
+        if inter[name] < 2:
             self.add_normal_link(rows)
             return
-
-        name = max(set(links_all), key=links_all.count)
         row = self.entities_link.find_name(name)
         self.command_stack.beginMacro(f"Edit {{Link: {name}}}")
         args = self.entities_link.row_data(row)
@@ -636,7 +629,7 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
         name = self.__get_link_serial_number()
         args = LinkArgs(name, 'Blue', self.entities_link.item(0, 2).text())
         self.command_stack.beginMacro(f"Release ground to {{Link: {name}}}")
-        # Free all points.
+        # Free all points
         self.command_stack.push(EditLinkTable(
             0,
             self.vpoint_list,
@@ -645,7 +638,7 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
             self.entities_link,
             LinkArgs(VLink.FRAME, 'White', '')
         ))
-        # Create new link.
+        # Create new link
         self.command_stack.push(AddTable(self.vlink_list, self.entities_link))
         self.command_stack.push(EditLinkTable(
             self.entities_link.rowCount() - 1,
@@ -669,7 +662,7 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
         base_args = self.entities_link.row_data(row2)
         base_args.points = ','.join(f"Point{e}" for e in new_points if e)
         self.command_stack.beginMacro(f"Constrain {{Link: {vlink1.name}}} to ground")
-        # Turn to ground.
+        # Turn to ground
         self.command_stack.push(EditLinkTable(
             row2,
             self.vpoint_list,
@@ -678,7 +671,7 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
             self.entities_link,
             base_args
         ))
-        # Free all points and delete the link.
+        # Free all points and delete the link
         self.command_stack.push(EditLinkTable(
             row1,
             self.vpoint_list,
@@ -741,11 +734,7 @@ class EntitiesMethodInterface(MainWindowBase, ABC):
             self,
             f"Set {axis} axis",
             f"Align the selected points into {axis} axis:",
-            0,
-            -9999,
-            9999,
-            4
-        )
+            0, -9999, 9999, 4)
         if not ok:
             return
         self.command_stack.beginMacro(f"Align points with {axis}")

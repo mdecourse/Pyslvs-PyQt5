@@ -6,13 +6,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from typing import (
-    TYPE_CHECKING,
-    Tuple,
-    List,
-    Sequence,
-    Dict,
-    Union,
-    Any,
+    TYPE_CHECKING, Tuple, List, Sequence, Dict, Mapping, Union, Any,
 )
 from qtpy.QtCore import QObject, QFileInfo
 from qtpy.QtWidgets import QProgressDialog, QMessageBox
@@ -20,42 +14,49 @@ from pyslvs import __version__
 from pyslvs_ui.qt_patch import QABCMeta
 from pyslvs_ui.info import logger
 from .overview import OverviewDialog
+
 if TYPE_CHECKING:
     from pyslvs_ui.io import ProjectWidget
     from pyslvs_ui.widgets import MainWindowBase
 
 PROJECT_FORMAT = ("YAML", "Compressed YAML", "HDF5")
-_Paths = Sequence[Sequence[Tuple[float, float]]]
+_Coord = Tuple[float, float]
+_Paths = Sequence[Sequence[_Coord]]
+_SliderPaths = Mapping[int, Sequence[_Coord]]
 _Pairs = Sequence[Tuple[int, int]]
+_Data = Mapping[str, Any]
 
 
 class FormatEditor(QObject, metaclass=QABCMeta):
+    """A generic loader and dumper."""
+    dlg: Union[QProgressDialog, OverviewDialog, None]
 
-    """Generic loader and dumper."""
-
-    def __init__(self, project_widget: ProjectWidget, parent: MainWindowBase) -> None:
+    @abstractmethod
+    def __init__(self, project_widget: ProjectWidget, parent: MainWindowBase):
         super(FormatEditor, self).__init__(parent)
+        self._parent = parent
         # Undo stack
         self.command_stack = parent.command_stack
         # Action group settings
         self.prefer = parent.prefer
-        # Call to get point expressions
+        # Point expressions
         self.get_expression = parent.get_expression
-        # Call to get link data
+        # Link data
         self.vlinks = parent.vlink_list
-        # Call to get storage data
+        # Storage data
         self.get_storage = parent.get_storage
-        # Call to get collections data
+        # Collections data
         self.collect_data = parent.collections.collect_data
-        # Call to get triangle data
+        # Triangle data
         self.config_data = parent.collections.config_data
-        # Call to get inputs variables data
+        # Inputs variables data
         self.input_pairs = parent.inputs_widget.input_pairs
-        # Call to get algorithm data
+        # Algorithm data
         self.algorithm_data = parent.dimensional_synthesis.mechanism_data
-        # Call to get path data
-        self.path_data = parent.inputs_widget.path_data
-        # Call to get background options
+        # Path data
+        self.paths = parent.inputs_widget.paths
+        self.slider_paths = parent.inputs_widget.slider_paths
+        # Background options
         self.background_config = project_widget.background_config
         self.get_background_path = project_widget.get_background_path
 
@@ -72,7 +73,8 @@ class FormatEditor(QObject, metaclass=QABCMeta):
         # Call to load paths
         self.load_paths = parent.inputs_widget.load_paths
         # Call to load collections data
-        self.load_collections = parent.collections.structure_widget.add_collections
+        self.load_collections = \
+            parent.collections.structure_widget.add_collections
         # Call to load config data
         self.load_config = parent.collections.configure_widget.add_collections
         # Call to load algorithm results
@@ -82,9 +84,9 @@ class FormatEditor(QObject, metaclass=QABCMeta):
         # Clear function for main window
         self.main_clear = parent.clear
         # Dialog for loader
-        self.dlg: Union[QProgressDialog, OverviewDialog, None] = None
+        self.dlg = None
 
-    def save_data(self) -> Dict[str, Any]:
+    def save_data(self) -> _Data:
         """Save file method."""
         data = {
             'pyslvs_ver': __version__,
@@ -96,7 +98,8 @@ class FormatEditor(QObject, metaclass=QABCMeta):
             'collection': self.collect_data(),
             'triangle': self.config_data(),
             'algorithm': self.algorithm_data,
-            'path': self.path_data(),
+            'path': self.paths(),
+            'slider_path': self.slider_paths(),
             'background': self.background_config(),
         }
         for k, v in tuple(data.items()):
@@ -104,26 +107,27 @@ class FormatEditor(QObject, metaclass=QABCMeta):
                 data.pop(k)
         return data
 
-    def load_data(self, file_name: str, data: Dict[str, Any]) -> None:
+    def load_data(self, file_name: str, data: _Data) -> None:
         """Load file method."""
         self.main_clear()
         ver = data.get('pyslvs_ver', "")
         if ver:
-            logger.info(f"Load data from Pyslvs {ver}")
+            logger.info(f"Load data from version {ver}")
         del ver
-        self.dlg = QProgressDialog("Loading project", "Cancel", 0, 7, self.parent())
+        self.dlg = QProgressDialog("Loading project", "Cancel", 0, 7,
+                                   self._parent)
         self.dlg.show()
         try:
             mechanism_data = self.__load_mech(data)
             storage_data = self.__load_storage(data)
             input_data = self.__load_input(data)
-            path_data = self.__load_path(data)
+            paths = self.__load_path(data)
             collection_data = self.__load_collection(data)
             config_data = self.__load_config(data)
             algorithm_data = self.__load_algorithm(data)
             self.__load_background(data)
         except Exception as e:
-            QMessageBox.warning(self.parent(), "Load error", f"Exception:\n{e}")
+            QMessageBox.warning(self._parent, "Load error", f"Exception:\n{e}")
             self.dlg.deleteLater()
             self.dlg = None
             return
@@ -132,12 +136,12 @@ class FormatEditor(QObject, metaclass=QABCMeta):
         # Show overview dialog
         self.dlg.deleteLater()
         self.dlg = OverviewDialog(
-            self.parent(),
+            self._parent,
             QFileInfo(file_name).baseName(),
             mechanism_data,
             storage_data,
             input_data,
-            path_data,
+            paths,
             collection_data,
             config_data,
             algorithm_data,
@@ -159,10 +163,10 @@ class FormatEditor(QObject, metaclass=QABCMeta):
             self.main_clear()
             raise ValueError('load failed')
 
-    def __load_mech(self, data: Dict[str, Any]) -> str:
+    def __load_mech(self, data: _Data) -> str:
         """Load mechanism data."""
         self.__process("mechanism")
-        links_data: Dict[str, str] = data.get('links', {})
+        links_data: Mapping[str, str] = data.get('links', {})
         mechanism_data: str = data.get('mechanism', "M[]")
         if len(links_data) > 1 or mechanism_data != "M[]":
             self.__set_group("mechanism")
@@ -171,7 +175,7 @@ class FormatEditor(QObject, metaclass=QABCMeta):
             self.__end_group()
         return mechanism_data
 
-    def __load_input(self, data: Dict[str, Any]) -> List[Tuple[int, int]]:
+    def __load_input(self, data: _Data) -> List[Tuple[int, int]]:
         """Load input data."""
         self.__process("input data")
         input_data: List[Sequence[int]] = data.get('input', [])
@@ -183,30 +187,31 @@ class FormatEditor(QObject, metaclass=QABCMeta):
             self.__end_group()
         return i_attr
 
-    def __load_storage(self, data: Dict[str, Any]) -> Dict[str, str]:
+    def __load_storage(self, data: _Data) -> Mapping[str, str]:
         """Load storage data."""
         self.__process("storage")
-        storage_data: Dict[str, str] = data.get('storage', {})
+        storage_data: Mapping[str, str] = data.get('storage', {})
         if storage_data:
             self.__set_group("storage")
             self.load_storage(storage_data)
             self.__end_group()
         return storage_data
 
-    def __load_path(self, data: Dict[str, Any]) -> Dict[str, _Paths]:
+    def __load_path(self, data: _Data) -> Mapping[str, _Paths]:
         """Load path data."""
         self.__process("paths")
-        path_data: Dict[str, _Paths] = data.get('path', {})
-        if path_data:
+        paths: Mapping[str, _Paths] = data.get('path', {})
+        slider_paths: Mapping[str, _SliderPaths] = data.get('slider_path', {})
+        if paths:
             self.__set_group("paths")
             self.load_paths({
                 n: [[(c[0], c[1]) for c in p] for p in ps]
-                for n, ps in path_data.items()
-            })
+                for n, ps in paths.items()
+            }, slider_paths)
             self.__end_group()
-        return path_data
+        return paths
 
-    def __load_collection(self, data: Dict[str, Any]) -> List[_Pairs]:
+    def __load_collection(self, data: _Data) -> List[_Pairs]:
         """Load collection data."""
         self.__process("graph collections")
         collection_data: List[_Pairs] = data.get('collection', [])
@@ -216,17 +221,17 @@ class FormatEditor(QObject, metaclass=QABCMeta):
             self.__end_group()
         return collection_data
 
-    def __load_config(self, data: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    def __load_config(self, data: _Data) -> Mapping[str, _Data]:
         """Load synthesis configurations."""
         self.__process("synthesis configurations")
-        config_data: Dict[str, Dict[str, Any]] = data.get('triangle', {})
+        config_data: Mapping[str, _Data] = data.get('triangle', {})
         if config_data:
             self.__set_group("synthesis configurations")
             self.load_config(config_data)
             self.__end_group()
         return config_data
 
-    def __load_algorithm(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def __load_algorithm(self, data: _Data) -> Sequence[_Data]:
         """Load algorithm data."""
         self.__process("synthesis results")
         algorithm_data: List[Dict[str, Any]] = data.get('algorithm', [])
@@ -239,10 +244,10 @@ class FormatEditor(QObject, metaclass=QABCMeta):
             self.__end_group()
         return algorithm_data
 
-    def __load_background(self, data: Dict[str, Any]) -> None:
+    def __load_background(self, data: _Data) -> None:
         """Set background."""
         self.__process("background")
-        background: Dict[str, Union[str, float]] = data.get('background', {})
+        background: Mapping[str, Union[str, float]] = data.get('background', {})
         self.set_background_config(background)
 
     def __set_group(self, text: str) -> None:
@@ -257,8 +262,8 @@ class FormatEditor(QObject, metaclass=QABCMeta):
 
     @abstractmethod
     def save(self, file_name: str) -> None:
-        ...
+        raise NotImplementedError
 
     @abstractmethod
     def load(self, file_name: str) -> None:
-        ...
+        raise NotImplementedError

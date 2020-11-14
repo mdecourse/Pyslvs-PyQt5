@@ -10,14 +10,7 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from typing import TYPE_CHECKING, List, Tuple, Sequence, Dict, Iterable
-from qtpy.QtCore import (
-    Signal,
-    Slot,
-    Qt,
-    QSize,
-    QPointF,
-    QCoreApplication,
-)
+from qtpy.QtCore import Signal, Slot, Qt, QSize, QPointF, QCoreApplication
 from qtpy.QtWidgets import (
     QMessageBox,
     QProgressDialog,
@@ -27,7 +20,7 @@ from qtpy.QtWidgets import (
     QApplication,
 )
 from qtpy.QtGui import QImage, QPainter, QPixmap
-from pyslvs import (
+from pyslvs.graph import (
     Graph,
     link_assortment,
     contracted_link_assortment,
@@ -39,6 +32,7 @@ from pyslvs_ui.qt_patch import qt_image_format
 from pyslvs_ui.graphics import graph2icon, engine_picker, engines
 from .dialogs.targets import TargetsDialog
 from .structure_widget_ui import Ui_Form
+
 if TYPE_CHECKING:
     from pyslvs_ui.widgets import MainWindowBase
 
@@ -48,10 +42,13 @@ class StructureWidget(QWidget, Ui_Form):
 
     Preview the structures that was been added in collection list by user.
     """
+    collections: List[Graph]
+    collections_layouts: List[Dict[int, Tuple[float, float]]]
+    collections_grounded: List[Graph]
 
     layout_sender = Signal(Graph, dict)
 
-    def __init__(self, parent: MainWindowBase) -> None:
+    def __init__(self, parent: MainWindowBase):
         """Get IO dialog functions from parent."""
         super(StructureWidget, self).__init__(parent)
         self.setupUi(self)
@@ -63,9 +60,9 @@ class StructureWidget(QWidget, Ui_Form):
         self.prefer = parent.prefer
 
         # Data structures
-        self.collections: List[Graph] = []
-        self.collections_layouts: List[Dict[int, Tuple[float, float]]] = []
-        self.collections_grounded: List[Graph] = []
+        self.collections = []
+        self.collections_layouts = []
+        self.collections_grounded = []
 
         # Engine list
         self.graph_engine.addItems(engines)
@@ -135,7 +132,7 @@ class StructureWidget(QWidget, Ui_Form):
                 self.prefer.monochrome_option,
                 pos=pos
             ))
-            self.collections_layouts.append(pos)
+            self.collections_layouts.append(dict(pos))
             item.setToolTip(f"{g.edges}")
             self.collection_list.addItem(item)
             dlg.setValue(i + 1)
@@ -290,7 +287,7 @@ class StructureWidget(QWidget, Ui_Form):
         file_name = self.output_to("atlas edges expression", ["Text file (*.txt)"])
         if not file_name:
             return
-        with open(file_name, 'w', encoding='utf-8') as f:
+        with open(file_name, 'w+', encoding='utf-8') as f:
             f.write('\n'.join(str(g.edges) for g in self.collections))
         self.save_reply_box("edges expression", file_name)
 

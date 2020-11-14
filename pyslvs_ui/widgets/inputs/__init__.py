@@ -4,33 +4,49 @@
 
 from __future__ import annotations
 
+__all__ = ['InputsWidget', 'QRotatableView']
 __author__ = "Yuan Chang"
 __copyright__ = "Copyright (C) 2016-2020"
 __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
-import csv
-from typing import TYPE_CHECKING, Tuple, Dict, Sequence, Iterator, Optional
-from copy import copy
-from qtpy.QtCore import Signal, Slot, QTimer, QPoint
-from qtpy.QtWidgets import (
-    QWidget,
-    QMenu,
-    QMessageBox,
-    QInputDialog,
-    QListWidgetItem,
-    QApplication,
+from typing import (
+    TYPE_CHECKING, TypeVar, Tuple, Dict, Mapping, Sequence, Iterator, Optional,
+    Callable,
 )
-from pyslvs import VJoint
+from csv import writer
+from copy import copy
+from numpy import array, hypot, arctan2
+from qtpy.QtCore import Signal, Slot, QTimer
+from qtpy.QtWidgets import (
+    QWidget, QMessageBox, QInputDialog, QListWidgetItem, QApplication,
+    QCheckBox,
+)
+from qtpy.QtGui import QIcon, QPixmap
+from pyslvs import VJoint, curvature, derivative, path_signature
 from pyslvs_ui.info import logger
+from pyslvs_ui.graphics import DataChartDialog
+from pyslvs_ui.widgets.undo_redo import (
+    AddInput, DeleteInput, AddPath, DeletePath,
+)
 from .rotatable import QRotatableView
+from .animation import AnimateDialog
 from .inputs_ui import Ui_Form
-from .undo_redo import AddInput, DeleteInput, AddPath, DeletePath
+
 if TYPE_CHECKING:
     from pyslvs_ui.widgets import MainWindowBase
 
+_T = TypeVar('_T')
 _Coord = Tuple[float, float]
+_Vars = Sequence[Tuple[int, int]]
 _Paths = Sequence[Sequence[_Coord]]
+_SliderPaths = Mapping[int, Sequence[_Coord]]
+_AUTO_PATH = "Auto preview"  # Unified name
+
+
+def _no_auto_path(path: Mapping[str, _T]) -> Mapping[str, _T]:
+    """Copy paths without auto preview paths."""
+    return {name: path for name, path in path.items() if name != _AUTO_PATH}
 
 
 def _variable_int(text: str) -> int:
@@ -39,19 +55,19 @@ def _variable_int(text: str) -> int:
 
 
 class InputsWidget(QWidget, Ui_Form):
-
     """There has following functions:
 
     + Function of mechanism variables settings.
     + Path recording.
     """
+    __paths: Dict[str, _Paths]
+    __slider_paths: Dict[str, _SliderPaths]
 
     about_to_resolve = Signal()
 
-    def __init__(self, parent: MainWindowBase) -> None:
+    def __init__(self, parent: MainWindowBase):
         super(InputsWidget, self).__init__(parent)
         self.setupUi(self)
-
         # parent's function pointer
         self.free_move_button = parent.free_move_button
         self.entities_point = parent.entities_point
@@ -68,36 +84,44 @@ class InputsWidget(QWidget, Ui_Form):
         self.command_stack = parent.command_stack
         self.set_coords_as_current = parent.set_coords_as_current
         self.get_back_position = parent.get_back_position
-
         # Angle panel
         self.dial = QRotatableView(self)
         self.dial.setStatusTip("Input widget of rotatable joint.")
         self.dial.setEnabled(False)
         self.dial.value_changed.connect(self.__update_var)
         self.dial_spinbox.valueChanged.connect(self.__set_var)
-        self.inputs_dial_layout.addWidget(self.dial)
-
+        self.inputs_dial_layout.insertWidget(0, self.dial)
         # Play button
         self.variable_stop.clicked.connect(self.variable_value_reset)
-
         # Timer for play button
         self.inputs_play_shaft = QTimer()
         self.inputs_play_shaft.setInterval(10)
         self.inputs_play_shaft.timeout.connect(self.__change_index)
-
         # Change the point coordinates with current position
         self.update_pos.clicked.connect(self.set_coords_as_current)
+        # Record list
+        self.record_list.blockSignals(True)
+        self.record_list.addItem(_AUTO_PATH)
+        self.record_list.setCurrentRow(0)
+        self.record_list.blockSignals(False)
+        self.__paths = {_AUTO_PATH: self.main_canvas.path_preview}
+        self.__slider_paths = {_AUTO_PATH: self.main_canvas.slider_path_preview}
 
-        # Inputs record context menu
-        self.pop_menu_record_list = QMenu(self)
-        self.record_list.customContextMenuRequested.connect(
-            self.__record_list_context_menu
-        )
-        self.__path_data: Dict[str, _Paths] = {}
+        def slot(widget: QCheckBox) -> Callable[[int], None]:
+            @Slot(int)
+            def func(ind: int) -> None:
+                widget.setEnabled(ind >= 0
+                                  and self.vpoints[ind].type != VJoint.R)
+
+            return func
+
+        # Slot option
+        self.plot_joint.currentIndexChanged.connect(slot(self.plot_joint_slot))
+        self.wrt_joint.currentIndexChanged.connect(slot(self.wrt_joint_slot))
 
     def clear(self) -> None:
         """Clear function to reset widget status."""
-        self.__path_data.clear()
+        self.__paths = {_AUTO_PATH: self.__paths[_AUTO_PATH]}
         for _ in range(self.record_list.count() - 1):
             self.record_list.takeItem(1)
         self.variable_list.clear()
@@ -116,9 +140,13 @@ class InputsWidget(QWidget, Ui_Form):
         self.dial_spinbox.setMinimum(-500)
         self.dial_spinbox.setMaximum(500)
 
-    def path_data(self) -> Dict[str, _Paths]:
+    def paths(self) -> Mapping[str, _Paths]:
         """Return current path data."""
-        return self.__path_data
+        return _no_auto_path(self.__paths)
+
+    def slider_paths(self) -> Mapping[str, _SliderPaths]:
+        """Return current path data."""
+        return _no_auto_path(self.__slider_paths)
 
     @Slot(tuple)
     def set_selection(self, selections: Sequence[int]) -> None:
@@ -135,7 +163,6 @@ class InputsWidget(QWidget, Ui_Form):
     def __update_relate_points(self, _=None) -> None:
         """Change the point row from input widget."""
         self.driver_list.clear()
-
         item: Optional[QListWidgetItem] = self.joint_list.currentItem()
         if item is None:
             return
@@ -176,7 +203,6 @@ class InputsWidget(QWidget, Ui_Form):
             if item is None:
                 return
             p1 = _variable_int(item.text())
-
         # Check DOF
         if self.dof() <= self.input_count():
             QMessageBox.warning(
@@ -185,7 +211,6 @@ class InputsWidget(QWidget, Ui_Form):
                 "The number of variable must no more than degrees of freedom."
             )
             return
-
         # Check same link
         if not self.vpoints[p0].same_link(self.vpoints[p1]):
             QMessageBox.warning(
@@ -194,9 +219,8 @@ class InputsWidget(QWidget, Ui_Form):
                 "The base point and driver point should at the same link."
             )
             return
-
         # Check repeated pairs
-        for p0_, p1_, a in self.input_pairs():
+        for p0_, p1_, _ in self.input_pairs():
             if {p0, p1} == {p0_, p1_} and self.vpoints[p0].type == VJoint.R:
                 QMessageBox.warning(
                     self,
@@ -204,7 +228,6 @@ class InputsWidget(QWidget, Ui_Form):
                     "There already have a same pair."
                 )
                 return
-
         if p0 == p1:
             # One joint by offset
             value = self.vpoints[p0].true_offset()
@@ -217,7 +240,7 @@ class InputsWidget(QWidget, Ui_Form):
             f"{value:.02f}",
         )), self.variable_list))
 
-    def add_inputs_variables(self, variables: Sequence[Tuple[int, int]]) -> None:
+    def add_inputs_variables(self, variables: _Vars) -> None:
         """Add from database."""
         for p0, p1 in variables:
             self.__add_inputs_variable(p0, p1)
@@ -229,16 +252,16 @@ class InputsWidget(QWidget, Ui_Form):
             return
         row = self.variable_list.currentRow()
         enabled = row > -1
-        rotatable = (
+        is_rotatable = (
             enabled
             and not self.free_move_button.isChecked()
             and self.right_input()
         )
-        self.dial.setEnabled(rotatable)
-        self.dial_spinbox.setEnabled(rotatable)
+        self.dial.setEnabled(is_rotatable)
+        self.dial_spinbox.setEnabled(is_rotatable)
         self.oldVar = self.dial.value()
-        self.variable_play.setEnabled(rotatable)
-        self.variable_speed.setEnabled(rotatable)
+        self.variable_play.setEnabled(is_rotatable)
+        self.variable_speed.setEnabled(is_rotatable)
         item: Optional[QListWidgetItem] = self.variable_list.currentItem()
         if item is None:
             return
@@ -255,7 +278,7 @@ class InputsWidget(QWidget, Ui_Form):
     def variable_excluding(self, row: Optional[int] = None) -> None:
         """Remove variable if the point was been deleted. Default: all."""
         one_row: bool = row is not None
-        for i, (b, d, a) in enumerate(self.input_pairs()):
+        for i, (b, d, _) in enumerate(self.input_pairs()):
             # If this is not origin point any more
             if one_row and row != b:
                 continue
@@ -293,9 +316,12 @@ class InputsWidget(QWidget, Ui_Form):
     def variable_reload(self) -> None:
         """Auto check the points and type."""
         self.joint_list.clear()
+        self.plot_joint.clear()
+        self.wrt_joint.clear()
         for i in range(self.entities_point.rowCount()):
             type_text = self.entities_point.item(i, 2).text()
-            self.joint_list.addItem(f"[{type_text}] Point{i}")
+            for w in [self.joint_list, self.plot_joint, self.wrt_joint]:
+                w.addItem(f"[{type_text}] Point{i}")
         self.variable_value_reset()
 
     @Slot(float)
@@ -327,7 +353,7 @@ class InputsWidget(QWidget, Ui_Form):
             self.variable_play.setChecked(False)
             self.inputs_play_shaft.stop()
         self.get_back_position()
-        for i, (p0, p1, a) in enumerate(self.input_pairs()):
+        for i, (p0, p1, _) in enumerate(self.input_pairs()):
             self.variable_list.item(i).setText('->'.join([
                 f'Point{p0}',
                 f'Point{p1}',
@@ -345,8 +371,6 @@ class InputsWidget(QWidget, Ui_Form):
             self.inputs_play_shaft.start()
         else:
             self.inputs_play_shaft.stop()
-            if self.update_pos_option.isChecked():
-                self.set_coords_as_current()
 
     @Slot()
     def __change_index(self) -> None:
@@ -371,7 +395,7 @@ class InputsWidget(QWidget, Ui_Form):
                 self.dial_spinbox.maximum() / self.record_interval.value()
             ))
             return
-        path = self.main_canvas.get_record_path()
+        path, path_slider = self.main_canvas.get_record_path()
         name, ok = QInputDialog.getText(
             self,
             "Recording completed!",
@@ -379,30 +403,30 @@ class InputsWidget(QWidget, Ui_Form):
         )
         i = 0
         name = name or f"Record_{i}"
-        while name in self.__path_data:
+        while name in self.__paths:
             name = f"Record_{i}"
             i += 1
-        QMessageBox.information(
-            self,
-            "Record",
-            "The name tag is being used or empty."
-        )
-        self.add_path(name, path)
+        QMessageBox.information(self, "Record",
+                                "The name tag is being used or empty.")
+        self.add_path(name, path, path_slider)
 
-    def add_path(self, name: str, path: _Paths) -> None:
+    def add_path(self, name: str, path: _Paths, slider: _SliderPaths) -> None:
         """Add path function."""
         self.command_stack.push(AddPath(
             self.record_list,
             name,
-            self.__path_data,
-            path
+            self.__paths,
+            self.__slider_paths,
+            path,
+            slider
         ))
         self.record_list.setCurrentRow(self.record_list.count() - 1)
 
-    def load_paths(self, paths: Dict[str, _Paths]) -> None:
-        """Add multiple path."""
+    def load_paths(self, paths: Mapping[str, _Paths],
+                   slider_paths: Mapping[str, _SliderPaths]) -> None:
+        """Add multiple paths."""
         for name, path in paths.items():
-            self.add_path(name, path)
+            self.add_path(name, path, slider_paths.get(name, {}))
 
     @Slot(name='on_record_remove_clicked')
     def __remove_path(self) -> None:
@@ -413,7 +437,8 @@ class InputsWidget(QWidget, Ui_Form):
         self.command_stack.push(DeletePath(
             row,
             self.record_list,
-            self.__path_data
+            self.__paths,
+            self.__slider_paths
         ))
         self.record_list.setCurrentRow(self.record_list.count() - 1)
         self.reload_canvas()
@@ -421,13 +446,12 @@ class InputsWidget(QWidget, Ui_Form):
     @Slot(QListWidgetItem, name='on_record_list_itemDoubleClicked')
     def __path_dlg(self, item: QListWidgetItem) -> None:
         """View path data."""
-        name = item.text().split(":")[0]
+        name = item.text().split(":", maxsplit=1)[0]
         try:
-            data = self.__path_data[name]
+            paths = self.__paths[name]
         except KeyError:
             return
-
-        points_text = ", ".join(f"Point{i}" for i in range(len(data)))
+        points_text = ", ".join(f"Point{i}" for i in range(len(paths)))
         if QMessageBox.question(
             self,
             "Path data",
@@ -442,66 +466,49 @@ class InputsWidget(QWidget, Ui_Form):
         )
         if not file_name:
             return
-        with open(file_name, 'w', encoding='utf-8', newline='') as stream:
-            writer = csv.writer(stream)
-            for point in data:
-                for coordinate in point:
-                    writer.writerow(coordinate)
-                writer.writerow(())
+        with open(file_name, 'w+', encoding='utf-8', newline='') as stream:
+            w = writer(stream)
+            for path in paths:
+                for point in path:
+                    w.writerow(point)
+                w.writerow(())
         logger.info(f"Output path data: {file_name}")
 
-    @Slot(QPoint)
-    def __record_list_context_menu(self, p: QPoint) -> None:
-        """Show the context menu.
+    def __current_path_name(self) -> str:
+        """Return the current path name."""
+        return self.record_list.currentItem().text().split(':', maxsplit=1)[0]
 
-        Show path [0], [1], ...
-        Or copy path coordinates.
-        """
-        row = self.record_list.currentRow()
-        if not row > -1:
-            return
-        showall_action = self.pop_menu_record_list.addAction("Show all")
-        showall_action.index = -1
-        copy_action = self.pop_menu_record_list.addAction("Copy as new")
-        name = self.record_list.item(row).text().split(':')[0]
-        if name in self.__path_data:
-            data = self.__path_data[name]
-        else:
-            # Auto preview path
-            data = self.main_canvas.path_preview
-        targets = 0
-        for text in ("Show", "Copy data from"):
-            self.pop_menu_record_list.addSeparator()
-            for i, path in enumerate(data):
-                if len(set(path)) > 1:
-                    action = self.pop_menu_record_list.addAction(f"{text} Point{i}")
-                    action.index = i
-                    targets += 1
-        copy_action.setEnabled(targets > 0)
-        action = self.pop_menu_record_list.exec_(self.record_list.mapToGlobal(p))
-        if action is None:
-            self.pop_menu_record_list.clear()
-            return
-        text = action.text()
-        if action == copy_action:
-            # Copy path data
-            num = 0
+    @Slot(name='on_copy_path_clicked')
+    def __copy_path(self):
+        """Copy path from record list."""
+        name = self.__current_path_name()
+        num = 0
+        name_copy = f"{name}_{num}"
+        while name_copy in self.__paths:
             name_copy = f"{name}_{num}"
-            while name_copy in self.__path_data:
-                name_copy = f"{name}_{num}"
-                num += 1
-            self.add_path(name_copy, copy(data))
-        elif text.startswith("Copy data from"):
-            # Copy data to clipboard (csv)
-            QApplication.clipboard().setText('\n'.join(
-                f"{x},{y}" for x, y in data[action.index]
-            ))
-        elif text.startswith("Show"):
-            # Switch points enabled status
-            if action.index == -1:
-                self.record_show.setChecked(True)
-            self.main_canvas.set_path_show(action.index)
-        self.pop_menu_record_list.clear()
+            num += 1
+        self.add_path(name_copy, copy(self.__paths[name]), {})
+
+    @Slot(name='on_cp_data_button_clicked')
+    def __copy_path_data(self) -> None:
+        """Copy current path data to clipboard."""
+        data = self.__paths[self.__current_path_name()]
+        if not data:
+            return
+        QApplication.clipboard().setText('\n'.join(
+            f"[{x}, {y}]," for x, y in data[self.plot_joint.currentIndex()]
+        ))
+
+    @Slot(name='on_show_button_clicked')
+    def __show_path(self) -> None:
+        """Show specified path."""
+        self.main_canvas.set_path_show(self.plot_joint.currentIndex())
+
+    @Slot(name='on_show_all_button_clicked')
+    def __show_all_path(self) -> None:
+        """Show all paths."""
+        self.record_show.setChecked(True)
+        self.main_canvas.set_path_show(-1)
 
     @Slot(bool, name='on_record_show_toggled')
     def __set_path_show(self, toggled: bool) -> None:
@@ -515,7 +522,7 @@ class InputsWidget(QWidget, Ui_Form):
             self.record_show.setChecked(True)
         self.reload_canvas()
 
-    def current_path(self) -> _Paths:
+    def current_path(self) -> Tuple[_Paths, _SliderPaths]:
         """Return current path data to main canvas.
 
         + No path.
@@ -524,9 +531,9 @@ class InputsWidget(QWidget, Ui_Form):
         """
         row = self.record_list.currentRow()
         if row in {0, -1}:
-            return ()
-        path_name = self.record_list.item(row).text().split(':')[0]
-        return self.__path_data.get(path_name, ())
+            return (), {}
+        name = self.record_list.item(row).text().split(':')[0]
+        return self.__paths.get(name, ()), self.__slider_paths.get(name, {})
 
     @Slot(name='on_variable_up_clicked')
     @Slot(name='on_variable_down_clicked')
@@ -540,3 +547,95 @@ class InputsWidget(QWidget, Ui_Form):
             self.variable_list.takeItem(row)
         )
         self.variable_list.setCurrentItem(item)
+
+    @Slot(name='on_animate_button_clicked')
+    def __animate(self) -> None:
+        """Make a motion animation."""
+        name = self.__current_path_name()
+        data = self.__paths.get(name, [])
+        if not data:
+            return
+        dlg = AnimateDialog(self.vpoints, self.vlinks, data,
+                            self.__slider_paths.get(name, {}),
+                            self.main_canvas.monochrome, self)
+        dlg.show()
+        dlg.exec_()
+        dlg.deleteLater()
+
+    @Slot(name='on_plot_button_clicked')
+    def __plot(self) -> None:
+        """Plot the data. Show the X and Y axises as two line."""
+        joint = self.plot_joint.currentIndex()
+        name = self.__current_path_name()
+        data = self.__paths.get(name, [])
+        slider_data = self.__slider_paths.get(name, {})
+        if not data:
+            return
+        if self.plot_joint_slot.isChecked():
+            pos = array(slider_data.get(joint, []))
+        else:
+            pos = array(data[joint])
+        if self.wrt_label.isChecked():
+            joint_wrt = self.wrt_joint.currentIndex()
+            if self.wrt_joint_slot.isChecked():
+                pos[:] -= array(slider_data.get(joint_wrt, []))
+            else:
+                pos[:] -= array(data[joint_wrt])
+        vel = derivative(pos)
+        acc = derivative(vel)
+        cur = curvature(data[joint])
+        plot = {}
+        plot_count = 0
+        if self.plot_pos.isChecked():
+            plot_count += 1
+            plot["Position"] = pos
+        if self.plot_vel.isChecked():
+            plot_count += 1
+            plot["Velocity"] = vel
+        if self.plot_acc.isChecked():
+            plot_count += 1
+            plot["Acceleration"] = acc
+        if self.plot_jerk.isChecked():
+            plot_count += 1
+            plot["Jerk"] = derivative(acc)
+        if self.plot_curvature.isChecked():
+            plot_count += 1
+            plot["Curvature"] = cur
+        if self.plot_signature.isChecked():
+            plot_count += 1
+            plot["Path Signature"] = path_signature(cur)
+        if plot_count < 1:
+            QMessageBox.warning(self, "No target", "No any plotting target.")
+            return
+        polar = self.p_coord_sys.isChecked()
+        row = plot_count
+        col = 1
+        if polar:
+            row, col = col, row
+        dlg = DataChartDialog(self, "Analysis", row, col, polar)
+        dlg.setWindowIcon(QIcon(QPixmap(":/icons/formula.png")))
+        ax = dlg.ax()
+        for p, (title, xy) in enumerate(plot.items()):
+            ax_i = ax[p]
+            ax_i.set_title(title)
+            if title == "Path Signature":
+                ax_i.plot(xy[:, 0], xy[:, 1])
+                ax_i.set_ylabel(r"$\kappa$")
+                ax_i.set_xlabel(r"$\int|\kappa|dt$")
+            elif xy.ndim == 2:
+                x = xy[:, 0]
+                y = xy[:, 1]
+                if self.c_coord_sys.isChecked():
+                    ax_i.plot(x, label='x')
+                    ax_i.plot(y, label='y')
+                    ax_i.legend()
+                else:
+                    r = hypot(x, y)
+                    theta = arctan2(y, x)
+                    ax_i.plot(theta, r, linewidth=5)
+            else:
+                ax_i.plot(xy)
+        dlg.set_margin(0.2)
+        dlg.show()
+        dlg.exec_()
+        dlg.deleteLater()

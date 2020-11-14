@@ -11,15 +11,14 @@ from typing import List, Union
 from qtpy.QtCore import Slot, Qt
 from qtpy.QtWidgets import QDialog, QListWidgetItem, QColorDialog, QWidget
 from qtpy.QtGui import QIcon, QPixmap
-from pyslvs import VPoint, VLink
-from pyslvs_ui.graphics import color_names, color_qt, color_icon
+from pyslvs import VPoint, VLink, color_names
+from pyslvs_ui.graphics import color_qt, color_icon
 from .utility import set_custom_color, add_custom_color
 from .relocate_point import RelocateDialog
 from .edit_point_ui import Ui_Dialog
 
 
 class EditPointDialog(QDialog, Ui_Dialog):
-
     """Option dialog."""
 
     def __init__(
@@ -36,8 +35,8 @@ class EditPointDialog(QDialog, Ui_Dialog):
         """
         super(EditPointDialog, self).__init__(parent)
         self.setupUi(self)
-        flags = self.windowFlags()
-        self.setWindowFlags(flags & ~Qt.WindowContextHelpButtonHint)
+        self.setWindowFlags(self.windowFlags()
+                            & ~Qt.WindowContextHelpButtonHint)
         icon = self.windowIcon()
         self.icon = QIcon(QPixmap(":/icons/link.png"))
         self.vpoints = vpoints
@@ -50,7 +49,7 @@ class EditPointDialog(QDialog, Ui_Dialog):
         if pos is False:
             self.name_box.addItem(icon, f'Point{vpoints_count}')
             self.name_box.setEnabled(False)
-            self.color_box.setCurrentIndex(self.color_box.findText('Green'))
+            self.color_box.setCurrentIndex(self.color_box.findText('green'))
         else:
             for i in range(vpoints_count):
                 self.name_box.insertItem(i, icon, f'Point{i}')

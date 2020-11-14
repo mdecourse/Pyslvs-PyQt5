@@ -10,20 +10,24 @@ __license__ = "AGPL"
 __email__ = "pyslvs@gmail.com"
 
 from collections import deque
-from typing import cast, TYPE_CHECKING, List, Tuple, Sequence, Dict, Union
+from typing import (
+    cast, TYPE_CHECKING, List, Tuple, Sequence, Union, Mapping,
+)
 from qtpy.QtCore import Slot, Qt, QRectF, QPoint, QPointF, QSizeF
 from qtpy.QtWidgets import QApplication, QToolTip, QWidget
 from qtpy.QtGui import QRegion, QCursor, QWheelEvent, QPixmap, QImage
+from pyslvs import VJoint
 from .canvas_base import MainCanvasBase, FreeMode, SelectMode, ZoomBy
+
 if TYPE_CHECKING:
     from pyslvs_ui.widgets import MainWindowBase
 
 _Coord = Tuple[float, float]
 _Paths = Sequence[Sequence[_Coord]]
+_SliderPaths = Mapping[int, Sequence[_Coord]]
 
 
 class MainCanvas(MainCanvasBase):
-
     """The canvas in main window.
 
     + Parse and show PMKS expression.
@@ -33,7 +37,7 @@ class MainCanvas(MainCanvasBase):
     + Zoom to fit function.
     """
 
-    def __init__(self, parent: MainWindowBase) -> None:
+    def __init__(self, parent: MainWindowBase):
         super(MainCanvas, self).__init__(parent)
         # Dependent functions to set zoom bar
         self.set_zoom_bar = parent.zoom_bar.setValue
@@ -43,15 +47,17 @@ class MainCanvas(MainCanvasBase):
         self.selection_mode_wheel = parent.entities_tab.setCurrentIndex
         self.selection_mode = parent.entities_tab.currentIndex
 
-    def update_figure(
+    def update_canvas(
         self,
         exprs: List[Tuple[str, ...]],
-        path: _Paths
+        paths: _Paths,
+        slider_paths: _SliderPaths
     ) -> None:
         """Update with Point and Links data."""
         self.vangles = tuple(vpoint.angle for vpoint in self.vpoints)
         self.exprs = exprs
-        self.path.path = path
+        self.path.path = paths
+        self.path.slider_path = slider_paths
         self.update()
 
     @Slot(int)
@@ -201,9 +207,9 @@ class MainCanvas(MainCanvasBase):
         self.selections = selections
         self.update()
 
-    def set_solving_path(self, path: Dict[str, Sequence[_Coord]]):
+    def set_solving_path(self, path: Mapping[int, Sequence[_Coord]]):
         """Update target path."""
-        self.target_path = path
+        self.target_path = dict(path)
         self.update()
 
     def set_path_show(self, p: int) -> None:
@@ -216,7 +222,8 @@ class MainCanvas(MainCanvasBase):
         self.path.show = p
         self.update()
 
-    def update_ranges(self, ranges: Dict[str, Tuple[float, float, float]]) -> None:
+    def update_ranges(self,
+                      ranges: Mapping[str, Tuple[float, float, float]]) -> None:
         """Update the ranges of dimensional synthesis."""
         self.ranges.clear()
         self.ranges.update({tag: QRectF(
@@ -228,22 +235,27 @@ class MainCanvas(MainCanvasBase):
     def record_start(self, limit: int) -> None:
         """Start a limit from main window."""
         self.path_record.clear()
-        for _ in range(len(self.vpoints)):
-            self.path_record.append(deque([], limit))
+        self.slider_record.clear()
+        self.path_record.extend(deque([], limit) for _ in self.vpoints)
+        self.slider_record.update((i, deque([], limit))
+                                  for i, vp in enumerate(self.vpoints)
+                                  if vp.type in {VJoint.P, VJoint.RP})
 
     def record_path(self) -> None:
         """Recording path."""
         for i, vpoint in enumerate(self.vpoints):
             self.path_record[i].append((vpoint.cx, vpoint.cy))
+            if vpoint.type in {VJoint.P, VJoint.RP}:
+                self.slider_record[i].append((vpoint.c[0, 0], vpoint.c[0, 1]))
 
-    def get_record_path(self) -> Tuple[Tuple[_Coord, ...], ...]:
+    def get_record_path(self) -> Tuple[Sequence[Sequence[_Coord]],
+                                       Mapping[int, Sequence[_Coord]]]:
         """Return paths."""
-        paths = tuple(
-            cast(Tuple[_Coord, ...], tuple(path) if len(set(path)) > 1 else ())
-            for path in self.path_record
-        )
+        paths = tuple(tuple(path) for path in self.path_record)
+        paths_slider = {i: tuple(p) for i, p in self.slider_record.items()}
         self.path_record.clear()
-        return paths
+        self.slider_record.clear()
+        return paths, paths_slider
 
     def adjust_link(
         self,
@@ -251,7 +263,7 @@ class MainCanvas(MainCanvasBase):
     ):
         """Change points coordinates."""
         for i, c in enumerate(coords):
-            if type(c[0]) is float:
+            if isinstance(c[0], float):
                 self.vpoints[i].move(cast(_Coord, c))
             else:
                 self.vpoints[i].move(*cast(Tuple[_Coord, _Coord], c))
@@ -278,7 +290,8 @@ class MainCanvas(MainCanvasBase):
         tags = ("Points", "Links")
         mode = (self.selection_mode() + (-1 if value > 0 else 1)) % len(tags)
         self.selection_mode_wheel(mode)
-        QToolTip.showText(event.globalPos(), f"Selection mode: {tags[mode]}", self)
+        QToolTip.showText(event.globalPos(), f"Selection mode: {tags[mode]}",
+                          self)
         event.accept()
 
     def grab_no_background(self) -> QPixmap:

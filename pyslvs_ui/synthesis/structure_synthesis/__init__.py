@@ -36,11 +36,12 @@ from qtpy.QtWidgets import (
     QHeaderView,
 )
 from qtpy.QtGui import QIcon, QPixmap, QImage, QPainter
-from pyslvs import Graph, link_assortment, contracted_link_assortment
+from pyslvs.graph import Graph, link_assortment, contracted_link_assortment
 from pyslvs_ui.qt_patch import qt_image_format
 from pyslvs_ui.graphics import graph2icon, engines
 from .thread import assortment_eval, LinkThread, GraphThread
 from .structure_widget_ui import Ui_Form
+
 if TYPE_CHECKING:
     from pyslvs_ui.widgets import MainWindowBase
 
@@ -48,10 +49,9 @@ Assortment = Sequence[int]
 
 
 class SynthesisProgressDialog(QProgressDialog):
-
     """Progress dialog for structure synthesis."""
 
-    def __init__(self, title: str, job_name: str, maximum: int, parent: QWidget) -> None:
+    def __init__(self, title: str, job_name: str, maximum: int, parent: QWidget):
         super(SynthesisProgressDialog, self).__init__(
             job_name,
             "Interrupt",
@@ -78,8 +78,10 @@ class StructureSynthesis(QWidget, Ui_Form):
 
     Calculate the combinations of mechanism family and show the atlas.
     """
+    assortment: Dict[Assortment, List[Assortment]]
+    answer: List[Graph]
 
-    def __init__(self, parent: MainWindowBase) -> None:
+    def __init__(self, parent: MainWindowBase):
         """Reference names:
 
         + IO functions from main window.
@@ -100,11 +102,9 @@ class StructureSynthesis(QWidget, Ui_Form):
         self.get_graph = parent.get_graph
         self.prefer = parent.prefer
         self.add_collection = parent.collections.structure_widget.add_collection
-
         # Answer list
-        self.assortment: Dict[Assortment, List[Assortment]] = {}
-        self.answer: List[Graph] = []
-
+        self.assortment = {}
+        self.answer = []
         # Signals
         self.nl_input.valueChanged.connect(self.__adjust_structure_data)
         self.nj_input.valueChanged.connect(self.__adjust_structure_data)
@@ -222,7 +222,7 @@ class StructureSynthesis(QWidget, Ui_Form):
 
         n1 = int(n1)
         n2 = int(n2)
-        # Return the result values.
+        # Return the result values
         # + Value of widgets.
         # + Setting old value record.
         if self.sender() is self.nl_input:
@@ -435,7 +435,7 @@ class StructureSynthesis(QWidget, Ui_Form):
         elif action == self.copy_edges:
             clipboard.setText(str(self.answer[index].edges))
         elif action == self.copy_image:
-            # Turn the transparent background to white.
+            # Turn the transparent background to white
             image1 = self.__atlas_image()
             image2 = QImage(image1.size(), image1.format())
             image2.fill(Qt.white)
@@ -516,7 +516,7 @@ class StructureSynthesis(QWidget, Ui_Form):
             file_name = self.output_to("atlas edges expression", ["Text file (*.txt)"])
         if not file_name:
             return
-        with open(file_name, 'w', encoding='utf-8') as f:
+        with open(file_name, 'w+', encoding='utf-8') as f:
             f.write('\n'.join(str(G.edges) for G in self.answer))
         self.save_reply_box("edges expression", file_name)
 
