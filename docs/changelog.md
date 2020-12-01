@@ -1,14 +1,27 @@
 # Changelog
 
-## Version 20.11
+## Version 20.12
 
 **Features**:
 
-+ Fix slider input function. (github issue #40)
++ None.
 
 **Development**:
 
 + None.
+
+## Version 20.11
+
+**Features**:
+
++ Fix the error caused by hanging slider joint. (#41)
++ Fix slider input function. (github issue #40)
+
+**Development**:
+
++ Support Python 3.9.
++ Remove psutil requirement.
++ Remove Windows testing on Travis CI.
 
 ## Version 20.10
 
