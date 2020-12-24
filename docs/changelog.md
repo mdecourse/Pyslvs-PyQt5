@@ -4,7 +4,9 @@
 
 **Features**:
 
-+ None.
++ Fix joint merging function. (#43)
++ Fix infinity loop of solver. (#44)
++ Enhance "Remove empty links" function. ("Remove redundant links")
 
 **Development**:
 
