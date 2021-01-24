@@ -5,34 +5,16 @@ dist: xenial
 
 jobs:
   include:
-    - &linux
-      python: "3.7"
-      before_install:
-        - python3 -m pip install pip -U
-        - python3 -m pip install -r requirements.txt -U
-        - python3 -m pip install -r pyslvs/requirements.txt -U
-      install:
-        - make test-pack
-        - python3 setup.py install
+    - python: "3.7"
+    - python: "3.8"
+    - python: "3.9"
 
-    - <<: *linux
-      python: "3.8"
-      addons:
-        apt:
-          update: true
-          packages:
-            - libhdf5-dev
-
-    - <<: *linux
-      python: "3.9"
-      addons:
-        apt:
-          update: true
-          packages:
-            - libhdf5-dev
+before_install:
+  - python3 -m pip install pip setuptools -U
+  - python3 -m pip install -e . -U
 
 script:
-  - make test
+  - bash ./scripts/appimage_recipe.sh
 
 before_cache:
   - rm -rf $HOME/.cache/pip/log

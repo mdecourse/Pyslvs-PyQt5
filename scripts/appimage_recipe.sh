@@ -40,9 +40,8 @@ python --version
 python -m pip --version
 
 # Install python dependencies
-python -m pip install -r "${REPODIR}/requirements.txt" || exit
-cd "${REPODIR}/pyslvs" || exit
-python setup.py install && python tests
+cd "${REPODIR}" || exit
+python -m pip install -e .
 cd "${APPDIR}" || exit
 
 # Copy all built-in scripts
@@ -69,7 +68,7 @@ cd "${APPDIR}" || exit
 cp -n -v "$(python -c "from distutils import sysconfig;print(sysconfig.get_config_var('SCRIPTDIR'))")"/libpython3*.so* usr/lib
 
 # Set version
-VERSION=$(python -c "from pyslvs import __version__;print(__version__)")
+VERSION=$(python -c "from pyslvs_ui import __version__;print(__version__)")
 echo "${VERSION}"
 
 deactivate
@@ -78,18 +77,13 @@ deactivate
 # "Install" app in the AppDir
 ########################################################################
 
-LAUNCHER="${APPDIR}/usr/bin/launch-${LOWERAPP}"
-cp "${REPODIR}/launch_pyslvs.py" ${LAUNCHER}
-sed -i "1i\#!/usr/bin/env python3" ${LAUNCHER}
-chmod +x ${LAUNCHER}
-
 LAUNCHER="${APPDIR}/usr/bin/${LOWERAPP}"
 cat >${LAUNCHER} <<EOF
 #!/bin/sh
 LD_LIBRARY_PATH="."
 export QT_PLUGIN_PATH="."
 HERE=\$(readlink -f "\$(dirname "\$(readlink -f "\${0}")")")
-exec "\${HERE}/launch-${LOWERAPP}" "\$@"
+exec "\${HERE}/python" "\${HERE}/pyslvs_ui" "\$@"
 EOF
 chmod +x ${LAUNCHER}
 
@@ -134,3 +128,7 @@ rm -fr opt usr/share
 
 cd "${ENV}" || exit
 generate_type2_appimage
+
+cd ../out || exit
+EXENAME=$(ls -t Pyslvs-*.AppImage)
+"./${EXENAME}" test

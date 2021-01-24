@@ -40,9 +40,8 @@ install:
   # Install Python-dev
   - cmd: IF DEFINED PYTHON_DEV choco install -y python --version %PYTHON_DEV%
   # Environment variables
-  - cmd: set Path=%MSYS_DIR%\mingw64\bin;%MSYS_DIR%\usr\bin;%Path%
   - cmd: set PYTHON_DIR=C:\Python%PY%-x64
-  - cmd: set Path=%PYTHON_DIR%;%PYTHON_DIR%\Scripts;%Path%
+  - cmd: set Path=%PYTHON_DIR%;%PYTHON_DIR%\Scripts;%MSYS_DIR%\mingw64\bin;%MSYS_DIR%\usr\bin;%Path%
   - sh: if [[ "$APPVEYOR_BUILD_WORKER_IMAGE" == "macos-mojave" ]]; then
       brew install llvm libomp;
       export PATH="/usr/local/opt/llvm/bin:${PATH}";
@@ -56,23 +55,27 @@ install:
   - python --version
   - python -m pip --version
   # Set Python compiler to MinGW
-  - cmd: pyslvs\platform\set_pycompiler %PYTHON_DIR% %COMPILER%
+  - cmd: platform\set_pycompiler %PYTHON_DIR% %COMPILER%
   - sh: '[[ "$(uname)" == "Darwin" ]] && ln -s /usr/local/bin/greadlink /usr/local/bin/readlink || true'
   # Install modules
   - python -m pip install pip setuptools wheel -U
-  - python -m pip install -r requirements.txt
-  - python -m pip install -r pyslvs/requirements.txt
+  - python -m pip install -e . -U
 
 build_script:
-  - cmd: mingw32-make test-pack
-  - sh: make test-pack
+  - cmd: bash ./scripts/pyinstaller_recipe.sh
+  - sh: |
+      if [[ "$(uname)" == "Darwin" ]]; then
+        bash ./scripts/pyinstaller_recipe.sh
+      else
+        bash ./scripts/appimage_recipe.sh
+      fi
 
 after_build:
   # PyPI (Universal)
   - cmd: IF "%APPVEYOR_REPO_TAG%"=="true"
          IF "%APPVEYOR_REPO_NAME%"=="KmolYuan/Pyslvs-UI" (
          pip install twine &&
-         python setup.py bdist_wheel &&
+         python -m pip wheel . --no-deps -w dist &&
          twine upload dist\*.whl --skip-existing
          )
 

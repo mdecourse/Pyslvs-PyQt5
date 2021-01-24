@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+__all__ = ['ProjectFormat', 'ProjectWidget']
 __author__ = "Yuan Chang"
 __copyright__ = "Copyright (C) 2016-2021"
 __license__ = "AGPL"
@@ -23,10 +24,9 @@ from pyslvs import example_list, all_examples
 from pyslvs_ui.info import logger, size_format
 from pyslvs_ui.qt_patch import qt_image_format
 from .project_yaml import YamlEditor
-from .project_hdf5 import HDF5Editor
 from .project_pickle import PickleEditor
 from .project_ui import Ui_Form
-from .format_editor import PROJECT_FORMAT
+from .format_editor import ProjectFormat
 
 if TYPE_CHECKING:
     from pyslvs_ui.widgets import MainWindowBase
@@ -82,7 +82,6 @@ class ProjectWidget(QWidget, Ui_Form):
 
         # Editors
         self.yaml_editor = YamlEditor(self, parent)
-        self.hdf5_editor = HDF5Editor(self, parent)
         self.pickle_editor = PickleEditor(self, parent)
         # Reset
         self.__file_name = QFileInfo()
@@ -109,7 +108,7 @@ class ProjectWidget(QWidget, Ui_Form):
         if is_example:
             t = "Example (In memory)"
         elif self.file_exist():
-            t = f"File ({PROJECT_FORMAT[self.prefer.file_type_option]})"
+            t = f"File ({self.prefer.file_type_option.format_name})"
         else:
             t = "In memory"
         self.type_label.setText(t)
@@ -146,10 +145,8 @@ class ProjectWidget(QWidget, Ui_Form):
         """Save database, append commit to new branch function."""
         if not file_name:
             file_name = self.file_path()
-        if self.prefer.file_type_option == 3:
+        if self.prefer.file_type_option == ProjectFormat.PICKLE:
             self.pickle_editor.save(file_name)
-        elif self.prefer.file_type_option == 2:
-            self.hdf5_editor.save(file_name)
         else:
             self.yaml_editor.save(file_name)
         self.set_file_name(file_name)
@@ -159,9 +156,7 @@ class ProjectWidget(QWidget, Ui_Form):
         if not QFileInfo(file_name).isFile():
             QMessageBox.warning(self, "File not exist", "The path is invalid.")
             return
-        if HDF5Editor.test(file_name):
-            self.hdf5_editor.load(file_name)
-        elif YamlEditor.test(file_name):
+        if YamlEditor.test(file_name):
             self.yaml_editor.load(file_name)
         else:
             self.pickle_editor.load(file_name)

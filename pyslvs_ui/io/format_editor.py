@@ -5,12 +5,13 @@ from __future__ import annotations
 """Genetic format processing editor."""
 
 from abc import abstractmethod
+from enum import unique, auto, IntEnum
 from typing import (
     TYPE_CHECKING, Tuple, List, Sequence, Dict, Mapping, Union, Any,
 )
 from qtpy.QtCore import QObject, QFileInfo
 from qtpy.QtWidgets import QProgressDialog, QMessageBox
-from pyslvs import __version__
+from pyslvs_ui import __version__
 from pyslvs_ui.qt_patch import QABCMeta
 from pyslvs_ui.info import logger
 from .overview import OverviewDialog
@@ -19,12 +20,30 @@ if TYPE_CHECKING:
     from pyslvs_ui.io import ProjectWidget
     from pyslvs_ui.widgets import MainWindowBase
 
-PROJECT_FORMAT = ("YAML", "Compressed YAML", "HDF5", "Pickle")
 _Coord = Tuple[float, float]
 _Paths = Sequence[Sequence[_Coord]]
 _SliderPaths = Mapping[int, Sequence[_Coord]]
 _Pairs = Sequence[Tuple[int, int]]
 _Data = Mapping[str, Any]
+
+
+@unique
+class ProjectFormat(IntEnum):
+    """Project format."""
+    YAML = 0
+    C_YAML = auto()
+    PICKLE = auto()
+
+    @property
+    def format_name(self):
+        if self == ProjectFormat.YAML:
+            return "YAML"
+        elif self == ProjectFormat.C_YAML:
+            return "Compressed YAML"
+        elif self == ProjectFormat.PICKLE:
+            return "Pickle"
+        else:
+            raise KeyError("invalid format")
 
 
 class FormatEditor(QObject, metaclass=QABCMeta):
@@ -132,7 +151,7 @@ class FormatEditor(QObject, metaclass=QABCMeta):
             self.dlg = None
             return
         # File type option align (ignore previous one)
-        self.prefer.file_type_option = data.get('file_type', 0)
+        self.prefer.file_type_option = data.get('file_type', ProjectFormat.YAML)
         # Show overview dialog
         self.dlg.deleteLater()
         self.dlg = OverviewDialog(

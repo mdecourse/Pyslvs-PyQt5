@@ -56,7 +56,7 @@ See the Ubuntu and macOS platform testing on Travis CI:
     (Only for stable version!)
 
     ```bash
-    python setup.py install
+    pip install -e .
     ```
 
 !!! note
@@ -136,17 +136,13 @@ See the Ubuntu and macOS platform testing on Travis CI:
     git submodule update --init --recursive
 
     # Install dependencies
-    pip install -r requirements.txt
-
-    # Compile and install submodules
-    make
+    pip install -e .
 
     # Open GUI by Python
-    python launch_pyslvs.py
-
-    # Pack into stand-alone executable file
-    make pack
+    python pyslvs_ui
     ```
+
+For more details, please see the [command set](commands.md).
 
 ## Uninstall
 
